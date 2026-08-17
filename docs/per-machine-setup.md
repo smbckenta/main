@@ -6,6 +6,19 @@ Git で同期できるのは「設定ファイル」だけです。認証情報�
 
 ---
 
+## 0. 作業フォルダの設定（各 PC で1回）
+
+Google ドライブ上の `▲0Claude` をこの PC の作業場所として登録します。
+
+```powershell
+.\scripts\setup-workspace.ps1
+```
+
+環境変数 `CLAUDE_WORKSPACE` と、PowerShell 関数 `ws` / `cws` が設定されます。
+自動検出に失敗する場合は `-Path 'G:\共有ドライブ\★Kevin\▲0Claude'` で明示してください。
+
+---
+
 ## 1. ログイン（必須・各 PC で1回）
 
 ```bash

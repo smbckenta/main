@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   このリポジトリの claude\ 配下を %USERPROFILE%\.claude\ にリンクする (Windows 用)。
 
@@ -73,6 +73,8 @@ if (-not $DryRun -and -not (Test-Path $DestDir)) {
 }
 
 $fellBackToCopy = $false
+# リポジトリ側にも同名ファイルがあったため、ローカルの内容を採用できなかったもの
+$needsMerge = @()
 
 foreach ($name in $LinkDirs) {
     $src    = Join-Path $SrcDir  $name
@@ -125,7 +127,12 @@ foreach ($name in $LinkFiles) {
     }
 
     Write-Step "設定 $name"
-    if (Test-Path $target) { Backup-Item -Target $target }
+    if (Test-Path $target) {
+        # 実ファイルを退避する場合、リポジトリ側の内容が優先される。
+        # 元の内容が必要なら手動でマージしてもらう。
+        if ($null -eq (Get-LinkTarget -Path $target)) { $needsMerge += $name }
+        Backup-Item -Target $target
+    }
     if ($DryRun) { Write-Note "[dry-run] SymbolicLink: $target -> $src"; continue }
 
     try {
@@ -147,6 +154,15 @@ Write-Host ""
 Write-Host "完了しました。"
 if (Test-Path $BackupDir) {
     Write-Host "元の設定は $BackupDir に残してあります。問題なければ削除してください。"
+}
+if ($needsMerge.Count -gt 0) {
+    Write-Host ""
+    Write-Host "注意: 次のファイルはリポジトリ側の内容が使われています。"
+    foreach ($f in $needsMerge) {
+        Write-Host "    $f  (この PC の元の内容: $(Join-Path $BackupDir $f))"
+    }
+    Write-Host "元の設定に残したい内容があれば、リポジトリ側へ手動でマージしてください:"
+    Write-Host "    Compare-Object (Get-Content `"$(Join-Path $BackupDir $needsMerge[0])`") (Get-Content `"$(Join-Path $SrcDir $needsMerge[0])`")"
 }
 if ($fellBackToCopy) {
     Write-Warning "一部がコピーになっています。この状態では変更が自動同期されません。"
