@@ -1,0 +1,38 @@
+# =========================================================
+# 絶対にコミットしてはいけないもの（認証情報・マシン固有の状態）
+# =========================================================
+
+# 認証トークン（macOS では Keychain、それ以外はこのファイル）
+.credentials.json
+**/.credentials.json
+
+# OAuth セッション / プロジェクトごとの状態 / 履歴 / user スコープの MCP 設定
+.claude.json
+.claude.json.backup
+
+# マシンごとの上書き設定
+settings.local.json
+**/settings.local.json
+
+# セッションの実行時データ（同期対象外）
+claude/projects/
+claude/todos/
+claude/shell-snapshots/
+claude/statsig/
+claude/plugins/
+claude/history.jsonl
+claude/backups/
+claude/plans/
+
+# claude.ai から同期されるスキル（各マシンが自動で取得する）
+claude/skills/synced/
+
+# インストールスクリプトが作るバックアップ
+backup-*/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
