@@ -1,0 +1,560 @@
+[
+  {
+    "id": "canon-ir-adv-c5235f",
+    "maker": "CANON",
+    "makerText": "キヤノン",
+    "model": "iR-ADV C5235F",
+    "warmupSec": 31,
+    "firstCopyMonoSec": 5.4,
+    "firstCopyColorSec": 8.1,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "canon-ir-advc2030f-r",
+    "maker": "CANON",
+    "makerText": "キヤノン",
+    "model": "iR-ADVC2030F-R",
+    "warmupSec": 38,
+    "firstCopyMonoSec": 5.9,
+    "firstCopyColorSec": 8.9,
+    "ppmMono": 30,
+    "ppmColor": 30,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "canon-ir-advc3330f",
+    "maker": "CANON",
+    "makerText": "キヤノン",
+    "model": "iR-ADVC3330F",
+    "warmupSec": 34,
+    "firstCopyMonoSec": 5.9,
+    "firstCopyColorSec": 8.2,
+    "ppmMono": 30,
+    "ppmColor": 30,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "fujifilm-docucentre-v-c3375pfs",
+    "maker": "FUJIFILM",
+    "makerText": "富士フイルム",
+    "model": "DocuCentre-V C3375PFS",
+    "warmupSec": 30,
+    "firstCopyMonoSec": 4.9,
+    "firstCopyColorSec": 6.4,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "fujifilm-docucentre-v-c3376pfs",
+    "maker": "FUJIFILM",
+    "makerText": "富士フイルム",
+    "model": "DocuCentre-V C3376PFS",
+    "warmupSec": 30,
+    "firstCopyMonoSec": 4.9,
+    "firstCopyColorSec": 6.4,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "fujifilm-docucentre-c2276pfs",
+    "maker": "FUJIFILM",
+    "makerText": "富士フイルム",
+    "model": "Docucentre-Ⅴ C2276PFS",
+    "warmupSec": 30,
+    "firstCopyMonoSec": 6.6,
+    "firstCopyColorSec": 8.7,
+    "ppmMono": 25,
+    "ppmColor": 25,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "fujifilm-docucentre-c3371pfs",
+    "maker": "FUJIFILM",
+    "makerText": "富士フイルム",
+    "model": "Docucentre-Ⅵ C3371PFS",
+    "warmupSec": 30,
+    "firstCopyMonoSec": 4.9,
+    "firstCopyColorSec": 6.7,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfa2554ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfa2554ci",
+    "warmupSec": 18,
+    "firstCopyMonoSec": 6.4,
+    "firstCopyColorSec": 8.5,
+    "ppmMono": 25,
+    "ppmColor": 25,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfa3554ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfa3554ci",
+    "warmupSec": 18,
+    "firstCopyMonoSec": 5.3,
+    "firstCopyColorSec": 7,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfa4054ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfa4054ci",
+    "warmupSec": 17,
+    "firstCopyMonoSec": 4.5,
+    "firstCopyColorSec": 5.9,
+    "ppmMono": 40,
+    "ppmColor": 40,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfa5054ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfa5054ci",
+    "warmupSec": 17,
+    "firstCopyMonoSec": 3.7,
+    "firstCopyColorSec": 4.8,
+    "ppmMono": 50,
+    "ppmColor": 50,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfa6054ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfa6054ci",
+    "warmupSec": 17,
+    "firstCopyMonoSec": 3.4,
+    "firstCopyColorSec": 4.4,
+    "ppmMono": 60,
+    "ppmColor": 60,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfamz2501ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfaMZ2501ci",
+    "warmupSec": 18,
+    "firstCopyMonoSec": 6.4,
+    "firstCopyColorSec": 8.5,
+    "ppmMono": 25,
+    "ppmColor": 25,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfamz3501ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfaMZ3501ci",
+    "warmupSec": 18,
+    "firstCopyMonoSec": 5.3,
+    "firstCopyColorSec": 7,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfamz4001ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfaMZ4001ci",
+    "warmupSec": 17,
+    "firstCopyMonoSec": 4.5,
+    "firstCopyColorSec": 5.9,
+    "ppmMono": 40,
+    "ppmColor": 40,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfamz5001ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfaMZ5001ci",
+    "warmupSec": 17,
+    "firstCopyMonoSec": 3.7,
+    "firstCopyColorSec": 4.8,
+    "ppmMono": 50,
+    "ppmColor": 50,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfamz6001ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfaMZ6001ci",
+    "warmupSec": 17,
+    "firstCopyMonoSec": 3.4,
+    "firstCopyColorSec": 4.4,
+    "ppmMono": 60,
+    "ppmColor": 60,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "kyocera-taskalfamz7001ci",
+    "maker": "KYOCERA",
+    "makerText": "京セラドキュメントソリューション",
+    "model": "TASKalfaMZ7001ci",
+    "warmupSec": 26,
+    "firstCopyMonoSec": 3.4,
+    "firstCopyColorSec": 4.4,
+    "ppmMono": 70,
+    "ppmColor": 70,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "other-ofistar-s3620c",
+    "maker": "OTHER",
+    "makerText": "NTT",
+    "model": "OFISTAR S3620C",
+    "warmupSec": 10,
+    "firstCopyMonoSec": 4.7,
+    "firstCopyColorSec": 6.7,
+    "ppmMono": 36,
+    "ppmColor": 36,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "ricoh-im-c4500f",
+    "maker": "RICOH",
+    "makerText": "リコー",
+    "model": "IM C4500F",
+    "warmupSec": 21,
+    "firstCopyMonoSec": 3.6,
+    "firstCopyColorSec": 5.4,
+    "ppmMono": 45,
+    "ppmColor": 45,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "ricoh-mpc2800rc-spf",
+    "maker": "RICOH",
+    "makerText": "リコー",
+    "model": "MPC2800RC SPF",
+    "warmupSec": 29,
+    "firstCopyMonoSec": 5,
+    "firstCopyColorSec": 8,
+    "ppmMono": 28,
+    "ppmColor": 28,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "ricoh-mpc3004-spf",
+    "maker": "RICOH",
+    "makerText": "リコー",
+    "model": "MPC3004 SPF",
+    "warmupSec": 25,
+    "firstCopyMonoSec": 4.6,
+    "firstCopyColorSec": 7.1,
+    "ppmMono": 30,
+    "ppmColor": 30,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "ricoh-mpc5001",
+    "maker": "RICOH",
+    "makerText": "リコー",
+    "model": "MPC5001",
+    "warmupSec": 22,
+    "firstCopyMonoSec": 3.4,
+    "firstCopyColorSec": 5.4,
+    "ppmMono": 50,
+    "ppmColor": 50,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "ricoh-ricoh-im-c3000f",
+    "maker": "RICOH",
+    "makerText": "リコー",
+    "model": "RICOH IM C3000F",
+    "warmupSec": 21,
+    "firstCopyMonoSec": 4.5,
+    "firstCopyColorSec": 6.9,
+    "ppmMono": 30,
+    "ppmColor": 30,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "sharp-mx-3611f",
+    "maker": "SHARP",
+    "makerText": "シャープ",
+    "model": "MX-3611F",
+    "warmupSec": 20,
+    "firstCopyMonoSec": 5.2,
+    "firstCopyColorSec": 6.8,
+    "ppmMono": 36,
+    "ppmColor": 36,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "sharp-mx4150fv",
+    "maker": "SHARP",
+    "makerText": "シャープ",
+    "model": "MX4150FV",
+    "warmupSec": 10,
+    "firstCopyMonoSec": 6.7,
+    "firstCopyColorSec": 4.7,
+    "ppmMono": 41,
+    "ppmColor": 41,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "toshiba-e-studio2021ac-plus",
+    "maker": "TOSHIBA",
+    "makerText": "東芝テック",
+    "model": "e-STUDIO2021AC Plus",
+    "warmupSec": 21,
+    "firstCopyMonoSec": 7.1,
+    "firstCopyColorSec": 9.5,
+    "ppmMono": 20,
+    "ppmColor": 20,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "toshiba-e-studio2525ac-plus",
+    "maker": "TOSHIBA",
+    "makerText": "東芝テック",
+    "model": "e-STUDIO2525AC Plus",
+    "warmupSec": 20,
+    "firstCopyMonoSec": 5.9,
+    "firstCopyColorSec": 7.8,
+    "ppmMono": 25,
+    "ppmColor": 25,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "toshiba-e-studio3525ac-plus",
+    "maker": "TOSHIBA",
+    "makerText": "東芝テック",
+    "model": "e-STUDIO3525AC Plus",
+    "warmupSec": 20,
+    "firstCopyMonoSec": 5.9,
+    "firstCopyColorSec": 7.8,
+    "ppmMono": 35,
+    "ppmColor": 35,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "toshiba-e-studio4525ac-plus",
+    "maker": "TOSHIBA",
+    "makerText": "東芝テック",
+    "model": "e-STUDIO4525AC Plus",
+    "warmupSec": 20,
+    "firstCopyMonoSec": 4.4,
+    "firstCopyColorSec": 5.7,
+    "ppmMono": 45,
+    "ppmColor": 45,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "id": "toshiba-e-studio5525ac-plus",
+    "maker": "TOSHIBA",
+    "makerText": "東芝テック",
+    "model": "e-STUDIO5525AC Plus",
+    "warmupSec": 26,
+    "firstCopyMonoSec": 4.3,
+    "firstCopyColorSec": 5.6,
+    "ppmMono": 55,
+    "ppmColor": 55,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  }
+]

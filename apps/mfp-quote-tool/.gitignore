@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# 実データ（顧客情報を含むため既定でコミットしない）
+data/quotes/
+data/uploads/
+data/settings.json
+
+# 機種スペックDBは共有資産なのでコミットする（data/devices.json）

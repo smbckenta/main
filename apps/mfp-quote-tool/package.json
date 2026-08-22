@@ -1,0 +1,33 @@
+{
+  "name": "mfp-quote-tool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "複合機の見積書・比較表を自動作成するWebアプリ",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
+    "next": "^16.3.2",
+    "pdfjs-dist": "^6.2.108",
+    "playwright": "^1.62.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}
