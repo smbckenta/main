@@ -15,10 +15,16 @@ export default function SettingsPage() {
     dataUri: null,
   });
   const [registerTest, setRegisterTest] = useState<string>("");
+  /** サービスアカウント鍵の状態（置いてあれば、共有すべきメールアドレスが分かる） */
+  const [serviceAccount, setServiceAccount] = useState<{ hasKey: boolean; email: string | null }>({
+    hasKey: false,
+    email: null,
+  });
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
     fetch("/api/logo").then((r) => r.json()).then(setLogo).catch(() => {});
+    fetch("/api/register/test").then((r) => r.json()).then(setServiceAccount).catch(() => {});
   }, []);
 
   /** 台帳につながるかを試す（保存前の入力内容で試せる） */
@@ -862,10 +868,32 @@ export default function SettingsPage() {
                 />
               </Field>
             </div>
-            <p className="muted">
-              サービスアカウントの鍵（<code>google-service-account.json</code>）をデータの保存先に置き、
-              そのメールアドレスをスプレッドシートの「編集者」に追加してください。
-            </p>
+            {serviceAccount.hasKey ? (
+              <p className="muted">
+                鍵ファイルを読み込みました。次のメールアドレスを、スプレッドシートの「共有」から
+                <strong>編集者</strong>として追加してください。
+                <br />
+                <code style={{ userSelect: "all" }}>{serviceAccount.email}</code>{" "}
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    if (serviceAccount.email) {
+                      navigator.clipboard
+                        .writeText(serviceAccount.email)
+                        .then(() => setMessage("メールアドレスをコピーしました。"));
+                    }
+                  }}
+                >
+                  コピー
+                </button>
+              </p>
+            ) : (
+              <p className="warn">
+                鍵ファイルが見つかりません。ダウンロードしたJSONを
+                <code>google-service-account.json</code> という名前にして、
+                データの保存先フォルダ（設定の保存先と同じ場所）に置いてください。
+              </p>
+            )}
           </>
         )}
       </section>

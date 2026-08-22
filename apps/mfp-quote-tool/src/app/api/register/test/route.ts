@@ -10,6 +10,15 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
+ * サービスアカウント鍵の状態を返す。
+ * 鍵を置いたあと、どのメールアドレスをスプレッドシートに共有すればよいかを画面に出すために使う。
+ */
+export async function GET() {
+  const key = await readServiceAccountKey();
+  return NextResponse.json({ hasKey: Boolean(key), email: key?.client_email ?? null });
+}
+
+/**
  * 台帳（スプレッドシート）につながるかを確かめる。
  * 設定画面で入力した内容をそのまま試せるよう、保存前でも受け付ける。
  */
