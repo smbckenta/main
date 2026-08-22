@@ -1,16 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CounterTier, Settings } from "@/lib/types";
+import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } from "@/lib/types";
+
+/** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
+type SettingsForm = Settings & { deletionPasswordSet?: boolean; newDeletionPassword?: string };
 
 /** 自社情報・リース料率・カウンター単価ルール・PTFの設定 */
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<SettingsForm | null>(null);
   const [message, setMessage] = useState("");
+  const [logo, setLogo] = useState<{ file: string | null; dataUri: string | null }>({
+    file: null,
+    dataUri: null,
+  });
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
+    fetch("/api/logo").then((r) => r.json()).then(setLogo).catch(() => {});
   }, []);
+
+  async function uploadLogo(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/logo", { method: "POST", body: form });
+    const json = await res.json();
+    if (res.ok) {
+      setLogo(json);
+      setMessage("ロゴを差し替えました。");
+    } else {
+      setMessage(json.error ?? "ロゴの差し替えに失敗しました。");
+    }
+  }
 
   async function save() {
     if (!settings) return;
@@ -19,12 +40,18 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings),
     });
-    setMessage(res.ok ? "保存しました。" : "保存に失敗しました。");
+    if (res.ok) {
+      // 保存後は入力欄のパスワードを消し、設定済み表示に切り替える
+      setSettings(await res.json());
+      setMessage("保存しました。");
+    } else {
+      setMessage("保存に失敗しました。");
+    }
   }
 
   if (!settings) return <p className="spinner">読み込み中…</p>;
   const s = settings;
-  const set = (patch: Partial<Settings>) => setSettings({ ...s, ...patch });
+  const set = (patch: Partial<SettingsForm>) => setSettings({ ...s, ...patch });
 
   const tierTable = (
     key: "counterTiersByColorVolume" | "counterTiersByAmount",
@@ -134,7 +161,7 @@ export default function SettingsPage() {
               onChange={(e) => set({ company: { ...s.company, branchNote: e.target.value } })}
             />
           </Field>
-          <Field label="住所" width={320}>
+          <Field label="住所（拠点を使わない場合）" width={320}>
             <input
               value={s.company.address ?? ""}
               onChange={(e) => set({ company: { ...s.company, address: e.target.value } })}
@@ -164,6 +191,102 @@ export default function SettingsPage() {
       </section>
 
       <section className="panel">
+        <h2>ロゴ（見積書・比較表に印字）</h2>
+        <p className="muted">
+          PNG / JPEG / SVG に対応しています。差し替えると、以後の見積書・比較表すべてに反映されます。
+          Excel出力に載せる場合は PNG か JPEG にしてください。
+        </p>
+        <div className="row" style={{ alignItems: "center" }}>
+          {logo.dataUri && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logo.dataUri}
+              alt="ロゴ"
+              style={{ maxHeight: 56, maxWidth: 280, border: "1px solid #ddd", padding: 4, background: "#fff" }}
+            />
+          )}
+          <div className="field" style={{ width: 300 }}>
+            <label>ロゴ画像を差し替える</label>
+            <input
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,.svg,image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadLogo(f);
+              }}
+            />
+            <span className="muted">現在のファイル：{logo.file ?? "未設定"}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>拠点（見積書・比較表に印字）</h2>
+        <div className="row">
+          {(s.company.offices ?? []).map((o, i) => (
+            <div key={i} className="row" style={{ gap: 6 }}>
+              <div className="field" style={{ width: 140 }}>
+                <label>拠点名{i + 1}</label>
+                <input
+                  value={o.name}
+                  onChange={(e) =>
+                    set({
+                      company: {
+                        ...s.company,
+                        offices: (s.company.offices ?? []).map((x, j) =>
+                          j === i ? { ...x, name: e.target.value } : x,
+                        ),
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="field" style={{ width: 380 }}>
+                <label>所在地</label>
+                <div className="row" style={{ gap: 4 }}>
+                  <input
+                    value={o.address}
+                    onChange={(e) =>
+                      set({
+                        company: {
+                          ...s.company,
+                          offices: (s.company.offices ?? []).map((x, j) =>
+                            j === i ? { ...x, address: e.target.value } : x,
+                          ),
+                        },
+                      })
+                    }
+                  />
+                  <button
+                    className="danger"
+                    onClick={() =>
+                      set({
+                        company: {
+                          ...s.company,
+                          offices: (s.company.offices ?? []).filter((_, j) => j !== i),
+                        },
+                      })
+                    }
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          className="secondary"
+          style={{ marginTop: 8 }}
+          onClick={() =>
+            set({ company: { ...s.company, offices: [...(s.company.offices ?? []), { name: "", address: "" }] } })
+          }
+        >
+          拠点を追加
+        </button>
+      </section>
+
+      <section className="panel">
         <h2>リース料率</h2>
         <div className="row">
           {Object.entries(s.leaseRates)
@@ -180,8 +303,23 @@ export default function SettingsPage() {
                 />
               </Field>
             ))}
-          <Field label="端数処理単位（円）" width={150}>
+          <Field label="見積金額の端数単位（円）" width={170}>
             <input type="number" value={s.roundUnit} onChange={(e) => set({ roundUnit: Number(e.target.value) })} />
+          </Field>
+          <Field label="月額リース料の切り上げ単位（円）" width={220}>
+            <input
+              type="number"
+              value={s.leaseRoundUnit}
+              onChange={(e) => set({ leaseRoundUnit: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="既定のGP（円）" width={160}>
+            <input
+              type="number"
+              step="10000"
+              value={s.defaultGrossProfit}
+              onChange={(e) => set({ defaultGrossProfit: Number(e.target.value) })}
+            />
           </Field>
           <Field label="既定の粗利率(%)" width={150}>
             <input
@@ -287,6 +425,40 @@ export default function SettingsPage() {
           自動判定した単価は、仕切表に登録したメーカーごとの交渉レンジに収められます。
           エリアが「僻地」の場合はレンジ上限側の単価になります。
         </p>
+      </section>
+
+      <section className="panel">
+        <h2>2色カラーの単価</h2>
+        <p className="muted">
+          メーカー別に単価を決めている場合はここに入れます（京セラは2.0円）。
+          空欄のメーカーは「フルカラー単価 × 係数」で計算します。
+        </p>
+        <div className="row">
+          <Field label="係数（空欄のメーカー用）" width={200}>
+            <input
+              type="number"
+              step="0.01"
+              value={s.twoColorRatio}
+              onChange={(e) => set({ twoColorRatio: Number(e.target.value) })}
+            />
+          </Field>
+          {MAKERS.map((maker: Maker) => (
+            <Field key={maker} label={`${MAKER_LABELS[maker]}（円/枚）`} width={130}>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="係数で計算"
+                value={s.twoColorUnitByMaker?.[maker] ?? ""}
+                onChange={(e) => {
+                  const next = { ...(s.twoColorUnitByMaker ?? {}) };
+                  if (e.target.value === "") delete next[maker];
+                  else next[maker] = Number(e.target.value);
+                  set({ twoColorUnitByMaker: next });
+                }}
+              />
+            </Field>
+          ))}
+        </div>
       </section>
 
       <section className="panel">
@@ -424,7 +596,7 @@ export default function SettingsPage() {
           <Field label="計算のベース" width={260}>
             <select value={s.ptf.base} onChange={(e) => set({ ptf: { ...s.ptf, base: e.target.value as Settings["ptf"]["base"] } })}>
               <option value="bodyPrice">本体価格（上乗せ分を除く）に対する率</option>
-              <option value="grossProfit">GP（粗利益）に対する率</option>
+              <option value="grossProfit">GPに対する率</option>
               <option value="sellingPrice">販売額計（上乗せ分を含む）に対する率</option>
               <option value="fixed">固定額のみ</option>
             </select>
@@ -534,6 +706,56 @@ export default function SettingsPage() {
           読み取りにはお客様の書類がAnthropicのAPIへ送信されます（学習には使われません）。
           利用料はA4数枚の書類1件あたり数円〜十数円が目安です。
         </p>
+      </section>
+
+      <section className="panel">
+        <h2>担当者（見積書に印字・削除記録に使う）</h2>
+        <p className="muted">案件ごとに担当者を選ぶと、御見積書に「担当者：〇〇」と入ります。</p>
+        <div className="row">
+          {s.staff.map((name, i) => (
+            <div className="field" key={i} style={{ width: 200 }}>
+              <label>担当者{i + 1}</label>
+              <div className="row" style={{ gap: 4 }}>
+                <input
+                  value={name}
+                  onChange={(e) => set({ staff: s.staff.map((v, j) => (j === i ? e.target.value : v)) })}
+                />
+                <button className="danger" onClick={() => set({ staff: s.staff.filter((_, j) => j !== i) })}>
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="secondary" style={{ marginTop: 8 }} onClick={() => set({ staff: [...s.staff, ""] })}>
+          担当者を追加
+        </button>
+      </section>
+
+      <section className="panel">
+        <h2>案件の削除</h2>
+        <p className="muted">
+          案件一覧から削除するときは、担当者の選択とこのパスワードの入力が必要です。
+          削除した案件は復旧用に <code>quotes-deleted</code> フォルダへ退避し、
+          「誰がいつ何を削除したか」を削除履歴に残します。
+        </p>
+        <div className="row">
+          <Field label="削除パスワード" width={260}>
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder={s.deletionPasswordSet ? "設定済み（変更するときだけ入力）" : "未設定：入力して保存してください"}
+              value={s.newDeletionPassword ?? ""}
+              onChange={(e) => set({ newDeletionPassword: e.target.value })}
+            />
+          </Field>
+          <div className="field" style={{ width: 200 }}>
+            <label>状態</label>
+            <span className={s.deletionPasswordSet ? "badge" : "warn"}>
+              {s.deletionPasswordSet ? "設定済み" : "未設定（削除できません）"}
+            </span>
+          </div>
+        </div>
       </section>
 
       <section className="panel">

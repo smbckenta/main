@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
+import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
 import type {
   CurrentCalc,
+  DeviceSpec,
   LeaseTerm,
   Maker,
   PriceBook,
@@ -41,10 +43,25 @@ export default function QuoteEditor({
   settings: Settings;
 }) {
   const [quote, setQuote] = useState<Quote>(initialQuote);
-  const [current, setCurrent] = useState<CurrentCalc>(initialCurrent);
-  const [calcs, setCalcs] = useState<ProposalCalc[]>(initialProposals);
   const [serviceArea, setServiceArea] = useState<ServiceArea | undefined>(initialServiceArea);
   const [book, setBook] = useState<PriceBook | null>(null);
+  /** サーバーで計算した結果（仕切表を読み込むまでの表示に使う） */
+  const [serverCalc, setServerCalc] = useState<{ current: CurrentCalc; proposals: ProposalCalc[] }>({
+    current: initialCurrent,
+    proposals: initialProposals,
+  });
+  /**
+   * 機種スペック。計算式には使わないが比較表の表示に要るため、
+   * サーバーの計算結果から引き継いで手元の再計算にも渡す。
+   */
+  const [specs, setSpecs] = useState<{ byProposal: Record<string, DeviceSpec | undefined>; current?: DeviceSpec }>(
+    () => ({
+      byProposal: Object.fromEntries(initialProposals.map((c) => [c.proposal.id, c.device])),
+      current: initialProposals[0]?.currentDevice,
+    }),
+  );
+  /** 保存していない変更があるか */
+  const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -66,16 +83,57 @@ export default function QuoteEditor({
       .catch(() => setBook(null));
   }, []);
 
+  /**
+   * 入力に合わせてその場で計算し直す。
+   * 計算式（pricing.ts）はサーバーと同じものを使うので、保存後の値とずれない。
+   * 仕切表を読み込む前だけはサーバーの計算結果をそのまま表示する。
+   */
+  const calcs = useMemo<ProposalCalc[]>(() => {
+    if (!book) return serverCalc.proposals;
+    return quote.proposals.map((p) =>
+      calcProposal(quote, p, settings, {
+        device: specs.byProposal[p.id],
+        currentDevice: specs.current,
+        priceBook: p.priceBookId ? book.entries.find((e) => e.id === p.priceBookId) : undefined,
+        makerNote: book.makerNotes[p.maker],
+        // 収録しているのは京セラの担当エリア表のため、単価判定に反映するのは京セラのみ
+        serviceRank: p.maker === "KYOCERA" ? serviceArea?.rank : undefined,
+        island: p.maker === "KYOCERA" ? serviceArea?.island : undefined,
+      }),
+    );
+  }, [book, quote, settings, specs, serviceArea, serverCalc.proposals]);
+
+  const current = useMemo<CurrentCalc>(
+    () => (book ? calcCurrent(quote, settings.company.taxRate) : serverCalc.current),
+    [book, quote, settings.company.taxRate, serverCalc.current],
+  );
+
+  /** サーバーの計算結果を取り込む（保存・提案作成のあと） */
+  function applyServerResult(json: { quote: Quote; current: CurrentCalc; proposals: ProposalCalc[]; serviceArea?: ServiceArea }) {
+    setQuote(json.quote);
+    setServerCalc({ current: json.current, proposals: json.proposals });
+    setSpecs({
+      byProposal: Object.fromEntries(json.proposals.map((c) => [c.proposal.id, c.device])),
+      current: json.proposals[0]?.currentDevice,
+    });
+    setServiceArea(json.serviceArea ?? undefined);
+    setDirty(false);
+  }
+
   function patchQuote(patch: Partial<Quote>) {
+    setDirty(true);
     setQuote((q) => ({ ...q, ...patch }));
   }
   function patchCurrent(patch: Partial<Quote["current"]>) {
+    setDirty(true);
     setQuote((q) => ({ ...q, current: { ...q.current, ...patch } }));
   }
   function patchUnits(patch: Partial<Quote["current"]["units"]>) {
+    setDirty(true);
     setQuote((q) => ({ ...q, current: { ...q.current, units: { ...q.current.units, ...patch } } }));
   }
   function patchProposal(id: string, patch: Partial<Proposal>) {
+    setDirty(true);
     setQuote((q) => ({
       ...q,
       proposals: q.proposals.map((p) => (p.id === id ? { ...p, ...patch } : p)),
@@ -93,10 +151,7 @@ export default function QuoteEditor({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "保存に失敗しました。");
-      setQuote(json.quote);
-      setCurrent(json.current);
-      setCalcs(json.proposals);
-      setServiceArea(json.serviceArea ?? undefined);
+      applyServerResult(json);
       setMessage("保存しました。");
     } catch (err) {
       setError((err as Error).message);
@@ -126,10 +181,7 @@ export default function QuoteEditor({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "提案の作成に失敗しました。");
-      setQuote(json.quote);
-      setCurrent(json.current);
-      setCalcs(json.proposals);
-      setServiceArea(json.serviceArea ?? undefined);
+      applyServerResult(json);
       setMessage(json.messages?.length ? json.messages.join("\n") : "提案を作成しました。");
     } catch (err) {
       setError((err as Error).message);
@@ -207,6 +259,7 @@ export default function QuoteEditor({
   }
 
   function removeProposal(id: string) {
+    setDirty(true);
     setQuote((q) => ({ ...q, proposals: q.proposals.filter((p) => p.id !== id) }));
   }
 
@@ -229,6 +282,16 @@ export default function QuoteEditor({
           <Field label="見積番号" width={120}>
             <input value={quote.quoteNo} onChange={(e) => patchQuote({ quoteNo: e.target.value })} />
           </Field>
+          <Field label="担当者" width={180}>
+            <select value={quote.staffName ?? ""} onChange={(e) => patchQuote({ staffName: e.target.value })}>
+              <option value="">（未選択）</option>
+              {settings.staff.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="見積日" width={140}>
             <input type="date" value={quote.quoteDate} onChange={(e) => patchQuote({ quoteDate: e.target.value })} />
           </Field>
@@ -243,8 +306,13 @@ export default function QuoteEditor({
             </select>
           </Field>
           <button onClick={save} disabled={!!busy}>
-            保存して再計算
+            保存する
           </button>
+          {dirty && (
+            <span className="warn" style={{ alignSelf: "center" }}>
+              未保存の変更があります（計算結果は反映済み）
+            </span>
+          )}
         </div>
 
         <h3>保守対応エリア（京セラ 全国担当エリア表）</h3>
@@ -748,14 +816,25 @@ function ProposalPanel({
             value={proposal.pricingMode}
             onChange={(e) => onChange({ pricingMode: e.target.value as Proposal["pricingMode"] })}
           >
-            <option value="fromGp">仕切＋GP（粗利額）から算出</option>
+            <option value="fromGp">仕切＋GPから算出</option>
             <option value="fromMargin">仕切＋粗利率から算出</option>
             <option value="fromLease">目標の月額リース料から逆算</option>
             <option value="fromPrice">販売額計を直接入力</option>
           </select>
         </Field>
+        <div className="field" style={{ width: 200 }}>
+          <label>代理店</label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(proposal.twoAgencies)}
+              onChange={(e) => onChange({ twoAgencies: e.target.checked })}
+            />
+            2社（PTFを{Math.round(settings.ptf.rate * 100)}%＋{Math.round(settings.ptf.secondRate * 100)}%で払い出す）
+          </label>
+        </div>
         {proposal.pricingMode === "fromGp" && (
-          <Field label="GP（粗利額・円）" width={150}>
+          <Field label="GP（円）" width={150}>
             <NumberInput
               value={proposal.grossProfitAmount ?? 0}
               onChange={(v) => onChange({ grossProfitAmount: v })}
@@ -967,12 +1046,26 @@ function ProposalPanel({
                   <td className={`num ${calc.diffYearly < 0 ? "save" : "cut"}`}>{sign(calc.diffYearly)}</td>
                 </tr>
                 <tr><th>仕切価格</th><td className="num">{yen(calc.cost)}</td></tr>
-                <tr><th>GP（粗利益）</th><td className="num">{yen(calc.grossProfit)}</td></tr>
+                <tr><th>GP</th><td className="num">{yen(calc.grossProfit)}</td></tr>
                 <tr>
-                  <th>PTF（本体価格の{Math.round(settings.ptf.rate * 100)}%）</th>
+                  <th>
+                    PTF（本体価格の{Math.round(settings.ptf.rate * 100)}%
+                    {calc.ptfBreakdown.second > 0
+                      ? ` ＋ ${Math.round(settings.ptf.secondRate * 100)}%・代理店2社`
+                      : ""}
+                    ）
+                  </th>
                   <td className="num">{yen(calc.ptf)}</td>
                 </tr>
-                <tr><th>NP（純利益）</th><td className="num">{yen(calc.netProfit)}</td></tr>
+                {calc.ptfBreakdown.second > 0 && (
+                  <tr>
+                    <th className="muted">　内訳（1社目／2社目）</th>
+                    <td className="num muted">
+                      {yen(calc.ptfBreakdown.primary)} ／ {yen(calc.ptfBreakdown.second)}
+                    </td>
+                  </tr>
+                )}
+                <tr><th>NP</th><td className="num">{yen(calc.netProfit)}</td></tr>
               </tbody>
             </table>
           </div>

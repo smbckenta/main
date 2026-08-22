@@ -13,32 +13,152 @@ const FONT_STACK =
 const CSS = `
   @page { size: A4; margin: 12mm 10mm; }
   * { box-sizing: border-box; }
-  body { font-family: ${FONT_STACK}; color: #000; font-size: 10pt; margin: 0; }
-  h1 { font-size: 22pt; letter-spacing: 0.5em; text-align: center; margin: 6px 0 10px; }
-  h2 { font-size: 16pt; letter-spacing: 0.4em; text-align: center; margin: 18px 0 8px; }
+  /* 背景色は印刷時にも残す（帳票の見出し帯が消えないように） */
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  :root {
+    --ink: #16212e;
+    --accent: #1f4e79;
+    --accent-soft: #eaf0f7;
+    --line: #b9c6d4;
+    --line-soft: #dbe3ec;
+  }
+
+  body {
+    font-family: ${FONT_STACK};
+    color: var(--ink);
+    font-size: 10pt;
+    margin: 0;
+    line-height: 1.45;
+  }
+
+  h1 {
+    font-size: 21pt;
+    letter-spacing: 0.45em;
+    text-align: center;
+    color: var(--accent);
+    margin: 10px 0 4px;
+    text-indent: 0.45em;
+  }
+  h1 + .small { text-align: center; color: #4a5a6b; }
+  h1::after {
+    content: "";
+    display: block;
+    width: 132px;
+    height: 3px;
+    margin: 8px auto 0;
+    background: linear-gradient(90deg, var(--accent), #6f9bc4);
+    border-radius: 2px;
+  }
+  h2 {
+    font-size: 15pt;
+    letter-spacing: 0.35em;
+    text-align: center;
+    color: var(--accent);
+    margin: 16px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent);
+    text-indent: 0.35em;
+  }
+
   table { border-collapse: collapse; width: 100%; }
-  .grid th, .grid td { border: 1px solid #333; padding: 3px 6px; }
-  .grid th { background: #e8eef5; font-weight: 600; }
-  .plain td { padding: 1px 2px; vertical-align: top; }
+  .grid { border: 1px solid var(--line); }
+  .grid th, .grid td { border: 1px solid var(--line-soft); padding: 4px 7px; }
+  .grid thead th {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    border-color: var(--accent);
+  }
+  .grid tbody th { background: var(--accent-soft); font-weight: 600; }
+  .grid tbody tr:nth-child(even) td { background: #f7fafc; }
+  .plain td { padding: 2px 2px; vertical-align: top; }
+
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .center { text-align: center; }
   .small { font-size: 8.5pt; }
-  .muted { color: #444; }
+  .muted { color: #5b6b7c; }
+
   .head { display: flex; justify-content: space-between; align-items: flex-start; }
-  .customer { font-size: 13pt; border-bottom: 1px solid #000; min-width: 260px; padding-bottom: 2px; }
-  .company { text-align: left; font-size: 9pt; line-height: 1.5; }
-  .company .name { font-size: 12pt; font-weight: 700; }
-  .lease-box { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 6px; }
-  .lease-box .label { font-weight: 700; font-size: 11pt; }
-  .lease-box .value { font-size: 16pt; font-weight: 700; border-bottom: 2px solid #000; padding: 0 16px; }
-  .section { margin-top: 12px; font-weight: 700; }
-  .notes { margin-top: 10px; font-size: 8.5pt; white-space: pre-wrap; }
-  .sum-row td { background: #f4f4f4; font-weight: 700; }
-  .cut { color: #c00000; font-weight: 700; }
+  .customer {
+    font-size: 13.5pt;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent);
+    min-width: 260px;
+    padding-bottom: 3px;
+  }
+
+  /* 自社情報 */
+  .company {
+    text-align: left;
+    max-width: 58%;
+    font-size: 9pt;
+    line-height: 1.55;
+    border-left: 3px solid var(--accent);
+    padding: 2px 0 2px 10px;
+  }
+  .company .name { font-size: 12.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
+  .company .logo { display: block; width: 230px; max-height: 52px; object-fit: contain; object-position: left center; margin-bottom: 5px; }
+  .company .offices { margin-top: 4px; font-size: 8.3pt; }
+  .company .offices div { display: flex; gap: 6px; }
+  .company .offices .office-name { font-weight: 600; white-space: nowrap; color: var(--accent); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { height: 44px; max-width: 260px; object-fit: contain; object-position: left center; }
+
+  /* 月額リース料の強調枠 */
+  .lease-box {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 12px 0 8px;
+    padding: 8px 14px;
+    background: linear-gradient(90deg, var(--accent-soft), #f7fafc);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--accent);
+    border-radius: 3px;
+  }
+  .lease-box .label { font-weight: 700; font-size: 11pt; color: var(--accent); letter-spacing: 0.08em; }
+  .lease-box .value { font-size: 19pt; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
+  .lease-box .value::before { content: "¥"; font-size: 13pt; margin-right: 2px; color: var(--accent); }
+
+  .section {
+    margin-top: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    border-left: 4px solid var(--accent);
+    padding-left: 8px;
+  }
+  .notes {
+    margin-top: 12px;
+    font-size: 8.5pt;
+    white-space: pre-wrap;
+    background: #f7fafc;
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: 8px 10px;
+  }
+
+  .grid tbody tr.sum-row td { background: var(--accent-soft); font-weight: 700; }
+  .grid tbody tr.group-row td {
+    background: #eef3f8;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  /* 濃い帯の行では、削減額の色を明るくして読めるようにする */
+  .grid tbody tr.total-row .save { color: #8ce8ad; }
+  .grid tbody tr.total-row .cut { color: #ffb3ac; }
+  .grid tbody tr.total-row td, .grid tbody tr.total-row th { background: var(--accent); color: #fff; font-weight: 700; border-color: var(--accent); }
+
+  .cut { color: #b3261e; font-weight: 700; }
   .save { color: #0a7d32; font-weight: 700; }
   .page-break { page-break-before: always; }
-  .effect { margin-top: 10px; }
-  .effect th { background: #35618f; color: #fff; }
+
+  /* 比較表の削減効果 */
+  .effect { margin-top: 12px; }
+  .effect thead th { background: #14395c; color: #fff; }
+  .effect tbody tr td:last-child { font-weight: 700; }
 `;
 
 const esc = (s: unknown): string =>
@@ -60,8 +180,47 @@ function page(title: string, body: string): string {
 <style>${CSS}</style></head><body>${body}</body></html>`;
 }
 
+/** 自社情報（ロゴ・社名・連絡先・拠点） */
+function companyBlock(settings: Settings, logo?: string): string {
+  const c = settings.company;
+  const offices = c.offices?.length
+    ? `<div class="offices">${c.offices
+        .map(
+          (o) =>
+            `<div><span class="office-name">${esc(o.name)}</span><span>${esc(o.address)}</span></div>`,
+        )
+        .join("")}</div>`
+    : `<div style="margin-top:4px">${esc(c.branchNote ?? "")}</div><div>${esc(c.address ?? "")}</div>`;
+
+  return `
+    <div class="company">
+      ${logo ? `<img class="logo" src="${logo}" alt="${esc(c.name)}">` : ""}
+      <div class="name"${logo ? ' style="font-size:11pt"' : ""}>${esc(c.name)}</div>
+      <div>${esc(c.representative ?? "")}</div>
+      <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
+      ${offices}
+      <div>${esc(c.areaNote ?? "")}</div>
+    </div>`;
+}
+
+/** 比較表の上部に置く社名・ロゴの帯 */
+function brandBar(settings: Settings, logo: string | undefined, quote: Quote): string {
+  const c = settings.company;
+  return `
+  <div class="head" style="align-items:center">
+    <div class="brand">
+      ${logo ? `<img src="${logo}" alt="${esc(c.name)}">` : `<span class="name">${esc(c.name)}</span>`}
+    </div>
+    <div class="small muted" style="text-align:right">
+      <div>${esc(c.name)}</div>
+      <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
+      <div>見積番号 ${esc(quote.quoteNo)}${quote.staffName ? `　担当 ${esc(quote.staffName)}` : ""}</div>
+    </div>
+  </div>`;
+}
+
 /** 見積書のヘッダー（宛名・自社情報） */
-function quoteHeader(quote: Quote, settings: Settings, subject: string): string {
+function quoteHeader(quote: Quote, settings: Settings, subject: string, logo?: string): string {
   const c = settings.company;
   return `
   <div class="head">
@@ -83,21 +242,19 @@ function quoteHeader(quote: Quote, settings: Settings, subject: string): string 
       <tr><td>御受渡期日</td><td>：別途お打ち合わせ</td></tr>
       <tr><td>御支払条件</td><td>：別途お打ち合わせ</td></tr>
       <tr><td>有効期限</td><td>：${esc(c.validityText)}</td></tr>
+      ${quote.staffName ? `<tr><td>担当者</td><td>：${esc(quote.staffName)}</td></tr>` : ""}
     </table>
-    <div class="company">
-      <div class="name">${esc(c.name)}</div>
-      <div>${esc(c.representative ?? "")}</div>
-      <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}</div>
-      <div>${c.fax ? `FAX ${esc(c.fax)}` : ""}</div>
-      <div style="margin-top:4px">${esc(c.branchNote ?? "")}</div>
-      <div>${esc(c.address ?? "")}</div>
-      <div>${esc(c.areaNote ?? "")}</div>
-    </div>
+    ${companyBlock(settings, logo)}
   </div>`;
 }
 
 /** 御見積書1枚 */
-export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Settings): string {
+export function renderQuoteHtml(
+  quote: Quote,
+  calc: ProposalCalc,
+  settings: Settings,
+  logo?: string,
+): string {
   const p = calc.proposal;
   const subject = `${p.modelText}${calc.priceBook ? `　（${calc.priceBook.gradePpm}枚機）` : ""}`;
   const groupLabel = calc.priceBook
@@ -153,7 +310,7 @@ export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Sett
     .join("");
 
   const body = `
-  ${quoteHeader(quote, settings, subject)}
+  ${quoteHeader(quote, settings, subject, logo)}
 
   <div class="lease-box">
     <span class="label">月額リース料金</span>
@@ -168,7 +325,7 @@ export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Sett
       <th style="width:14%">単　価</th><th style="width:14%">金　額</th><th style="width:14%">備考</th>
     </tr></thead>
     <tbody>
-      <tr><td></td><td colspan="6">${esc(groupLabel)}</td></tr>
+      <tr class="group-row"><td></td><td colspan="6">${esc(groupLabel)}</td></tr>
       ${itemRows}
       <tr class="sum-row"><td></td><td>本体合計</td><td colspan="3"></td><td class="num">${n(calc.listTotal)}</td><td></td></tr>
       <tr><td></td><td>お値引き</td><td colspan="2"></td><td class="center">▲</td><td class="num">${n(calc.discount)}</td><td></td></tr>
@@ -181,7 +338,7 @@ export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Sett
       </tr>`
           : ""
       }
-      <tr class="sum-row"><td></td><td>販売額計</td><td colspan="3"></td><td class="num">${n(calc.sellingTotal)}</td><td></td></tr>
+      <tr class="total-row"><td></td><td>販売額計</td><td colspan="3"></td><td class="num">${n(calc.sellingTotal)}</td><td></td></tr>
     </tbody>
   </table>
 
@@ -214,7 +371,7 @@ export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Sett
       ? `※　現在ご利用中のリースの残債（${n(calc.debtSettlement.remainingDebt)}円）と解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分 ${n(calc.debtSettlement.cancellationFee)}円）を本見積に含めております。\n`
       : ""
   }※　この御見積書の金額は「税抜」となっております。
-※　PC設定台数は${settings.company.name.includes("Denrai") ? pcSetupNote(calc) : ""}
+※　PC設定台数は${pcSetupNote(calc)}
 ${p.note ? `※　${esc(p.note)}` : ""}</div>
   `;
   return page(`見積書_${quote.customerName}_${makerJp(p.maker)}`, body);
@@ -246,6 +403,7 @@ export function renderCompareHtml(
   current: CurrentCalc,
   calc: ProposalCalc,
   settings: Settings,
+  logo?: string,
 ): string {
   const c = quote.current;
   const d = calc.device;
@@ -281,6 +439,7 @@ export function renderCompareHtml(
     v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
 
   const body = `
+  ${brandBar(settings, logo, quote)}
   <h2>比 較 表</h2>
   <div class="center" style="margin-bottom:8px">
     （ ${esc(c.makerText || "現行")} ➡ ${esc(makerJp(calc.proposal.maker))} ）
@@ -349,7 +508,7 @@ export function renderCompareHtml(
         <td class="num">${n(calc.runningTax)}</td>
         <td></td>
       </tr>
-      <tr class="sum-row">
+      <tr class="total-row">
         <th style="text-align:left">　月間経費</th>
         <td class="num">${n(current.monthlyTotal)}</td>
         <td class="num">${n(calc.monthlyTotal)}</td>
@@ -358,7 +517,7 @@ export function renderCompareHtml(
     </tbody>
   </table>
 
-  <table class="grid" style="width:62%;margin-top:12px">
+  <table class="grid" style="width:62%;margin-top:14px">
     <tbody>
       <tr><th style="text-align:left">合計合算削減金額　（単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
       <tr><th style="text-align:left">合計合算削減金額　（年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
@@ -397,13 +556,19 @@ export function renderMultiCompareHtml(
   current: CurrentCalc,
   calcs: ProposalCalc[],
   settings: Settings,
+  logo?: string,
 ): string {
   const c = quote.current;
   const best = calcs.reduce((b, x, i) => (x.monthlyTotal < calcs[b].monthlyTotal ? i : b), 0);
   const head = `<tr>
       <th style="width:20%"></th>
       <th>現状利用状況</th>
-      ${calcs.map((x, i) => `<th${i === best ? ' style="background:#fff6d8"' : ""}>${esc(makerJp(x.proposal.maker))}</th>`).join("")}
+      ${calcs
+        .map(
+          (x, i) =>
+            `<th${i === best ? ' style="background:#f6d97a;color:#16212e"' : ""}>${esc(makerJp(x.proposal.maker))}</th>`,
+        )
+        .join("")}
     </tr>`;
 
   const row = (label: string, left: string, values: string[]) =>
@@ -415,10 +580,11 @@ export function renderMultiCompareHtml(
     v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
 
   const body = `
+  ${brandBar(settings, logo, quote)}
   <h2>複合機 比較表（各社同時比較）</h2>
   <div class="head">
     <div><span class="customer">${esc(quote.customerName)}</span> ${esc(quote.customerHonorific)}</div>
-    <div class="small">${esc(jpDate(quote.quoteDate))}／${esc(settings.company.name)}</div>
+    <div class="small">${esc(jpDate(quote.quoteDate))}</div>
   </div>
   <div class="small" style="margin:6px 0">
     月間印刷枚数${esc(pagesAverageNote(c))}：ブラック ${n(c.monoPages)}枚 ／ フルカラー ${n(c.colorPages)}枚 ／ 2色カラー ${n(c.twoColorPages)}枚

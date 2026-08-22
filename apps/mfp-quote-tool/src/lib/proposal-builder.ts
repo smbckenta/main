@@ -32,7 +32,7 @@ export async function buildProposal(
 
   if (!entry) {
     return {
-      proposal: emptyProposal(maker, options.leaseTerm),
+      proposal: emptyProposal(maker, options.leaseTerm, settings.defaultGrossProfit),
       specFetched: false,
       message: `${maker} の機種が仕切表に登録されていません。仕切表画面から登録してください。`,
     };
@@ -61,11 +61,9 @@ export async function buildProposal(
     qty: 1,
     items,
     cost: entry.cost,
-    // 既定は「仕切＋GP」。GPの初期値は既定の粗利率から逆算した額を入れておく
+    // 既定は「仕切＋GP」。GPの初期値は設定の既定GP
     pricingMode: "fromGp",
-    grossProfitAmount: Math.round(
-      (entry.cost / (1 - Math.min(Math.max(settings.defaultMarginRate, 0), 0.95)) - entry.cost) / 1000,
-    ) * 1000,
+    grossProfitAmount: settings.defaultGrossProfit,
     marginRate: settings.defaultMarginRate,
     leaseTerm: options.leaseTerm ?? 72,
     units,
@@ -76,14 +74,15 @@ export async function buildProposal(
   return { proposal, entry, specFetched };
 }
 
-function emptyProposal(maker: Maker, leaseTerm?: LeaseTerm): Proposal {
+function emptyProposal(maker: Maker, leaseTerm?: LeaseTerm, defaultGrossProfit = 0): Proposal {
   return {
     id: newId(),
     maker,
     modelText: "",
     qty: 1,
     items: [],
-    pricingMode: "fromMargin",
+    pricingMode: "fromGp",
+    grossProfitAmount: defaultGrossProfit,
     leaseTerm: leaseTerm ?? 72,
     counterOverridden: false,
     maintenanceMonthly: 0,

@@ -6,14 +6,20 @@ import type { Settings } from "./types";
  */
 export const DEFAULT_SETTINGS: Settings = {
   company: {
-    name: "株式会社 Denrai",
+    // 複合機の提案は株式会社Life Yokusuru名義で作成する
+    name: "株式会社Life Yokusuru",
     representative: "代表取締役　小坂 ケビン 絢太",
     postalCode: "",
     address: "福岡県久留米市本町2-23　栗原ビルディング4F",
     tel: "0942-64-9035",
     fax: "0942-64-9036",
     branchNote: "◎久留米本社",
-    areaNote: "営業拠点：日本全国出張致します。",
+    offices: [
+      { name: "久留米本社", address: "福岡県久留米市本町2-23　栗原BLD 4F" },
+      { name: "博多営業所", address: "福岡県福岡市博多区博多駅前4-18-19　博多フロントビル5F" },
+      { name: "横浜営業所", address: "神奈川県横浜市都筑区川向町2002番3" },
+    ],
+    areaNote: "",
     validityText: "ご提示から2週間",
     taxRate: 0.1,
   },
@@ -77,6 +83,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ],
 
   defaultMarginRate: 0.3,
+  // 提案を追加したときのGP（粗利額）の初期値
+  defaultGrossProfit: 300_000,
 
   // 旧リースの残債は「残債 + 現行リース料3ヶ月分（解約事務手数料）」を見積金額に含める
   debtSettlement: { includeInQuote: true, cancellationMonths: 3 },
@@ -85,6 +93,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ptf: {
     base: "bodyPrice",
     rate: 0.1,
+    // 代理店が2社入る場合、2社目は本体価格の2%
+    secondRate: 0.02,
     fixed: 0,
     counter: { enabled: false, rate: 0.1, months: 60 },
     cap: 0,
@@ -92,6 +102,27 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 
   roundUnit: 100,
+  // 月額リース料は100円単位で切り上げる（16,080円 → 16,100円）
+  leaseRoundUnit: 100,
+
+  // 京セラの2色カラーは2.0円（フルカラー7.0円に対する運用値）
+  twoColorUnitByMaker: { KYOCERA: 2.0 },
+
+  staff: [
+    "小坂 ケビン 絢太",
+    "山内 孔士郎",
+    "河内山 大我",
+    "中村 啓就",
+    "諸富 有佳倫",
+    "上野 光一",
+    "徳永 将",
+    "田中 孝樹",
+    "池 善信",
+    "江藤 錠太郎",
+  ],
+
+  // 案件の削除にはパスワードが要る。初期値は未設定＝削除できない
+  deletion: { passwordHash: "" },
 
   // 書類の読み取りはAI（Claude）が既定。APIキーは設定画面か環境変数 ANTHROPIC_API_KEY で渡す
   ai: {

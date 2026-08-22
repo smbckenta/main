@@ -188,6 +188,11 @@ export interface PtfRule {
    */
   base: "bodyPrice" | "grossProfit" | "sellingPrice" | "fixed";
   rate: number;
+  /**
+   * 代理店が2社入る場合の、2社目の料率。
+   * 提案ごとに「代理店2社」を選ぶと、この率ぶんが追加で払い出される（10% + 2%）。
+   */
+  secondRate: number;
   /** 固定加算額（円/件） */
   fixed: number;
   /** カウンター報酬（月額カウンター × 率 × 月数） */
@@ -202,11 +207,14 @@ export interface CompanyInfo {
   name: string;
   representative?: string;
   postalCode?: string;
+  /** 本社住所（拠点一覧を使う場合は offices を優先して印字する） */
   address?: string;
   tel?: string;
   fax?: string;
   branchNote?: string;
   areaNote?: string;
+  /** 拠点（本社・営業所）。見積書・比較表に並べて印字する */
+  offices?: { name: string; address: string }[];
   validityText: string;
   taxRate: number;
 }
@@ -237,6 +245,8 @@ export interface Settings {
   areas: AreaSetting[];
   /** 既定の粗利率（fromMargin モード用） */
   defaultMarginRate: number;
+  /** 既定のGP（粗利額・円）。提案を追加したときの初期値 */
+  defaultGrossProfit: number;
   /**
    * 現行リースの残債精算。
    * 残債 + 現行リース料 × 解約事務手数料の月数 を見積金額（リース対象額）に含める。
@@ -249,8 +259,41 @@ export interface Settings {
   ptf: PtfRule;
   /** 見積金額の端数処理単位 */
   roundUnit: number;
+  /**
+   * 月額リース料の端数処理単位（円）。
+   * この単位で切り上げる（16,080円 → 16,100円）。
+   */
+  leaseRoundUnit: number;
+  /** メーカー別の2色カラー単価（指定が無いメーカーは twoColorRatio で計算） */
+  twoColorUnitByMaker: Partial<Record<Maker, number>>;
+  /** 担当者（見積書に印字・削除記録に使う） */
+  staff: string[];
+  /** 案件の削除 */
+  deletion: DeletionSettings;
   /** AI（Claude）による書類の読み取り */
   ai: AiSettings;
+}
+
+/** 案件を削除するときの取り決め */
+export interface DeletionSettings {
+  /**
+   * 削除パスワードのハッシュ（SHA-256の16進）。
+   * 平文は保存しない。未設定のあいだは削除できない。
+   */
+  passwordHash: string;
+}
+
+/** 案件を削除した記録 */
+export interface DeletionRecord {
+  deletedAt: string;
+  /** 削除した担当者 */
+  deletedBy: string;
+  quoteId: string;
+  quoteNo: string;
+  customerName: string;
+  title: string;
+  /** 退避したファイル名（data/quotes-deleted/ 配下） */
+  archivedFile: string;
 }
 
 /**
@@ -377,6 +420,8 @@ export interface Proposal {
   sellingTotal?: number;
   /** 見積書に載せるリース回数 */
   leaseTerm: LeaseTerm;
+  /** 代理店が2社入る案件（PTFを2社に払い出す） */
+  twoAgencies?: boolean;
   units?: CounterUnits;
   counterOverridden?: boolean;
   maintenanceMonthly: number;
@@ -392,6 +437,8 @@ export interface Quote {
   quoteDate: string;
   /** エリア名（設定の areas から選択） */
   area: string;
+  /** 担当者名（見積書に印字） */
+  staffName?: string;
   /** 保守対応エリア（メーカー担当エリア表の市区町村） */
   serviceArea?: { pref: string; city: string };
   current: CurrentMachine;
@@ -481,6 +528,9 @@ export interface ProposalCalc {
   /** 収益 */
   cost: number;
   grossProfit: number;
+  /** PTF合計（代理店2社の場合は2社ぶんの合計） */
   ptf: number;
+  /** PTFの内訳（1社目／2社目） */
+  ptfBreakdown: { primary: number; second: number };
   netProfit: number;
 }

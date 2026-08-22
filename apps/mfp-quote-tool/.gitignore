@@ -14,3 +14,7 @@ data/settings.json
 
 # 認証情報（AI読み取り用のAPIキー）
 data/api-key.txt
+
+# 削除した案件の退避先と削除履歴（顧客情報を含む）
+data/quotes-deleted/
+data/deletion-log.json

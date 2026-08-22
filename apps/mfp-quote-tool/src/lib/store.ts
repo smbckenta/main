@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-import type { DeviceSpec, PriceBook, PriceBookEntry, Quote, Settings } from "./types";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import type { DeletionRecord, DeviceSpec, PriceBook, PriceBookEntry, Quote, Settings } from "./types";
 import { DEFAULT_SETTINGS } from "./defaults";
 
 /**
@@ -22,7 +22,7 @@ export const DATA_DIR = process.env.MFP_DATA_DIR
   : BUNDLED_DATA_DIR;
 
 /** 保存先に無いマスタを同梱データから配置する（初回のみ） */
-const SEED_ENTRIES = ["price-book.json", "devices.json", "service-areas.json", "tessdata"];
+const SEED_ENTRIES = ["price-book.json", "devices.json", "service-areas.json", "tessdata", "logo.svg"];
 let seedPromise: Promise<void> | null = null;
 
 export function ensureDataDir(): Promise<void> {
@@ -48,6 +48,9 @@ const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
 const DEVICES_FILE = path.join(DATA_DIR, "devices.json");
 const PRICEBOOK_FILE = path.join(DATA_DIR, "price-book.json");
 const QUOTES_DIR = path.join(DATA_DIR, "quotes");
+/** 削除した案件の退避先（誤削除に備えて実体は残す） */
+const DELETED_DIR = path.join(DATA_DIR, "quotes-deleted");
+const DELETION_LOG = path.join(DATA_DIR, "deletion-log.json");
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   await ensureDataDir();
@@ -85,6 +88,9 @@ export async function getSettings(): Promise<Settings> {
       counter: { ...DEFAULT_SETTINGS.ptf.counter, ...(stored.ptf?.counter ?? {}) },
     },
     ai: { ...DEFAULT_SETTINGS.ai, ...(stored.ai ?? {}) },
+    deletion: { ...DEFAULT_SETTINGS.deletion, ...(stored.deletion ?? {}) },
+    staff: stored.staff ?? DEFAULT_SETTINGS.staff,
+    twoColorUnitByMaker: stored.twoColorUnitByMaker ?? DEFAULT_SETTINGS.twoColorUnitByMaker,
   };
 }
 
@@ -205,8 +211,50 @@ export async function saveQuote(quote: Quote): Promise<Quote> {
   return record;
 }
 
-export async function deleteQuote(id: string): Promise<void> {
+/**
+ * 案件を削除する。
+ * 誤削除に備えて実体は quotes-deleted へ退避し、誰がいつ消したかを記録する。
+ */
+export async function deleteQuote(id: string, deletedBy: string): Promise<DeletionRecord> {
+  const quote = await getQuote(id);
+  if (!quote) throw new Error("案件が見つかりません。");
+
+  await fs.mkdir(DELETED_DIR, { recursive: true });
+  const archivedFile = `${new Date().toISOString().replace(/[:.]/g, "-")}_${id}.json`;
+  await fs.writeFile(path.join(DELETED_DIR, archivedFile), JSON.stringify(quote, null, 2), "utf8");
   await fs.rm(path.join(QUOTES_DIR, `${id}.json`), { force: true });
+
+  const record: DeletionRecord = {
+    deletedAt: new Date().toISOString(),
+    deletedBy,
+    quoteId: id,
+    quoteNo: quote.quoteNo,
+    customerName: quote.customerName,
+    title: quote.title,
+    archivedFile,
+  };
+  const log = await listDeletionLog();
+  await writeJson(DELETION_LOG, [record, ...log].slice(0, 500));
+  return record;
+}
+
+/** 削除の記録（新しい順） */
+export async function listDeletionLog(): Promise<DeletionRecord[]> {
+  return readJson<DeletionRecord[]>(DELETION_LOG, []);
+}
+
+/* ---------------- 削除パスワード ---------------- */
+
+export function hashPassword(password: string): string {
+  return createHash("sha256").update(password, "utf8").digest("hex");
+}
+
+/** 入力されたパスワードが設定と一致するか（長さの差で漏れないよう固定長で比較） */
+export function verifyPassword(password: string, hash: string): boolean {
+  if (!hash) return false;
+  const a = Buffer.from(hashPassword(password), "hex");
+  const b = Buffer.from(hash, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function newId(): string {

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 200" width="900" height="200">
+  <!--
+    株式会社Life Yokusuru ロゴ（仮）。
+    本物の画像ファイルを data フォルダに logo.png として置くと、そちらが使われます
+    （設定画面の「ロゴ」からアップロードできます）。
+  -->
+  <g stroke="#000" stroke-width="6">
+    <rect x="-25" y="-25" width="50" height="50" transform="translate(78,46) rotate(45)" fill="#e8262a"/>
+    <rect x="-25" y="-25" width="50" height="50" transform="translate(36,88) rotate(45)" fill="#f7e01a"/>
+    <rect x="-25" y="-25" width="50" height="50" transform="translate(120,88) rotate(45)" fill="#7b2d8e"/>
+    <rect x="-25" y="-25" width="50" height="50" transform="translate(78,130) rotate(45)" fill="#2e3192"/>
+  </g>
+  <g fill="none" stroke="#000" stroke-width="5">
+    <ellipse cx="78" cy="46" rx="9" ry="7"/>
+    <ellipse cx="36" cy="88" rx="9" ry="7"/>
+    <ellipse cx="120" cy="88" rx="9" ry="7"/>
+    <ellipse cx="78" cy="130" rx="9" ry="7"/>
+  </g>
+  <text x="8" y="186" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" font-style="italic" fill="#000">Life Yokusuru</text>
+  <text x="176" y="118" font-family="'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif" font-size="62" textLength="710" lengthAdjust="spacingAndGlyphs" fill="#000">株式会社Life Yokusuru</text>
+</svg>

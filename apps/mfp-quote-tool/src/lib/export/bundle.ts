@@ -2,9 +2,10 @@ import JSZip from "jszip";
 import type { Quote } from "../types";
 import { MAKER_LABELS } from "../types";
 import { calcQuoteAll } from "../calc-context";
+import { loadLogo } from "../logo";
 import { renderCompareHtml, renderMultiCompareHtml, renderQuoteHtml } from "./html";
 import { htmlToPdf, PdfUnavailableError } from "./pdf";
-import { addMultiCompareSheet, addProfitSheet, addQuoteSheet, newWorkbook, workbookToBuffer } from "./excel";
+import { addMultiCompareSheet, addProfitSheet, addQuoteSheet, newWorkbook, putLogo, workbookToBuffer } from "./excel";
 
 export type DocKind = "quote" | "compare";
 export type Format = "pdf" | "xlsx";
@@ -38,6 +39,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   warnings: string[];
 }> {
   const { settings, current, proposals } = await calcQuoteAll(quote);
+  const logo = await loadLogo();
   const targets = req.proposalIds?.length
     ? proposals.filter((p) => req.proposalIds!.includes(p.proposal.id))
     : proposals;
@@ -50,10 +52,10 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   if (req.formats.includes("xlsx") && targets.length) {
     const wb = newWorkbook(settings.company.name);
     for (const calc of targets) {
-      addQuoteSheet(wb, quote, current, calc, settings);
+      putLogo(wb, addQuoteSheet(wb, quote, current, calc, settings), logo);
     }
     if (targets.length > 1 && req.docs.includes("compare")) {
-      addMultiCompareSheet(wb, quote, current, targets);
+      putLogo(wb, addMultiCompareSheet(wb, quote, current, targets), logo);
     }
     if (req.includeProfit) addProfitSheet(wb, targets);
     files.push({
@@ -71,14 +73,14 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
         if (req.docs.includes("quote")) {
           files.push({
             name: `${base}_御見積書_${safe(maker)}.pdf`,
-            buffer: await htmlToPdf(renderQuoteHtml(quote, calc, settings)),
+            buffer: await htmlToPdf(renderQuoteHtml(quote, calc, settings, logo?.dataUri)),
             contentType: "application/pdf",
           });
         }
         if (req.docs.includes("compare")) {
           files.push({
             name: `${base}_比較表_${safe(maker)}.pdf`,
-            buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings)),
+            buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings, logo?.dataUri)),
             contentType: "application/pdf",
           });
         }
@@ -86,7 +88,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
       if (targets.length > 1 && req.docs.includes("compare")) {
         files.push({
           name: `${base}_比較表_各社.pdf`,
-          buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings)),
+          buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings, logo?.dataUri)),
           contentType: "application/pdf",
         });
       }

@@ -21,6 +21,12 @@ export function roundTo(value: number, unit: number): number {
   return Math.round(value / unit) * unit;
 }
 
+/** 端数の切り上げ（月額リース料に使う。16,080円 → 16,100円） */
+export function ceilTo(value: number, unit: number): number {
+  if (!unit || unit <= 1) return Math.ceil(value);
+  return Math.ceil(value / unit) * unit;
+}
+
 /** 明細（定価）の合計 */
 export function sumItems(items: { qty: number; unitPrice: number }[]): number {
   return items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
@@ -95,10 +101,12 @@ export function autoCounterUnits(
   mono = round2(mono + (area?.monoAdd ?? 0));
   color = round2(color + (area?.colorAdd ?? 0));
 
+  // 2色カラーはメーカー別の運用値を優先する（京セラは2.0円）
+  const twoColorFixed = settings.twoColorUnitByMaker?.[maker];
   return {
     mono,
     color,
-    twoColor: round2(color * settings.twoColorRatio),
+    twoColor: twoColorFixed ?? round2(color * settings.twoColorRatio),
     minCharge: makerNote?.minCharge ?? settings.defaultMinCharge,
   };
 }
@@ -156,22 +164,43 @@ export function calcCurrent(quote: Quote, taxRate: number): CurrentCalc {
  * 既定は「本体価格の10%」。オプション（フィニッシャー・ICカードリーダー等）や
  * 追加のPC設定作業として本体価格に上乗せした分には料率を適用しない。
  */
+/**
+ * PTF（代理店報酬）。
+ * 代理店が2社入る案件では、1社目に rate（10%）、2社目に secondRate（2%）を払い出す。
+ * 2社目には固定額・カウンター報酬・上限は掛けず、料率ぶんだけを計算する。
+ */
 export function calcPtf(
   rule: PtfRule,
-  args: { grossProfit: number; sellingTotal: number; sellingBase: number; monthlyCounter: number },
-): number {
-  let base = 0;
-  if (rule.base === "bodyPrice") base = Math.max(0, args.sellingBase) * rule.rate;
-  else if (rule.base === "grossProfit") base = Math.max(0, args.grossProfit) * rule.rate;
-  else if (rule.base === "sellingPrice") base = Math.max(0, args.sellingTotal) * rule.rate;
+  args: {
+    grossProfit: number;
+    sellingTotal: number;
+    sellingBase: number;
+    monthlyCounter: number;
+    twoAgencies?: boolean;
+  },
+): { primary: number; second: number; total: number } {
+  const baseAmount =
+    rule.base === "bodyPrice"
+      ? Math.max(0, args.sellingBase)
+      : rule.base === "grossProfit"
+        ? Math.max(0, args.grossProfit)
+        : rule.base === "sellingPrice"
+          ? Math.max(0, args.sellingTotal)
+          : 0;
 
   const counter = rule.counter.enabled
     ? args.monthlyCounter * rule.counter.rate * rule.counter.months
     : 0;
 
-  let total = base + counter + rule.fixed;
-  if (rule.cap > 0) total = Math.min(total, rule.cap);
-  return roundTo(Math.max(0, total), rule.roundUnit || 1);
+  let primary = baseAmount * rule.rate + counter + rule.fixed;
+  if (rule.cap > 0) primary = Math.min(primary, rule.cap);
+  primary = roundTo(Math.max(0, primary), rule.roundUnit || 1);
+
+  const second = args.twoAgencies
+    ? roundTo(Math.max(0, baseAmount * (rule.secondRate ?? 0)), rule.roundUnit || 1)
+    : 0;
+
+  return { primary, second, total: primary + second };
 }
 
 /** 1提案の見積・月額・収益をまとめて計算 */
@@ -235,11 +264,13 @@ export function calcProposal(
   const discount = sellingBase + addOnTotal - listTotal;
   const tax = Math.round(sellingTotal * taxRate);
 
+  // 月額リース料は端数を切り上げる（設定の leaseRoundUnit 単位）
+  const leaseUnit = settings.leaseRoundUnit ?? 1;
   const leaseByTerm: Record<number, number> = {};
   for (const [term, rate] of Object.entries(settings.leaseRates)) {
-    leaseByTerm[Number(term)] = Math.round(sellingTotal * rate);
+    leaseByTerm[Number(term)] = ceilTo(sellingTotal * rate, leaseUnit);
   }
-  const monthlyLease = leaseByTerm[targetTerm] ?? Math.round(sellingTotal * leaseRate);
+  const monthlyLease = leaseByTerm[targetTerm] ?? ceilTo(sellingTotal * leaseRate, leaseUnit);
 
   // カウンター単価
   const currentCounterAmount = calcCounter(quote.current.units, quote.current).total;
@@ -272,6 +303,7 @@ export function calcProposal(
     sellingTotal,
     sellingBase,
     monthlyCounter: counter.total,
+    twoAgencies: proposal.twoAgencies,
   });
 
   return {
@@ -305,8 +337,9 @@ export function calcProposal(
     diffSixYears: diffMonthly * 72,
     cost,
     grossProfit: Math.round(grossProfit),
-    ptf,
-    netProfit: Math.round(grossProfit - ptf),
+    ptf: ptf.total,
+    ptfBreakdown: { primary: ptf.primary, second: ptf.second },
+    netProfit: Math.round(grossProfit - ptf.total),
   };
 }
 

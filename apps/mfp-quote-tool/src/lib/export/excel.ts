@@ -85,6 +85,20 @@ function setupSheet(sheet: ExcelJS.Worksheet) {
 }
 
 /** 見積書＋比較表の1メーカー分シートを作る */
+/** ロゴ画像をシート左上に貼る（ExcelJSはPNG/JPEGのみ） */
+export function putLogo(
+  wb: ExcelJS.Workbook,
+  sheet: ExcelJS.Worksheet,
+  logo?: { buffer: Buffer; mime: string; raster: boolean },
+): void {
+  if (!logo?.raster) return;
+  const id = wb.addImage({
+    buffer: logo.buffer as unknown as ExcelJS.Buffer,
+    extension: logo.mime === "image/png" ? "png" : "jpeg",
+  });
+  sheet.addImage(id, { tl: { col: 6.7, row: 0.1 }, ext: { width: 210, height: 46 } });
+}
+
 export function addQuoteSheet(
   wb: ExcelJS.Workbook,
   quote: Quote,
@@ -121,14 +135,16 @@ export function addQuoteSheet(
     ["御受渡期日", "別途お打ち合わせ"],
     ["御支払条件", "別途お打ち合わせ"],
     ["有効期限", c.validityText],
+    ...(quote.staffName ? ([["担当者", quote.staffName]] as [string, string][]) : []),
   ];
   const companyLines = [
     c.name,
     c.representative ?? "",
     c.tel ? `TEL ${c.tel}` : "",
     c.fax ? `FAX ${c.fax}` : "",
-    c.branchNote ?? "",
-    c.address ?? "",
+    ...(c.offices?.length
+      ? c.offices.map((o) => `${o.name}　${o.address}`)
+      : [c.branchNote ?? "", c.address ?? ""]),
     c.areaNote ?? "",
   ];
   headerRows.forEach(([label, value], i) => {
@@ -487,6 +503,8 @@ export function addProfitSheet(wb: ExcelJS.Workbook, calcs: ProposalCalc[]): Exc
     { width: 14 },
     { width: 14 },
     { width: 14 },
+    { width: 14 },
+    { width: 14 },
     { width: 10 },
   ];
   let r = 1;
@@ -495,8 +513,21 @@ export function addProfitSheet(wb: ExcelJS.Workbook, calcs: ProposalCalc[]): Exc
   putRow(
     sheet,
     r++,
-    ["メーカー", "機種", "仕切価格", "本体価格", "上乗せ(PTF対象外)", "販売額計", "GP（粗利益）", "PTF", "NP（純利益）", "粗利率"],
-    { bold: true, fill: HEADER_FILL, border: true, align: Array(10).fill("center") },
+    [
+      "メーカー",
+      "機種",
+      "仕切価格",
+      "本体価格",
+      "上乗せ(PTF対象外)",
+      "販売額計",
+      "GP",
+      "PTF",
+      "PTF(1社目)",
+      "PTF(2社目)",
+      "NP",
+      "粗利率",
+    ],
+    { bold: true, fill: HEADER_FILL, border: true, align: Array(12).fill("center") },
   );
   for (const c of calcs) {
     putRow(
@@ -511,15 +542,18 @@ export function addProfitSheet(wb: ExcelJS.Workbook, calcs: ProposalCalc[]): Exc
         c.sellingTotal,
         c.grossProfit,
         c.ptf,
+        c.ptfBreakdown.primary,
+        c.ptfBreakdown.second,
         c.netProfit,
         c.sellingTotal > 0 ? c.grossProfit / c.sellingTotal : 0,
       ],
       { border: true, numFmt: YEN },
     );
-    sheet.getRow(r - 1).getCell(11).numFmt = "0.0%";
+    sheet.getRow(r - 1).getCell(13).numFmt = "0.0%";
   }
   r++;
   putRow(sheet, r++, ["※PTFは本体価格に料率を適用します。オプション・追加PC設定の上乗せ分は対象外です。"]);
+  putRow(sheet, r++, ["※代理店が2社の案件は、1社目・2社目それぞれの払い出し額を内訳に記載しています。"]);
   return sheet;
 }
 

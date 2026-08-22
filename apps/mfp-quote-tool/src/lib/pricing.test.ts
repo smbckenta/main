@@ -5,6 +5,7 @@ import {
   calcCurrent,
   calcProposal,
   calcPtf,
+  ceilTo,
   leaseRateOf,
   pickTier,
   recommendEntry,
@@ -89,8 +90,10 @@ describe("販売額の逆算", () => {
 
   it("5年・7年の月額もリースシミュレーションとして併記できる", () => {
     const calc = calcProposal(makeQuote(), makeProposal(), settings);
-    expect(calc.leaseByTerm[60]).toBe(Math.round(771_100 * 0.0195));
-    expect(calc.leaseByTerm[84]).toBe(Math.round(771_100 * 0.0145));
+    // 月額リース料は100円単位で切り上げる
+    expect(calc.leaseByTerm[60]).toBe(ceilTo(771_100 * 0.0195, 100));
+    expect(calc.leaseByTerm[84]).toBe(ceilTo(771_100 * 0.0145, 100));
+    expect(calc.leaseByTerm[60]).toBe(15_100);
   });
 
   it("仕切＋GPモードでは 本体価格 = 仕切価格 + GP（端数処理なし）", () => {
@@ -188,8 +191,16 @@ describe("カウンター単価の自動判定", () => {
     expect(units.color).toBe(8.0);
   });
 
-  it("2色カラーはカラー単価の係数で算出する", () => {
+  it("京セラの2色カラーは2.0円（メーカー別の指定を優先する）", () => {
     const units = autoCounterUnits(settings, makeQuote(), "KYOCERA", {
+      counterMono: [0.4, 0.8],
+      counterColor: [4.0, 8.0],
+    });
+    expect(units.twoColor).toBe(2.0);
+  });
+
+  it("メーカー別の指定が無い場合はカラー単価の係数で算出する", () => {
+    const units = autoCounterUnits(settings, makeQuote(), "SHARP", {
       counterMono: [0.4, 0.8],
       counterColor: [4.0, 8.0],
     });
@@ -223,6 +234,7 @@ describe("PTF", () => {
   const rule = (over: Partial<Parameters<typeof calcPtf>[0]> = {}) => ({
     base: "bodyPrice" as const,
     rate: 0.1,
+    secondRate: 0.02,
     fixed: 0,
     counter: { enabled: false, rate: 0, months: 0 },
     cap: 0,
@@ -232,8 +244,34 @@ describe("PTF", () => {
 
   it("本体価格の10%（既定）", () => {
     expect(
-      calcPtf(rule(), { grossProfit: 300_000, sellingTotal: 900_000, sellingBase: 771_100, monthlyCounter: 19_100 }),
+      calcPtf(rule(), { grossProfit: 300_000, sellingTotal: 900_000, sellingBase: 771_100, monthlyCounter: 19_100 })
+        .total,
     ).toBe(77_110);
+  });
+
+  it("代理店が2社の場合は 10% と 2% を別々に払い出す", () => {
+    const ptf = calcPtf(rule(), {
+      grossProfit: 300_000,
+      sellingTotal: 900_000,
+      sellingBase: 771_100,
+      monthlyCounter: 19_100,
+      twoAgencies: true,
+    });
+    expect(ptf.primary).toBe(77_110);
+    expect(ptf.second).toBe(15_422);
+    expect(ptf.total).toBe(92_532);
+  });
+
+  it("代理店2社ぶんのPTFはNPから引かれる", () => {
+    const base = calcProposal(makeQuote(), makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000 }), settings);
+    const two = calcProposal(
+      makeQuote(),
+      makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000, twoAgencies: true }),
+      settings,
+    );
+    expect(two.ptfBreakdown.second).toBe(Math.round(base.sellingBase * 0.02));
+    expect(two.ptf).toBe(base.ptf + two.ptfBreakdown.second);
+    expect(two.netProfit).toBe(base.netProfit - two.ptfBreakdown.second);
   });
 
   it("オプション・追加PC設定の上乗せ分には料率を適用しない", () => {
@@ -284,7 +322,7 @@ describe("PTF", () => {
         sellingTotal: 1_000_000,
         sellingBase: 1_000_000,
         monthlyCounter: 0,
-      }),
+      }).total,
     ).toBe(100_000);
   });
 
@@ -295,7 +333,7 @@ describe("PTF", () => {
         sellingTotal: 0,
         sellingBase: 0,
         monthlyCounter: 19_100,
-      }),
+      }).total,
     ).toBe(10_000 + 19_100 * 0.1 * 60);
   });
 });
@@ -405,7 +443,7 @@ describe("旧リースの残債精算", () => {
       makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000, leaseTerm: 72 }),
       settings,
     );
-    expect(calc.monthlyLease).toBe(Math.round(calc.sellingTotal * 0.0166));
+    expect(calc.monthlyLease).toBe(ceilTo(calc.sellingTotal * 0.0166, 100));
   });
 
   it("設定で無効にすれば従来どおり上乗せしない", () => {

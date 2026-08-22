@@ -17,7 +17,12 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
       initialCurrent={current}
       initialProposals={proposals}
       initialServiceArea={serviceArea}
-      settings={settings}
+      // 画面（ブラウザ）へ渡すので、削除パスワードのハッシュとAPIキーは伏せる
+      settings={{
+        ...settings,
+        deletion: { passwordHash: "" },
+        ai: { ...settings.ai, apiKey: "" },
+      }}
     />
   );
 }
