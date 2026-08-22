@@ -127,8 +127,8 @@ export const DEFAULT_SETTINGS: Settings = {
   // 見積書番号の台帳（Googleスプレッドシート「見積書」シート）
   quoteRegister: {
     enabled: true,
-    // Apps Script のデプロイが管理者設定で止められている環境向けに、既定はサービスアカウント
-    mode: "serviceAccount",
+    // 台帳のスプレッドシートに設置した Apps Script のウェブアプリ経由で読み書きする
+    mode: "appsScript",
     spreadsheetId: "1EcnpradH2qyEqrH8hxQvTCbjTS6Q9HUDofabKZDLWPE",
     sheetName: "見積書",
     webAppUrl: "",
