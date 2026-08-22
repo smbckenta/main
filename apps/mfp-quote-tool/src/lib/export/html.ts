@@ -27,26 +27,26 @@ const CSS = `
   body {
     font-family: ${FONT_STACK};
     color: var(--ink);
-    font-size: 10pt;
+    font-size: 9.5pt;
     margin: 0;
-    line-height: 1.45;
+    line-height: 1.35;
   }
 
   h1 {
-    font-size: 21pt;
-    letter-spacing: 0.45em;
+    font-size: 19pt;
+    letter-spacing: 0.4em;
     text-align: center;
     color: var(--accent);
-    margin: 10px 0 4px;
-    text-indent: 0.45em;
+    margin: 4px 0 3px;
+    text-indent: 0.4em;
   }
   h1 + .small { text-align: center; color: #4a5a6b; }
   h1::after {
     content: "";
     display: block;
-    width: 132px;
-    height: 3px;
-    margin: 8px auto 0;
+    width: 120px;
+    height: 2px;
+    margin: 5px auto 0;
     background: linear-gradient(90deg, var(--accent), #6f9bc4);
     border-radius: 2px;
   }
@@ -63,7 +63,7 @@ const CSS = `
 
   table { border-collapse: collapse; width: 100%; }
   .grid { border: 1px solid var(--line); }
-  .grid th, .grid td { border: 1px solid var(--line-soft); padding: 4px 7px; }
+  .grid th, .grid td { border: 1px solid var(--line-soft); padding: 2.5px 6px; }
   .grid thead th {
     background: var(--accent);
     color: #fff;
@@ -73,7 +73,7 @@ const CSS = `
   }
   .grid tbody th { background: var(--accent-soft); font-weight: 600; }
   .grid tbody tr:nth-child(even) td { background: #f7fafc; }
-  .plain td { padding: 2px 2px; vertical-align: top; }
+  .plain td { padding: 0 2px; vertical-align: top; line-height: 1.5; }
 
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .center { text-align: center; }
@@ -92,15 +92,15 @@ const CSS = `
   /* 自社情報 */
   .company {
     text-align: left;
-    max-width: 58%;
-    font-size: 9pt;
-    line-height: 1.55;
+    max-width: 56%;
+    font-size: 8.5pt;
+    line-height: 1.4;
     border-left: 3px solid var(--accent);
-    padding: 2px 0 2px 10px;
+    padding: 0 0 0 9px;
   }
-  .company .name { font-size: 12.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
-  .company .logo { display: block; width: 230px; max-height: 52px; object-fit: contain; object-position: left center; margin-bottom: 5px; }
-  .company .offices { margin-top: 4px; font-size: 8.3pt; }
+  .company .name { font-size: 11.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
+  .company .logo { display: block; width: 215px; max-height: 42px; object-fit: contain; object-position: left center; margin-bottom: 2px; }
+  .company .offices { margin-top: 2px; font-size: 7.8pt; }
   .company .offices div { display: flex; gap: 6px; }
   .company .offices .office-name { font-weight: 600; white-space: nowrap; color: var(--accent); }
   .brand { display: flex; align-items: center; gap: 10px; }
@@ -110,33 +110,34 @@ const CSS = `
   .lease-box {
     display: flex;
     align-items: baseline;
-    gap: 12px;
-    margin: 12px 0 8px;
-    padding: 8px 14px;
+    gap: 10px;
+    margin: 8px 0 6px;
+    padding: 5px 12px;
     background: linear-gradient(90deg, var(--accent-soft), #f7fafc);
     border: 1px solid var(--line);
     border-left: 5px solid var(--accent);
     border-radius: 3px;
   }
   .lease-box .label { font-weight: 700; font-size: 11pt; color: var(--accent); letter-spacing: 0.08em; }
-  .lease-box .value { font-size: 19pt; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
+  .lease-box .value { font-size: 17pt; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
   .lease-box .value::before { content: "¥"; font-size: 13pt; margin-right: 2px; color: var(--accent); }
 
   .section {
-    margin-top: 14px;
+    margin-top: 8px;
     font-weight: 700;
     color: var(--accent);
     border-left: 4px solid var(--accent);
     padding-left: 8px;
   }
   .notes {
-    margin-top: 12px;
-    font-size: 8.5pt;
+    margin-top: 8px;
+    font-size: 8pt;
+    line-height: 1.4;
     white-space: pre-wrap;
     background: #f7fafc;
     border: 1px solid var(--line-soft);
     border-radius: 3px;
-    padding: 8px 10px;
+    padding: 5px 8px;
   }
 
   .grid tbody tr.sum-row td { background: var(--accent-soft); font-weight: 700; }
@@ -194,8 +195,7 @@ function companyBlock(settings: Settings, logo?: string): string {
 
   return `
     <div class="company">
-      ${logo ? `<img class="logo" src="${logo}" alt="${esc(c.name)}">` : ""}
-      <div class="name"${logo ? ' style="font-size:11pt"' : ""}>${esc(c.name)}</div>
+      ${logo ? `<img class="logo" src="${logo}" alt="${esc(c.name)}">` : `<div class="name">${esc(c.name)}</div>`}
       <div>${esc(c.representative ?? "")}</div>
       <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
       ${offices}
@@ -241,7 +241,7 @@ function quoteHeader(
   </div>
   <h1>御 見 積 書</h1>
   <div class="small">下記の通り御見積申し上げます。何卒よろしくお願い致します。</div>
-  <div class="head" style="margin-top:8px">
+  <div class="head" style="margin-top:5px">
     <table class="plain" style="width:52%">
       <tr><td style="width:6.5em">物件名</td><td>：${esc(subject)}</td></tr>
       <tr><td>納入場所</td><td>：別途お打ち合わせ</td></tr>

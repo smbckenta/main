@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
@@ -121,6 +121,48 @@ export default function QuoteEditor({
     setServiceArea(json.serviceArea ?? undefined);
     setDirty(false);
   }
+
+  /** 一度引いた型番は覚えておき、同じ型番で何度も取りに行かない */
+  const triedModels = useRef(new Set<string>());
+
+  /**
+   * 現行機の型番が入ったら、ボタンを押さなくてもスペックを引く。
+   * 入力の途中で走らないよう少し待ってから、1つの型番につき1回だけ問い合わせる。
+   */
+  useEffect(() => {
+    const model = quote.current.modelText.trim();
+    if (model.length < 3 || quote.current.deviceId) return;
+    const key = model.toUpperCase();
+    if (triedModels.current.has(key)) return;
+
+    const timer = setTimeout(async () => {
+      triedModels.current.add(key);
+      try {
+        const res = await fetch("/api/devices/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model }),
+        });
+        const json = await res.json();
+        if (!json.device) return;
+        // 入力が変わっていたら反映しない
+        if (quote.current.modelText.trim() !== model) return;
+        patchCurrent({
+          deviceId: json.device.id,
+          makerText: json.device.makerText ?? quote.current.makerText,
+        });
+        setMessage(
+          json.origin === "local"
+            ? `機種DBから ${json.device.model} のスペックを反映しました。`
+            : `インターネットから ${json.device.model} のスペックを取得しました。`,
+        );
+      } catch {
+        /* 自動取得なので、失敗しても画面は止めない */
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote.current.modelText, quote.current.deviceId]);
 
   function patchQuote(patch: Partial<Quote>) {
     setDirty(true);
@@ -369,7 +411,7 @@ export default function QuoteEditor({
             <input value={quote.current.modelText} onChange={(e) => patchCurrent({ modelText: e.target.value })} />
           </Field>
           <button className="secondary" onClick={lookupCurrentSpec} disabled={!!busy}>
-            スペックを取得
+            スペックを再取得
           </button>
           <Field label="月額リース料" width={130}>
             <NumberInput value={quote.current.monthlyLease} onChange={(v) => patchCurrent({ monthlyLease: v })} />
