@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
 import { AiDocumentSchema, toCounterReadings, toLeaseReading, type AiDocument } from "./schema";
 
 /** 未指定の項目をすべて null で埋めた土台 */
@@ -33,12 +33,19 @@ const counter = (patch: Partial<AiDocument["counters"][number]>) => ({
 });
 
 describe("AIの出力形式", () => {
-  it("APIに渡せるJSONスキーマに変換できる", () => {
-    const format = zodOutputFormat(AiDocumentSchema);
-    expect(format.type).toBe("json_schema");
-    const schema = JSON.parse(JSON.stringify(format));
-    // 構造化出力は全項目 required・追加項目禁止でなければ受け付けられない
-    expect(JSON.stringify(schema)).toContain("documentType");
+  it("プロンプトに載せるJSONスキーマを生成できる（参照ではなく展開された形で）", () => {
+    const schema = z.toJSONSchema(AiDocumentSchema, { reused: "inline" });
+    const text = JSON.stringify(schema);
+    // プロンプトに貼るので、$ref だと読み手（AI）が辿れない
+    expect(text).not.toContain("$ref");
+    expect(text).toContain("documentType");
+    expect(text).toContain("remainingDebt");
+    // 項目の説明が落ちていないこと
+    expect(text).toContain("残債");
+  });
+
+  it("欠けた項目のあるJSONは受け取らない", () => {
+    expect(AiDocumentSchema.safeParse({ documentType: "counter" }).success).toBe(false);
   });
 });
 

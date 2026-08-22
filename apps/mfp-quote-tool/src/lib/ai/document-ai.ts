@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
 import { ROLE_LABELS, type DocRole } from "../doc-roles";
 import { heicToJpeg, isHeic, pdfPageCount, renderPdfPage, resizeImage } from "../parse/ocr";
 import type { AiSettings } from "../types";
@@ -134,6 +134,9 @@ async function pdfBlocks(
   return { blocks, notes };
 }
 
+/** プロンプトに載せる出力形式（検証に使うスキーマからそのまま生成する） */
+const SCHEMA_TEXT = JSON.stringify(z.toJSONSchema(AiDocumentSchema, { reused: "inline" }), null, 1);
+
 const SYSTEM_PROMPT = `あなたは複合機（コピー機・プリンター）を扱う販売会社で、お客様からお預かりした書類を読み取る担当者です。
 渡される書類は次のいずれかです。
 - リース契約書
@@ -153,7 +156,34 @@ const SYSTEM_PROMPT = `あなたは複合機（コピー機・プリンター）
 - 支払予定表の残債（remainingDebt）は、本日以降で最初に到来する支払回の「残高（未経過リース料）」。書類に「残債」「一括精算額」の記載があればその金額を使う。
 - 読み取れない項目は推測せず null にする。数字を作らない。
 - evidence には、その値の根拠になった書類上の行をそのまま（読み取れた文字のまま）入れる。
-- transcript には書類本文を上から順に書き起こす。表は1行1レコード、列は半角スペース区切り。最大300行。`;
+- transcript には書類本文を上から順に書き起こす。表は1行1レコード、列は半角スペース区切り。最大150行（長い書類は数字が入っている行を優先する）。
+
+出力の形式
+次のJSON Schemaに従うJSONオブジェクトだけを出力してください。
+説明・前置き・あとがき・コードフェンス（\`\`\`）は一切付けず、{ で始まり } で終わる本文だけを返します。
+${SCHEMA_TEXT}`;
+
+/**
+ * 応答からJSONを取り出す。
+ * 前置きやコードフェンスが付いた場合に備えて、最初の { から最後の } までを拾う。
+ */
+function safeJson(text: string): unknown {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return undefined;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return undefined;
+  }
+}
+
+function textOf(response: Anthropic.Message): string {
+  return response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
 
 export interface AnalyzeInput {
   name: string;
@@ -191,39 +221,67 @@ export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnal
       ? `この書類は「${ROLE_LABELS[input.role]}」として預かったものです。\n`
       : "";
 
-  const response = await client.messages.parse({
-    model: input.ai.model || "claude-opus-5",
-    max_tokens: 16000,
-    system: SYSTEM_PROMPT,
-    messages: [
+  const userText = `${hint}ファイル名: ${input.name}\n本日の日付: ${today}\nこの書類を読み取ってください。`;
+  const messages: Anthropic.MessageParam[] = [
+    { role: "user", content: [...blocks, { type: "text", text: userText }] },
+  ];
+
+  // 構造化出力（サーバ側で形式を強制する機能）は、この項目数だと
+  // 「compiled grammar is too large」で弾かれるため、
+  // JSONで返させて手元で検証する。崩れていれば理由を伝えて1度だけ引き直す。
+  let parsed: AiDocument | undefined;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let model = input.ai.model || "claude-opus-5";
+  let lastError = "";
+
+  for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+    const response: Anthropic.Message = await client.messages.create({
+      model: input.ai.model || "claude-opus-5",
+      max_tokens: 16000,
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      messages,
+    });
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
+    model = response.model;
+
+    if (response.stop_reason === "refusal") {
+      throw new Error(`AIが読み取りを中断しました（${response.stop_details?.category ?? "理由不明"}）。`);
+    }
+    const body = textOf(response);
+    if (response.stop_reason === "max_tokens") {
+      lastError = "出力が長すぎて途中で切れました。transcript は空の配列にしてください。";
+    } else {
+      const json = safeJson(body);
+      if (json === undefined) {
+        lastError = "応答にJSONが含まれていませんでした。";
+      } else {
+        const result = AiDocumentSchema.safeParse(json);
+        if (result.success) {
+          parsed = result.data;
+          break;
+        }
+        lastError = result.error.issues
+        .slice(0, 10)
+          .map((i) => `${i.path.join(".") || "(全体)"}: ${i.message}`)
+          .join(" / ");
+      }
+    }
+    messages.push(
+      { role: "assistant", content: body.slice(0, 2000) || "(空の応答)" },
       {
         role: "user",
-        content: [
-          ...blocks,
-          {
-            type: "text",
-            text: `${hint}ファイル名: ${input.name}\n本日の日付: ${today}\nこの書類を読み取ってください。`,
-          },
-        ],
+        content: `前回の出力を取り込めませんでした（${lastError}）。JSON Schemaに従うJSONオブジェクトだけを、もう一度出力してください。`,
       },
-    ],
-    output_config: { format: zodOutputFormat(AiDocumentSchema) },
-  });
-
-  if (response.stop_reason === "refusal") {
-    throw new Error(`AIが読み取りを中断しました（${response.stop_details?.category ?? "理由不明"}）。`);
+    );
   }
-  const parsed = response.parsed_output;
-  if (!parsed) throw new Error("AIの応答を解析できませんでした。");
+
+  if (!parsed) throw new Error(`AIの応答を解析できませんでした（${lastError}）。`);
 
   if (notes.length) parsed.notes = [...notes, ...parsed.notes];
 
-  return {
-    document: parsed,
-    model: response.model,
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
-  };
+  return { document: parsed, model, inputTokens, outputTokens };
 }
 
 /** 概算利用料（Claude Opus 5: 入力$5 / 出力$25 per 1Mトークン） */
