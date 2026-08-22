@@ -54,6 +54,24 @@
     "updatedAt": "2026-08-22T00:00:00.000Z"
   },
   {
+    "id": "fujifilm-docucentre-c2276pfs",
+    "maker": "FUJIFILM",
+    "makerText": "富士フイルム",
+    "model": "Docucentre-Ⅴ C2276PFS",
+    "warmupSec": 30,
+    "firstCopyMonoSec": 6.6,
+    "firstCopyColorSec": 8.7,
+    "ppmMono": 25,
+    "ppmColor": 25,
+    "colorType": "color",
+    "maxPaperSize": "A3",
+    "source": {
+      "method": "seed",
+      "note": "既存スペック一覧Excelより取込"
+    },
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
     "id": "fujifilm-docucentre-v-c3375pfs",
     "maker": "FUJIFILM",
     "makerText": "富士フイルム",
@@ -90,24 +108,6 @@
     "updatedAt": "2026-08-22T00:00:00.000Z"
   },
   {
-    "id": "fujifilm-docucentre-c2276pfs",
-    "maker": "FUJIFILM",
-    "makerText": "富士フイルム",
-    "model": "Docucentre-Ⅴ C2276PFS",
-    "warmupSec": 30,
-    "firstCopyMonoSec": 6.6,
-    "firstCopyColorSec": 8.7,
-    "ppmMono": 25,
-    "ppmColor": 25,
-    "colorType": "color",
-    "maxPaperSize": "A3",
-    "source": {
-      "method": "seed",
-      "note": "既存スペック一覧Excelより取込"
-    },
-    "updatedAt": "2026-08-22T00:00:00.000Z"
-  },
-  {
     "id": "fujifilm-docucentre-c3371pfs",
     "maker": "FUJIFILM",
     "makerText": "富士フイルム",
@@ -124,6 +124,22 @@
       "note": "既存スペック一覧Excelより取込"
     },
     "updatedAt": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "maker": "KONICA_MINOLTA",
+    "makerText": "コニカミノルタ",
+    "model": "bizhub C220",
+    "warmupSec": 45,
+    "firstCopyMonoSec": 7.5,
+    "firstCopyColorSec": 11,
+    "ppmMono": 22,
+    "ppmColor": 22,
+    "source": {
+      "method": "manual",
+      "note": "既存比較表より"
+    },
+    "id": "d6478882-0829-4eb8-b5c9-f18d7576d32c",
+    "updatedAt": "2026-08-22T02:12:00.615Z"
   },
   {
     "id": "kyocera-taskalfa2554ci",
