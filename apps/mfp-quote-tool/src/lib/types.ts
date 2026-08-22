@@ -249,6 +249,24 @@ export interface Settings {
   ptf: PtfRule;
   /** 見積金額の端数処理単位 */
   roundUnit: number;
+  /** AI（Claude）による書類の読み取り */
+  ai: AiSettings;
+}
+
+/**
+ * AI（Claude）で書類を読み取るための設定。
+ * スキャンPDFや写真は文字起こし（OCR）だけでは表が崩れて読めないため、
+ * PDF・画像をそのままAIに渡して内容を判断させる。
+ */
+export interface AiSettings {
+  /** AI解析を使うか */
+  enabled: boolean;
+  /** APIキー。空欄なら環境変数 ANTHROPIC_API_KEY を使う */
+  apiKey: string;
+  /** 使用するモデル */
+  model: string;
+  /** 1ファイルあたりAIに渡す最大ページ数 */
+  maxPages: number;
 }
 
 /* ---------------- 読み取り結果 ---------------- */
@@ -316,6 +334,12 @@ export interface CurrentMachine {
   monoPages: number;
   colorPages: number;
   twoColorPages: number;
+  /**
+   * 枚数の集計期間。
+   * カウンター明細を複数月分読み込んだ場合、月間枚数はこの期間の平均になる。
+   * 見積書・比較表には「（2025/03-2025/08平均印刷枚数）」と注記する。
+   */
+  pagesPeriod?: { from: string; to: string; months: number };
   /** 現行のカウンター単価 */
   units: CounterUnits;
   /** 保守料金（別建ての場合） */

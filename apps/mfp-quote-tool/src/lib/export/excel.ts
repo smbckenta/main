@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { CurrentCalc, ProposalCalc, Quote, Settings } from "../types";
 import { MAKER_LABELS } from "../types";
+import { pagesAverageNote } from "../labels";
 
 /**
  * 既存の御見積書・比較表と同じ並びの Excel を生成する。
@@ -307,7 +308,7 @@ function addCompareBlock(
   });
   r++;
 
-  putRow(sheet, r++, ["　　月間印刷枚数"], { bold: true });
+  putRow(sheet, r++, [`　　月間印刷枚数${pagesAverageNote(cm)}`], { bold: true });
   putRow(sheet, r++, ["ブラック", cm.monoPages, "枚"], { numFmt: YEN });
   putRow(sheet, r++, ["フルカラー", cm.colorPages, "枚"], { numFmt: YEN });
   putRow(sheet, r++, ["2色カラー", cm.twoColorPages, "枚"], { numFmt: YEN });
@@ -443,7 +444,7 @@ export function addMultiCompareSheet(
   putRow(sheet, r++, ["複合機 比較表（各社同時比較）"], { bold: true });
   putRow(sheet, r++, [`${quote.customerName}　${quote.customerHonorific}`]);
   putRow(sheet, r++, [
-    `月間印刷枚数：ブラック ${quote.current.monoPages.toLocaleString()}枚 / フルカラー ${quote.current.colorPages.toLocaleString()}枚 / 2色カラー ${quote.current.twoColorPages.toLocaleString()}枚`,
+    `月間印刷枚数${pagesAverageNote(quote.current)}：ブラック ${quote.current.monoPages.toLocaleString()}枚 / フルカラー ${quote.current.colorPages.toLocaleString()}枚 / 2色カラー ${quote.current.twoColorPages.toLocaleString()}枚`,
   ]);
   r++;
 

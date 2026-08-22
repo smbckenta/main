@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
+import { pagesAverageNote } from "@/lib/labels";
 import type {
   CurrentCalc,
   LeaseTerm,
@@ -308,7 +309,14 @@ export default function QuoteEditor({
           </p>
         )}
 
-        <h3>月間印刷枚数と現行カウンター単価</h3>
+        <h3>月間印刷枚数と現行カウンター単価{pagesAverageNote(quote.current)}</h3>
+        {quote.current.pagesPeriod && (
+          <p className="muted">
+            カウンター明細 {quote.current.pagesPeriod.months}ヶ月ぶん（{quote.current.pagesPeriod.from} 〜{" "}
+            {quote.current.pagesPeriod.to}）の平均です。見積書・比較表にも
+            {pagesAverageNote(quote.current)}と表示されます。
+          </p>
+        )}
         <div className="row">
           <Field label="モノクロ枚数" width={120}>
             <NumberInput value={quote.current.monoPages} onChange={(v) => patchCurrent({ monoPages: v })} />

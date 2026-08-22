@@ -239,14 +239,18 @@ export function dedupeReadings(readings: CounterReading[]): CounterReading[] {
   return out;
 }
 
-export function toMonthlyAverage(input: CounterReading[]): {
+export interface MonthlyAverage {
   monoPages: number;
   colorPages: number;
   twoColorPages: number;
   monoUnit?: number;
   colorUnit?: number;
   twoColorUnit?: number;
-} {
+  /** 平均のもとにした集計期間（複数月ぶんを読み込んだ場合） */
+  period?: { from: string; to: string; months: number };
+}
+
+export function toMonthlyAverage(input: CounterReading[]): MonthlyAverage {
   const readings = dedupeReadings(input);
   if (!readings.length) return { monoPages: 0, colorPages: 0, twoColorPages: 0 };
 
@@ -288,7 +292,32 @@ export function toMonthlyAverage(input: CounterReading[]): {
     monoUnit: monoUnits.length ? median(monoUnits) : undefined,
     colorUnit: colorUnits.length ? median(colorUnits) : undefined,
     twoColorUnit: twoColorUnits.length ? median(twoColorUnits) : undefined,
+    period: coveredPeriod(readings),
   };
+}
+
+/**
+ * 読み取れた明細が何年何月から何年何月までを含むか。
+ * 1機番あたりの月数を数え、2ヶ月以上あるときだけ「平均」として扱う。
+ */
+function coveredPeriod(readings: CounterReading[]): MonthlyAverage["period"] {
+  const dated = readings.filter((r) => r.periodFrom || r.periodTo);
+  if (dated.length < 2) return undefined;
+
+  const froms = dated.map((r) => r.periodFrom ?? r.periodTo!).sort();
+  const tos = dated.map((r) => r.periodTo ?? r.periodFrom!).sort();
+  const from = froms[0];
+  const to = tos[tos.length - 1];
+
+  // 同じ機械の明細が何ヶ月ぶんあるか（複数機番なら1台あたりの月数）
+  const bySerial = new Map<string, number>();
+  for (const r of dated) {
+    const key = r.serialNo ?? "-";
+    bySerial.set(key, (bySerial.get(key) ?? 0) + monthsBetween(r.periodFrom, r.periodTo));
+  }
+  const months = Math.max(...bySerial.values());
+  if (months < 2) return undefined;
+  return { from, to, months };
 }
 
 function median(values: number[]): number {

@@ -182,11 +182,21 @@ async function ocrPdf(name: string, buf: Buffer): Promise<{ lines: string[]; war
   return { lines, warnings };
 }
 
+export interface ExtractOptions {
+  /**
+   * OCR（文字起こし）を使うか。
+   * AIで読み取る場合は不要なので、無駄な待ち時間を省くために切れるようにしている。
+   */
+  ocr?: boolean;
+}
+
 export async function extractDocument(
   name: string,
   buf: Buffer,
   mime?: string,
+  opts: ExtractOptions = {},
 ): Promise<ExtractedDoc> {
+  const useOcr = opts.ocr ?? true;
   const kind = detectKind(name, mime);
   const warnings: string[] = [];
   let lines: string[] = [];
@@ -195,22 +205,24 @@ export async function extractDocument(
 
   try {
     if (kind === "image") {
-      const r = await extractImage(name, buf);
-      lines = r.lines;
-      warnings.push(...r.warnings);
-      ocrUsed = true;
+      if (useOcr) {
+        const r = await extractImage(name, buf);
+        lines = r.lines;
+        warnings.push(...r.warnings);
+        ocrUsed = true;
+      }
     } else if (kind === "pdf") {
       const r = await extractPdf(buf);
       lines = r.lines;
       // 文字が取れない＝スキャン画像のPDF。ページを画像化してOCRに回す
-      if (lines.join("").length < TEXT_LAYER_MIN_CHARS) {
+      if (useOcr && lines.join("").length < TEXT_LAYER_MIN_CHARS) {
         const o = await ocrPdf(name, buf);
         if (o.lines.length) {
           lines = o.lines;
           ocrUsed = true;
         }
         warnings.push(...o.warnings);
-      } else {
+      } else if (useOcr) {
         warnings.push(...r.warnings);
       }
     } else if (kind === "excel") {

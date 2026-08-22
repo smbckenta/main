@@ -491,6 +491,52 @@ export default function SettingsPage() {
       </section>
 
       <section className="panel">
+        <h2>AIによる書類の読み取り</h2>
+        <p className="muted">
+          アップロードしたPDF・写真をAI（Claude）がそのまま読み取ります。
+          文字起こし（OCR）では崩れてしまうスキャン書類・スマホ写真でも、表の意味を踏まえて枚数・単価・リース料を拾えます。
+          APIキーは <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">Anthropic Console</a> で発行してください。
+        </p>
+        <div className="row">
+          <Field label="AIで読み取る" width={160}>
+            <select
+              value={s.ai.enabled ? "1" : "0"}
+              onChange={(e) => set({ ai: { ...s.ai, enabled: e.target.value === "1" } })}
+            >
+              <option value="1">使う（推奨）</option>
+              <option value="0">使わない（OCRのみ）</option>
+            </select>
+          </Field>
+          <Field label="APIキー" width={360}>
+            <input
+              type="password"
+              value={s.ai.apiKey}
+              placeholder="sk-ant-... （空欄なら環境変数 ANTHROPIC_API_KEY を使用）"
+              onChange={(e) => set({ ai: { ...s.ai, apiKey: e.target.value } })}
+            />
+          </Field>
+          <Field label="モデル" width={200}>
+            <input value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} />
+          </Field>
+          <Field label="1ファイルの最大ページ数" width={180}>
+            <input
+              type="number"
+              value={s.ai.maxPages}
+              onChange={(e) => set({ ai: { ...s.ai, maxPages: Number(e.target.value) } })}
+            />
+          </Field>
+        </div>
+        <p className="warn" style={{ marginTop: 10 }}>
+          APIキーは設定ファイル（settings.json）に保存されます。保存先を共有ドライブにしている場合は、
+          共有相手にもキーが見えることにご注意ください。共有したくない場合は空欄のままにして、
+          環境変数 ANTHROPIC_API_KEY で渡してください。
+          <br />
+          読み取りにはお客様の書類がAnthropicのAPIへ送信されます（学習には使われません）。
+          利用料はA4数枚の書類1件あたり数円〜十数円が目安です。
+        </p>
+      </section>
+
+      <section className="panel">
         <button onClick={save}>設定を保存</button>
         {message && <span className="badge" style={{ marginLeft: 12 }}>{message}</span>}
       </section>

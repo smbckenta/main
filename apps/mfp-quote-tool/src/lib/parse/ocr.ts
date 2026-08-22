@@ -307,15 +307,24 @@ function usefulness(lines: string[]): number {
   return score;
 }
 
-/** 長辺を指定サイズに合わせて描き直す */
-async function resized(buf: Buffer, longSide: number): Promise<Buffer | null> {
+/**
+ * 長辺を指定サイズに合わせて描き直す（PNG）。作り直す必要がない場合は null を返す。
+ *  - force: 大きさが同じでも必ず描き直す（PNG以外の形式をPNGに変換したいとき）
+ *  - shrinkOnly: 拡大はしない（AIに渡す画像を小さくするときに使う）
+ */
+export async function resizeImage(
+  buf: Buffer,
+  longSide: number,
+  opts?: { force?: boolean; shrinkOnly?: boolean },
+): Promise<Buffer | null> {
   try {
     const { createCanvas, loadImage } = await import("@napi-rs/canvas");
     const image = await loadImage(buf);
     const current = Math.max(image.width, image.height);
+    if (opts?.shrinkOnly && current <= longSide && !opts.force) return null;
     // ほぼ同じ大きさなら作り直す意味がない
-    if (Math.abs(current - longSide) / current < 0.08) return null;
-    const scale = longSide / current;
+    if (!opts?.force && Math.abs(current - longSide) / current < 0.08) return null;
+    const scale = opts?.shrinkOnly ? Math.min(1, longSide / current) : longSide / current;
     const w = Math.max(1, Math.round(image.width * scale));
     const h = Math.max(1, Math.round(image.height * scale));
     const canvas = createCanvas(w, h);
@@ -343,13 +352,13 @@ export async function ocrImageLines(buf: Buffer): Promise<string[]> {
   const read = async (image: Buffer) => toLines((await worker.recognize(image)).data.text);
 
   // まずは無加工（スキャン画像はこれで十分なことが多い）
-  const capped = (await resized(buf, 3000)) ?? buf;
+  const capped = (await resizeImage(buf, 3000, { shrinkOnly: true })) ?? buf;
   let best = await read(capped);
   if (usefulness(best) >= 40) return best;
 
   // 解像度を変えると認識のかかり方が大きく変わるため、数通り試す
   for (const longSide of [1600, 1200, 2200]) {
-    const image = await resized(buf, longSide);
+    const image = await resizeImage(buf, longSide);
     if (!image) continue;
     const lines = await read(image);
     if (usefulness(lines) > usefulness(best)) best = lines;

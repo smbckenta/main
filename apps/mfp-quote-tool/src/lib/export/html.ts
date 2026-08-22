@@ -1,5 +1,6 @@
 import type { CurrentCalc, ProposalCalc, Quote, Settings } from "../types";
 import { yen } from "../pricing";
+import { pagesAverageNote } from "../labels";
 
 /**
  * 既存の御見積書・比較表（Excel）の体裁に合わせたHTML。
@@ -286,7 +287,7 @@ export function renderCompareHtml(
   </div>
 
   <table class="grid" style="width:60%;margin-bottom:10px">
-    <thead><tr><th colspan="2">月間印刷枚数</th></tr></thead>
+    <thead><tr><th colspan="2">月間印刷枚数${esc(pagesAverageNote(c))}</th></tr></thead>
     <tbody>
       <tr><td>ブラック</td><td class="num">${n(c.monoPages)} 枚</td></tr>
       <tr><td>フルカラー</td><td class="num">${n(c.colorPages)} 枚</td></tr>
@@ -420,7 +421,7 @@ export function renderMultiCompareHtml(
     <div class="small">${esc(jpDate(quote.quoteDate))}／${esc(settings.company.name)}</div>
   </div>
   <div class="small" style="margin:6px 0">
-    月間印刷枚数：ブラック ${n(c.monoPages)}枚 ／ フルカラー ${n(c.colorPages)}枚 ／ 2色カラー ${n(c.twoColorPages)}枚
+    月間印刷枚数${esc(pagesAverageNote(c))}：ブラック ${n(c.monoPages)}枚 ／ フルカラー ${n(c.colorPages)}枚 ／ 2色カラー ${n(c.twoColorPages)}枚
   </div>
   <table class="grid">
     <thead>${head}</thead>

@@ -84,6 +84,7 @@ export async function getSettings(): Promise<Settings> {
       ...(stored.ptf ?? {}),
       counter: { ...DEFAULT_SETTINGS.ptf.counter, ...(stored.ptf?.counter ?? {}) },
     },
+    ai: { ...DEFAULT_SETTINGS.ai, ...(stored.ai ?? {}) },
   };
 }
 

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ROLE_LABELS } from "@/lib/doc-roles";
+import { pagesAverageNote } from "@/lib/labels";
 import type { IngestResult } from "@/lib/ingest";
 
 /** リース契約書・印刷明細をアップロードして案件を新規作成する */
@@ -72,7 +73,8 @@ export default function NewQuoteForm() {
       <p className="muted">
         リース契約書・リース支払予定表・印刷明細書（カウンター明細）を選択してください。
         PDF / 写真・画像（JPEG・PNG・HEIC）/ Excel / CSV に対応しています。
-        文字データを持たないスキャンPDFや、スマホで撮った書類の写真は自動で文字起こし（OCR）します。
+        文字データを持たないスキャンPDFや、スマホで撮った書類の写真は、AI（Claude）がそのまま読み取ります。
+        AIを使わない設定の場合は文字起こし（OCR）で読み取ります。
       </p>
       <div className="row">
         <div className="field" style={{ minWidth: 320 }}>
@@ -93,7 +95,7 @@ export default function NewQuoteForm() {
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <button onClick={analyze} disabled={busy}>
-          {busy ? "解析中…（写真は1枚あたり数秒かかります）" : "資料を解析"}
+          {busy ? "解析中…（1ファイルあたり10〜60秒ほどかかります）" : "資料を解析"}
         </button>
         <button className="secondary" onClick={create} disabled={busy}>
           {result ? "この内容で案件を作成" : "空の案件を作成"}
@@ -127,9 +129,18 @@ export default function NewQuoteForm() {
               </table>
             </div>
             <div className="card">
-              <h3>月間印刷枚数・単価</h3>
+              <h3>月間印刷枚数・単価{pagesAverageNote(result.current)}</h3>
               <table>
                 <tbody>
+                  {result.current.pagesPeriod && (
+                    <tr>
+                      <th>集計期間</th>
+                      <td>
+                        {result.current.pagesPeriod.from} 〜 {result.current.pagesPeriod.to}
+                        （{result.current.pagesPeriod.months}ヶ月の平均）
+                      </td>
+                    </tr>
+                  )}
                   <tr><th>モノクロ</th><td className="num">{result.current.monoPages.toLocaleString()}枚 / {result.current.units.mono}円</td></tr>
                   <tr><th>フルカラー</th><td className="num">{result.current.colorPages.toLocaleString()}枚 / {result.current.units.color}円</td></tr>
                   <tr><th>2色カラー</th><td className="num">{result.current.twoColorPages.toLocaleString()}枚 / {result.current.units.twoColor}円</td></tr>
@@ -149,15 +160,30 @@ export default function NewQuoteForm() {
                   <td>{f.name}</td>
                   <td>{f.kind === "image" ? "画像" : f.kind}</td>
                   <td>{ROLE_LABELS[f.role]}</td>
-                  <td>{f.ocrUsed ? <span className="badge">OCR（文字起こし）</span> : "テキスト抽出"}</td>
+                  <td>
+                    {f.aiUsed ? (
+                      <span className="badge">AI読み取り</span>
+                    ) : f.ocrUsed ? (
+                      <span className="badge">OCR（文字起こし）</span>
+                    ) : (
+                      "テキスト抽出"
+                    )}
+                  </td>
                   <td className="num">{f.lineCount}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {result.files.some((f) => f.ocrUsed) && (
+          {result.files.some((f) => f.ocrUsed || f.aiUsed) && (
             <p className="warn" style={{ marginTop: 10 }}>
               写真・スキャンPDFの読み取り結果は誤認識が起こりえます。枚数・単価・リース料は必ず原本と照合してください。
+            </p>
+          )}
+          {result.ai && (
+            <p className="muted">
+              AI読み取り：{result.ai.files}ファイル／{result.ai.model}／
+              入力{result.ai.inputTokens.toLocaleString()}・出力{result.ai.outputTokens.toLocaleString()}トークン
+              （概算 ${result.ai.estimatedUsd.toFixed(3)}）
             </p>
           )}
 

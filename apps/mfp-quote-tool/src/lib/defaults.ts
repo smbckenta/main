@@ -92,4 +92,12 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 
   roundUnit: 100,
+
+  // 書類の読み取りはAI（Claude）が既定。APIキーは設定画面か環境変数 ANTHROPIC_API_KEY で渡す
+  ai: {
+    enabled: true,
+    apiKey: "",
+    model: "claude-opus-5",
+    maxPages: 20,
+  },
 };
