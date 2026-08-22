@@ -195,6 +195,18 @@ export function calcProposal(
   const addOnTotal = sumItems(proposal.items.filter((i) => i.ptfExempt)) * qty;
   const cost = (proposal.cost ?? ctx.priceBook?.cost ?? 0) * qty;
 
+  // 旧リースの残債精算（残債 + 現行リース料×解約事務手数料の月数）も
+  // 新しいリースに含めるため、上乗せ分として扱う（PTFの対象外）
+  const debt = settings.debtSettlement;
+  const remainingDebt = debt.includeInQuote ? (quote.current.remainingDebt ?? 0) : 0;
+  const cancellationFee = remainingDebt > 0 ? quote.current.monthlyLease * debt.cancellationMonths : 0;
+  const debtSettlement = {
+    remainingDebt,
+    cancellationFee,
+    months: debt.cancellationMonths,
+    total: Math.round(remainingDebt + cancellationFee),
+  };
+
   // 本体価格（PTFの対象）の決定
   let sellingBase = 0;
   const targetTerm = proposal.leaseTerm;
@@ -205,7 +217,7 @@ export function calcProposal(
   } else if (proposal.pricingMode === "fromLease") {
     // 目標月額から逆算した総額から、上乗せ分を差し引いた残りが本体価格
     const total = leaseRate > 0 ? (proposal.targetMonthlyLease ?? 0) / leaseRate : 0;
-    sellingBase = total - addOnTotal;
+    sellingBase = total - addOnTotal - debtSettlement.total;
   } else if (proposal.pricingMode === "fromMargin") {
     const rate = Math.min(Math.max(proposal.marginRate ?? settings.defaultMarginRate, 0), 0.95);
     sellingBase = cost > 0 ? cost / (1 - rate) : 0;
@@ -218,8 +230,9 @@ export function calcProposal(
       ? Math.max(0, Math.round(sellingBase))
       : roundTo(Math.max(0, sellingBase), settings.roundUnit);
 
-  const sellingTotal = sellingBase + addOnTotal;
-  const discount = sellingTotal - listTotal;
+  const sellingTotal = sellingBase + addOnTotal + debtSettlement.total;
+  // 値引きは機器の見積明細に対する調整。残債精算は値引きの対象にしない
+  const discount = sellingBase + addOnTotal - listTotal;
   const tax = Math.round(sellingTotal * taxRate);
 
   const leaseByTerm: Record<number, number> = {};
@@ -252,7 +265,8 @@ export function calcProposal(
   const current = calcCurrent(quote, taxRate);
   const diffMonthly = monthlyTotal - current.monthlyTotal;
 
-  const grossProfit = sellingTotal - cost;
+  // 残債精算はリース会社へ支払う立替分なので粗利には含めない
+  const grossProfit = sellingBase + addOnTotal - cost;
   const ptf = calcPtf(settings.ptf, {
     grossProfit,
     sellingTotal,
@@ -268,6 +282,7 @@ export function calcProposal(
     listTotal,
     sellingBase,
     addOnTotal,
+    debtSettlement,
     sellingTotal,
     discount,
     tax,

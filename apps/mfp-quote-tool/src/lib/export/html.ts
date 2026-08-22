@@ -171,6 +171,15 @@ export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Sett
       ${itemRows}
       <tr class="sum-row"><td></td><td>本体合計</td><td colspan="3"></td><td class="num">${n(calc.listTotal)}</td><td></td></tr>
       <tr><td></td><td>お値引き</td><td colspan="2"></td><td class="center">▲</td><td class="num">${n(calc.discount)}</td><td></td></tr>
+      ${
+        calc.debtSettlement.total > 0
+          ? `<tr>
+        <td></td><td>旧リース残債精算</td><td colspan="3"></td>
+        <td class="num">${n(calc.debtSettlement.total)}</td>
+        <td class="muted">残債 ${n(calc.debtSettlement.remainingDebt)}＋解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分）${n(calc.debtSettlement.cancellationFee)}</td>
+      </tr>`
+          : ""
+      }
       <tr class="sum-row"><td></td><td>販売額計</td><td colspan="3"></td><td class="num">${n(calc.sellingTotal)}</td><td></td></tr>
     </tbody>
   </table>
@@ -199,7 +208,11 @@ export function renderQuoteHtml(quote: Quote, calc: ProposalCalc, settings: Sett
     <tbody>${leaseRows}</tbody>
   </table>
 
-  <div class="notes">※　この御見積書の金額は「税抜」となっております。
+  <div class="notes">${
+    calc.debtSettlement.total > 0
+      ? `※　現在ご利用中のリースの残債（${n(calc.debtSettlement.remainingDebt)}円）と解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分 ${n(calc.debtSettlement.cancellationFee)}円）を本見積に含めております。\n`
+      : ""
+  }※　この御見積書の金額は「税抜」となっております。
 ※　PC設定台数は${settings.company.name.includes("Denrai") ? pcSetupNote(calc) : ""}
 ${p.note ? `※　${esc(p.note)}` : ""}</div>
   `;

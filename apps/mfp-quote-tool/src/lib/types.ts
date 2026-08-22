@@ -237,6 +237,15 @@ export interface Settings {
   areas: AreaSetting[];
   /** 既定の粗利率（fromMargin モード用） */
   defaultMarginRate: number;
+  /**
+   * 現行リースの残債精算。
+   * 残債 + 現行リース料 × 解約事務手数料の月数 を見積金額（リース対象額）に含める。
+   */
+  debtSettlement: {
+    includeInQuote: boolean;
+    /** 解約事務手数料として上乗せする現行リース料の月数 */
+    cancellationMonths: number;
+  };
   ptf: PtfRule;
   /** 見積金額の端数処理単位 */
   roundUnit: number;
@@ -409,7 +418,15 @@ export interface ProposalCalc {
   sellingBase: number;
   /** オプション・追加設定の上乗せ合計（PTF対象外） */
   addOnTotal: number;
-  /** 販売額計 = 本体価格 + 上乗せ分 */
+  /** 旧リースの残債精算（残債 + 解約事務手数料）。PTF対象外 */
+  debtSettlement: {
+    remainingDebt: number;
+    /** 解約事務手数料（現行リース料 × 月数） */
+    cancellationFee: number;
+    months: number;
+    total: number;
+  };
+  /** 販売額計 = 本体価格 + 上乗せ分 + 残債精算 */
   sellingTotal: number;
   /** 値引き（負値） */
   discount: number;

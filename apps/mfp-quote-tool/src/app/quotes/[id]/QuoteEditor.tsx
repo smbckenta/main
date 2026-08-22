@@ -301,8 +301,10 @@ export default function QuoteEditor({
         </div>
         {!!quote.current.remainingDebt && (
           <p className="warn">
-            現行リースの残債が {quote.current.remainingDebt.toLocaleString()} 円あります。
-            残債の処理方法（新リースへの上乗せ／一括精算）を提案条件に織り込んでください。
+            現行リースの残債 {quote.current.remainingDebt.toLocaleString()} 円と、解約事務手数料（現行リース料の
+            {settings.debtSettlement.cancellationMonths}ヶ月分{" "}
+            {(quote.current.monthlyLease * settings.debtSettlement.cancellationMonths).toLocaleString()} 円）を、
+            各社の見積金額に含めて計算しています。
           </p>
         )}
 
@@ -930,6 +932,14 @@ function ProposalPanel({
                   <tr>
                     <th>オプション等の上乗せ（PTF対象外）</th>
                     <td className="num">{yen(calc.addOnTotal)}</td>
+                  </tr>
+                )}
+                {calc.debtSettlement.total > 0 && (
+                  <tr>
+                    <th>
+                      旧リース残債精算（残債＋解約事務手数料{calc.debtSettlement.months}ヶ月）
+                    </th>
+                    <td className="num">{yen(calc.debtSettlement.total)}</td>
                   </tr>
                 )}
                 <tr><th>販売額計（税抜）</th><td className="num">{yen(calc.sellingTotal)}</td></tr>

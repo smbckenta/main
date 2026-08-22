@@ -362,3 +362,67 @@ describe("削減額", () => {
     expect(calc.diffMonthly).toBeLessThan(0); // 削減提案になっている
   });
 });
+
+describe("旧リースの残債精算", () => {
+  const quoteWithDebt = () => {
+    const q = makeQuote();
+    q.current.remainingDebt = 390_000;
+    q.current.monthlyLease = 15_000;
+    return q;
+  };
+
+  it("残債＋現行リース料3ヶ月分を見積金額に含める", () => {
+    const calc = calcProposal(
+      quoteWithDebt(),
+      makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000 }),
+      settings,
+    );
+    expect(calc.debtSettlement.remainingDebt).toBe(390_000);
+    expect(calc.debtSettlement.cancellationFee).toBe(45_000); // 15,000 × 3ヶ月
+    expect(calc.debtSettlement.total).toBe(435_000);
+    expect(calc.sellingBase).toBe(441_500 + 200_000);
+    expect(calc.sellingTotal).toBe(441_500 + 200_000 + 435_000);
+  });
+
+  it("残債精算分はPTFの対象にしない", () => {
+    const calc = calcProposal(
+      quoteWithDebt(),
+      makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000 }),
+      settings,
+    );
+    expect(calc.ptf).toBe(Math.round(calc.sellingBase * 0.1));
+  });
+
+  it("残債がなければ何も上乗せしない", () => {
+    const calc = calcProposal(makeQuote(), makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000 }), settings);
+    expect(calc.debtSettlement.total).toBe(0);
+    expect(calc.sellingTotal).toBe(calc.sellingBase);
+  });
+
+  it("月額リース料は残債精算を含めた金額から計算する", () => {
+    const calc = calcProposal(
+      quoteWithDebt(),
+      makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000, leaseTerm: 72 }),
+      settings,
+    );
+    expect(calc.monthlyLease).toBe(Math.round(calc.sellingTotal * 0.0166));
+  });
+
+  it("設定で無効にすれば従来どおり上乗せしない", () => {
+    const off = structuredClone(settings);
+    off.debtSettlement.includeInQuote = false;
+    const calc = calcProposal(quoteWithDebt(), makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000 }), off);
+    expect(calc.debtSettlement.total).toBe(0);
+  });
+});
+
+describe("残債精算とGPの関係", () => {
+  it("残債精算は立替なのでGP・NPに含めない", () => {
+    const q = makeQuote();
+    q.current.remainingDebt = 390_000;
+    const calc = calcProposal(q, makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000 }), settings);
+    expect(calc.sellingTotal).toBe(441_500 + 200_000 + 435_000);
+    expect(calc.grossProfit).toBe(200_000); // 残債435,000は粗利にならない
+    expect(calc.netProfit).toBe(200_000 - calc.ptf);
+  });
+});

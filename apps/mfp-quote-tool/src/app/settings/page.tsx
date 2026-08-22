@@ -192,6 +192,35 @@ export default function SettingsPage() {
             />
           </Field>
         </div>
+
+        <h3>旧リースの残債精算</h3>
+        <div className="row">
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="checkbox"
+              checked={s.debtSettlement.includeInQuote}
+              onChange={(e) =>
+                set({ debtSettlement: { ...s.debtSettlement, includeInQuote: e.target.checked } })
+              }
+            />
+            残債と解約事務手数料を見積金額に含める
+          </label>
+          <Field label="解約事務手数料（リース料の月数）" width={230}>
+            <input
+              type="number"
+              value={s.debtSettlement.cancellationMonths}
+              onChange={(e) =>
+                set({
+                  debtSettlement: { ...s.debtSettlement, cancellationMonths: Number(e.target.value) },
+                })
+              }
+            />
+          </Field>
+        </div>
+        <p className="muted">
+          残債がある案件では「残債 ＋ 現行リース料 × 上記の月数」を見積金額（リース対象額）に上乗せします。
+          この上乗せ分はPTFの計算対象になりません。
+        </p>
       </section>
 
       <section className="panel">

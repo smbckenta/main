@@ -191,6 +191,22 @@ export function addQuoteSheet(
     numFmt: YEN,
     align: [undefined, undefined, undefined, undefined, "center"],
   });
+  if (calc.debtSettlement.total > 0) {
+    putRow(
+      sheet,
+      r++,
+      [
+        "",
+        "旧リース残債精算",
+        "",
+        "",
+        "",
+        calc.debtSettlement.total,
+        `残債 ${calc.debtSettlement.remainingDebt.toLocaleString()} ＋ 解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分）`,
+      ],
+      { border: true, numFmt: YEN },
+    );
+  }
   putRow(sheet, r++, ["", "販売額計", "", "", "", calc.sellingTotal, ""], {
     border: true,
     bold: true,

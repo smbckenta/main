@@ -78,6 +78,9 @@ export const DEFAULT_SETTINGS: Settings = {
 
   defaultMarginRate: 0.3,
 
+  // 旧リースの残債は「残債 + 現行リース料3ヶ月分（解約事務手数料）」を見積金額に含める
+  debtSettlement: { includeInQuote: true, cancellationMonths: 3 },
+
   // PTFは本体価格の10%。オプション・追加PC設定として上乗せした分には料率を適用しない
   ptf: {
     base: "bodyPrice",
