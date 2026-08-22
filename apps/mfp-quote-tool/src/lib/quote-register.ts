@@ -1,6 +1,7 @@
 import type { ProposalCalc, Quote, QuoteRegisterSettings } from "./types";
 import { listQuotes } from "./store";
 import { appendRows, readRegister, updateRow, type RegisterState } from "./google/sheets";
+import { readRegisterViaAppsScript, writeRowsViaAppsScript } from "./google/apps-script";
 import { readServiceAccountKey } from "./google/service-account";
 
 /**
@@ -32,7 +33,21 @@ export function registerRow(quote: Quote, calc: ProposalCalc): [string, string, 
 }
 
 export function isRegisterReady(settings: QuoteRegisterSettings): boolean {
-  return Boolean(settings.enabled && settings.spreadsheetId && settings.sheetName);
+  if (!settings.enabled || !settings.sheetName) return false;
+  return settings.mode === "appsScript"
+    ? Boolean(settings.webAppUrl && settings.webAppToken)
+    : Boolean(settings.spreadsheetId);
+}
+
+/** 接続方式に応じて台帳を読む */
+async function readState(settings: QuoteRegisterSettings): Promise<RegisterState> {
+  if (settings.mode === "appsScript") {
+    return readRegisterViaAppsScript(settings.webAppUrl, settings.webAppToken, settings.sheetName);
+  }
+  if (!(await readServiceAccountKey())) {
+    throw new Error("Googleの鍵ファイル（google-service-account.json）が見つかりません。");
+  }
+  return readRegister(settings.spreadsheetId, settings.sheetName);
 }
 
 /** 手元に保存済みの案件から、使用済みの最大番号を求める */
@@ -66,11 +81,10 @@ export async function allocateQuoteNumbers(
   const local = await localMaxNumber();
   const floor = Math.max(local, settings.startNumber - 1);
 
-  if (isRegisterReady(settings) && (await readServiceAccountKey())) {
+  if (isRegisterReady(settings)) {
     try {
-      const state = await readRegister(settings.spreadsheetId, settings.sheetName);
-      const base = Math.max(state.maxNumber, floor);
-      return { numbers: seq(base, count), fromSheet: true };
+      const state = await readState(settings);
+      return { numbers: pickNumbers(state, count, floor), fromSheet: true };
     } catch (err) {
       return {
         numbers: seq(floor, count),
@@ -84,6 +98,22 @@ export async function allocateQuoteNumbers(
 
 const seq = (base: number, count: number): string[] =>
   Array.from({ length: count }, (_, i) => String(base + 1 + i));
+
+/**
+ * 使う番号を決める。
+ * この台帳は番号を先に振っておく運用なので、
+ * 「番号だけあって顧客名・内容が空の行」を上から順に使う。
+ * 空き行を使い切った場合だけ、最大番号の続きを新しく作る。
+ */
+export function pickNumbers(state: RegisterState, count: number, floor: number): string[] {
+  const vacant = state.vacantNumbers.filter((n) => n > floor);
+  const picked = vacant.slice(0, count).map(String);
+  if (picked.length < count) {
+    const base = Math.max(state.maxNumber, floor, Number(picked.at(-1) ?? 0));
+    picked.push(...seq(base, count - picked.length));
+  }
+  return picked;
+}
 
 export interface SyncResult {
   /** 台帳へ書き込めた行数 */
@@ -107,19 +137,26 @@ export async function syncRegister(
   if (!rows.length) return { written: 0, rows };
 
   if (!isRegisterReady(settings)) {
-    return { written: 0, rows, warning: "台帳への自動転記は未設定です。下の行をコピーして貼り付けてください。" };
-  }
-  if (!(await readServiceAccountKey())) {
     return {
       written: 0,
       rows,
-      warning:
-        "Googleの鍵ファイル（google-service-account.json）が見つかりません。下の行をコピーして貼り付けてください。",
+      warning: "台帳への自動転記は未設定です。下の行をコピーして貼り付けてください。",
     };
   }
 
   try {
-    const state: RegisterState = await readRegister(settings.spreadsheetId, settings.sheetName);
+    if (settings.mode === "appsScript") {
+      const written = await writeRowsViaAppsScript(
+        settings.webAppUrl,
+        settings.webAppToken,
+        settings.sheetName,
+        rows,
+      );
+      return { written, rows };
+    }
+
+    // 先に振ってある番号の行を書き換える。無い番号だけ最終行に追記する
+    const state: RegisterState = await readState(settings);
     const toAppend: [string, string, string][] = [];
     let written = 0;
     for (const row of rows) {

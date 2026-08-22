@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registerContent, registerRow } from "./quote-register";
+import { pickNumbers, registerContent, registerRow } from "./quote-register";
 import { calcProposal } from "./pricing";
 import { DEFAULT_SETTINGS } from "./defaults";
 import type { Proposal, Quote } from "./types";
@@ -90,5 +90,56 @@ describe("旧リース残債精算の見せ方", () => {
     const calc = calcProposal(q, proposal(), DEFAULT_SETTINGS, { makerNote });
     expect(calc.debtSettlement.totalMonths).toBe(0);
     expect(calc.debtSettlement.total).toBe(0);
+  });
+});
+
+describe("番号の選び方（先に振ってある空き番号を使う）", () => {
+  const state = (rows: [number, string, string][]) => {
+    const rowByNumber = new Map<number, number>();
+    const vacantNumbers: number[] = [];
+    let maxNumber = 0;
+    rows.forEach(([n, customer, content], i) => {
+      rowByNumber.set(n, i + 1);
+      if (n > maxNumber) maxNumber = n;
+      if (!customer && !content) vacantNumbers.push(n);
+    });
+    return { maxNumber, rowByNumber, vacantNumbers };
+  };
+
+  it("顧客名も内容も空の行の番号を、上から順に使う", () => {
+    const s = state([
+      [137238, "既存A", "蓄電池"],
+      [137239, "既存B", "蓄電池"],
+      [137240, "", ""],
+      [137241, "", ""],
+      [137242, "", ""],
+    ]);
+    expect(pickNumbers(s, 3, 0)).toEqual(["137240", "137241", "137242"]);
+  });
+
+  it("顧客名だけ入っている行は空きとみなさない", () => {
+    const s = state([
+      [137236, "どみちゃん", ""],
+      [137237, "どみちゃん", ""],
+      [137238, "", ""],
+    ]);
+    expect(pickNumbers(s, 1, 0)).toEqual(["137238"]);
+  });
+
+  it("手元で使用済みの番号は飛ばす（書き込み前に採番した分の重複を防ぐ）", () => {
+    const s = state([
+      [137240, "", ""],
+      [137241, "", ""],
+      [137242, "", ""],
+    ]);
+    expect(pickNumbers(s, 2, 137_240)).toEqual(["137241", "137242"]);
+  });
+
+  it("空き行を使い切ったら最大番号の続きを作る", () => {
+    const s = state([
+      [137240, "済", "内容"],
+      [137241, "", ""],
+    ]);
+    expect(pickNumbers(s, 3, 0)).toEqual(["137241", "137242", "137243"]);
   });
 });

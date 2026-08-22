@@ -735,13 +735,12 @@ export default function SettingsPage() {
       <section className="panel">
         <h2>見積書番号の台帳（Googleスプレッドシート）</h2>
         <p className="muted">
-          見積書番号は台帳の続きから採番し、発行した番号は「見積書番号／顧客名／内容」の3列で書き戻します。
-          自動転記には、Googleのサービスアカウント鍵（<code>google-service-account.json</code>）を
-          データの保存先に置き、そのアカウントのメールアドレスをスプレッドシートの「編集者」に追加してください。
-          鍵が無い場合でも、案件画面に貼り付け用の行が表示されます。
+          見積書番号は台帳の「番号だけ入っていて顧客名が空の行」を上から順に使い、
+          その行に 顧客名／内容 を書き込みます（末尾に追記はしません）。
+          番号は<strong>機種（提案）1件につき1つ</strong>消費します。
         </p>
         <div className="row">
-          <Field label="台帳を使う" width={150}>
+          <Field label="台帳を使う" width={140}>
             <select
               value={s.quoteRegister.enabled ? "1" : "0"}
               onChange={(e) =>
@@ -752,14 +751,21 @@ export default function SettingsPage() {
               <option value="0">使わない</option>
             </select>
           </Field>
-          <Field label="スプレッドシートID" width={380}>
-            <input
-              value={s.quoteRegister.spreadsheetId}
-              placeholder="URLの /d/ と /edit の間"
+          <Field label="接続方式" width={260}>
+            <select
+              value={s.quoteRegister.mode}
               onChange={(e) =>
-                set({ quoteRegister: { ...s.quoteRegister, spreadsheetId: e.target.value.trim() } })
+                set({
+                  quoteRegister: {
+                    ...s.quoteRegister,
+                    mode: e.target.value as Settings["quoteRegister"]["mode"],
+                  },
+                })
               }
-            />
+            >
+              <option value="appsScript">Apps Script（設定が簡単・推奨）</option>
+              <option value="serviceAccount">サービスアカウント鍵</option>
+            </select>
           </Field>
           <Field label="シート名" width={140}>
             <input
@@ -767,7 +773,7 @@ export default function SettingsPage() {
               onChange={(e) => set({ quoteRegister: { ...s.quoteRegister, sheetName: e.target.value } })}
             />
           </Field>
-          <Field label="開始番号" width={130}>
+          <Field label="開始番号（台帳が読めないとき）" width={220}>
             <input
               type="number"
               value={s.quoteRegister.startNumber}
@@ -777,6 +783,55 @@ export default function SettingsPage() {
             />
           </Field>
         </div>
+
+        {s.quoteRegister.mode === "appsScript" ? (
+          <>
+            <div className="row">
+              <Field label="ウェブアプリのURL" width={460}>
+                <input
+                  value={s.quoteRegister.webAppUrl}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  onChange={(e) =>
+                    set({ quoteRegister: { ...s.quoteRegister, webAppUrl: e.target.value.trim() } })
+                  }
+                />
+              </Field>
+              <Field label="合言葉（スクリプトのTOKEN）" width={240}>
+                <input
+                  type="password"
+                  value={s.quoteRegister.webAppToken}
+                  onChange={(e) =>
+                    set({ quoteRegister: { ...s.quoteRegister, webAppToken: e.target.value } })
+                  }
+                />
+              </Field>
+            </div>
+            <p className="muted">
+              台帳のスプレッドシートで「拡張機能 →  Apps Script」を開き、
+              <code>docs/apps-script/QuoteRegister.gs</code> の内容を貼り付けて
+              「デプロイ → ウェブアプリ（実行：自分／アクセス：全員）」にすると、URLが表示されます。
+              Google Cloud の設定は不要です。
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="row">
+              <Field label="スプレッドシートID" width={420}>
+                <input
+                  value={s.quoteRegister.spreadsheetId}
+                  placeholder="URLの /d/ と /edit の間"
+                  onChange={(e) =>
+                    set({ quoteRegister: { ...s.quoteRegister, spreadsheetId: e.target.value.trim() } })
+                  }
+                />
+              </Field>
+            </div>
+            <p className="muted">
+              サービスアカウントの鍵（<code>google-service-account.json</code>）をデータの保存先に置き、
+              そのメールアドレスをスプレッドシートの「編集者」に追加してください。
+            </p>
+          </>
+        )}
       </section>
 
       <section className="panel">

@@ -127,8 +127,11 @@ export const DEFAULT_SETTINGS: Settings = {
   // 見積書番号の台帳（Googleスプレッドシート「見積書」シート）
   quoteRegister: {
     enabled: true,
+    mode: "appsScript",
     spreadsheetId: "1EcnpradH2qyEqrH8hxQvTCbjTS6Q9HUDofabKZDLWPE",
     sheetName: "見積書",
+    webAppUrl: "",
+    webAppToken: "",
     startNumber: 137_240,
   },
 

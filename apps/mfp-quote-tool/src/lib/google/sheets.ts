@@ -75,18 +75,31 @@ export interface RegisterState {
   maxNumber: number;
   /** 見積書番号 → 行番号（1始まり） */
   rowByNumber: Map<number, number>;
+  /**
+   * 番号だけ先に振られていて、顧客名・内容が空の行の番号（小さい順）。
+   * この台帳は番号を先に振っておく運用のため、次の番号はここから取る。
+   */
+  vacantNumbers: number[];
 }
 
-/** A列（見積書番号）を読み、最大値と行位置を把握する */
-export async function readRegister(spreadsheetId: string, sheetName: string): Promise<RegisterState> {
-  const values = await getValues(spreadsheetId, sheetName, "A1:A100000");
+/** 台帳の A〜C 列から、番号の位置と「まだ使っていない番号」を把握する */
+export function toRegisterState(values: (string | number)[][]): RegisterState {
   const rowByNumber = new Map<number, number>();
+  const vacantNumbers: number[] = [];
   let maxNumber = 0;
   values.forEach((row, i) => {
     const n = Number(String(row?.[0] ?? "").replace(/[^0-9]/g, ""));
     if (!Number.isFinite(n) || n <= 0) return;
     rowByNumber.set(n, i + 1);
     if (n > maxNumber) maxNumber = n;
+    const customer = String(row?.[1] ?? "").trim();
+    const content = String(row?.[2] ?? "").trim();
+    if (!customer && !content) vacantNumbers.push(n);
   });
-  return { maxNumber, rowByNumber };
+  vacantNumbers.sort((a, b) => a - b);
+  return { maxNumber, rowByNumber, vacantNumbers };
+}
+
+export async function readRegister(spreadsheetId: string, sheetName: string): Promise<RegisterState> {
+  return toRegisterState(await getValues(spreadsheetId, sheetName, "A1:C100000"));
 }

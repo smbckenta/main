@@ -282,10 +282,20 @@ export interface Settings {
  */
 export interface QuoteRegisterSettings {
   enabled: boolean;
-  /** スプレッドシートのID（URLの /d/ と /edit の間） */
+  /**
+   * 台帳への接続方式
+   *  appsScript     : スプレッドシートに貼ったApps Scriptのウェブアプリ経由（設定が簡単）
+   *  serviceAccount : Google Cloudのサービスアカウント鍵を使う
+   */
+  mode: "appsScript" | "serviceAccount";
+  /** スプレッドシートのID（URLの /d/ と /edit の間）。serviceAccount で使う */
   spreadsheetId: string;
   /** シート（タブ）名 */
   sheetName: string;
+  /** Apps Script ウェブアプリのURL */
+  webAppUrl: string;
+  /** Apps Script と共有する合言葉 */
+  webAppToken: string;
   /** 台帳を読めないときに使う開始番号 */
   startNumber: number;
 }
