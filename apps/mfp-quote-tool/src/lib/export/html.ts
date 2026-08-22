@@ -618,7 +618,7 @@ export function renderCompareHtml(
     <tbody>
       <tr><th style="text-align:left">合計合算削減金額　（単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
       <tr><th style="text-align:left">合計合算削減金額　（年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
-      <tr><th style="text-align:left">合計合算削減金額　（6年間）</th><td class="num">${diff(calc.diffSixYears)}</td></tr>
+      <tr><th style="text-align:left">合計合算削減金額　（${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
     </tbody>
   </table>
 
@@ -727,12 +727,21 @@ export function renderMultiCompareHtml(
       ${row("月間経費（税込）", n(current.monthlyTotal), calcs.map((x) => n(x.monthlyTotal)))}
       ${row("削減額（単月）", "－", calcs.map((x) => diff(x.diffMonthly)))}
       ${row("削減額（年間）", "－", calcs.map((x) => diff(x.diffYearly)))}
-      ${row("削減額（6年間）", "－", calcs.map((x) => diff(x.diffSixYears)))}
+      ${row(leaseYearsLabel(calcs), "－", calcs.map((x) => diff(x.diffLeaseTerm)))}
     </tbody>
   </table>
   <div class="small" style="margin-top:6px">※黄色の列が月間経費の最も安い提案です。</div>
   `;
   return page(`比較表_${quote.customerName}_各社`, body);
+}
+
+/**
+ * 各社同時比較の「削減額（◯年間）」の見出し。
+ * 各社のリース年数はふつう揃えるが、揃っていない場合は年数を並べて誤解を防ぐ。
+ */
+function leaseYearsLabel(calcs: ProposalCalc[]): string {
+  const years = [...new Set(calcs.map((c) => c.leaseYears))];
+  return `削減額（${years.join("・")}年間＝リース期間）`;
 }
 
 const x2 = (v: number | undefined, unit: string): string => (v === undefined ? "－" : `${v}${unit}`);
@@ -1060,10 +1069,10 @@ export function renderFleetCompareHtml(
             <td class="num">${diff(calc.diffYearly)}</td>
           </tr>
           <tr class="total-row">
-            <th style="text-align:left">合計金額 （${calc.totalYears}年間）</th>
+            <th style="text-align:left">合計金額 （${calc.leaseYears}年間）</th>
             <td class="num">${n(calc.current.longTerm)}</td>
             <td class="num">${n(calc.proposal.longTerm)}</td>
-            <td class="num">${diff(calc.diffMonthly * 12 * calc.totalYears)}</td>
+            <td class="num">${diff(calc.diffLeaseTerm)}</td>
           </tr>
         </tbody>
       </table>
@@ -1074,7 +1083,7 @@ export function renderFleetCompareHtml(
         <tbody>
           <tr><th style="text-align:left">合計合算削減金額 （単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
           <tr><th style="text-align:left">合計合算削減金額 （年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
-          <tr><th style="text-align:left">合計合算削減金額 （${calc.effectYears}年間）</th><td class="num">${diff(calc.diffLongTerm)}</td></tr>
+          <tr><th style="text-align:left">合計合算削減金額 （${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
           <tr class="total-row"><th style="text-align:left">削減率</th><td class="num">${
             calc.reductionRate === 0
               ? "±0%"

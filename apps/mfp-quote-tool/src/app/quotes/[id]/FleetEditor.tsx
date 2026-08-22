@@ -11,6 +11,7 @@ import {
   proposalFromCurrent,
   withDeductionRate,
 } from "@/lib/fleet";
+import { LEASE_TERMS } from "@/lib/types";
 import type { ChargeTier, CurrentChargeLine, Fleet, FleetSide, FleetUnit, Quote } from "@/lib/types";
 
 /**
@@ -80,6 +81,7 @@ export default function FleetEditor({
         <p className="muted">
           複合機が複数台ある案件では、台数ぶんを1枚にまとめたA3ヨコの比較表を使います。
           設置場所ごとに現行機と提案機を並べ、リース料金とカウンター料金を台数ぶん合計して比べます。
+          削減シミュレーションは「単月・年間・リース年数ぶん」の3段で出します。
         </p>
         <button className="secondary" onClick={addUnit}>
           複数台比較表を使う（1台目を追加）
@@ -110,21 +112,18 @@ export default function FleetEditor({
             onChange={(e) => patch({ pagesNote: e.target.value })}
           />
         </div>
-        <div className="field" style={{ width: 130 }}>
-          <label>合計金額の年数</label>
-          <input
-            type="number"
-            value={fleet.totalYears}
-            onChange={(e) => patch({ totalYears: Number(e.target.value) || 6 })}
-          />
-        </div>
-        <div className="field" style={{ width: 130 }}>
-          <label>削減効果の年数</label>
-          <input
-            type="number"
-            value={fleet.effectYears}
-            onChange={(e) => patch({ effectYears: Number(e.target.value) || 7 })}
-          />
+        <div className="field" style={{ width: 170 }}>
+          <label>リース年数</label>
+          <select
+            value={fleet.leaseTerm}
+            onChange={(e) => patch({ leaseTerm: Number(e.target.value) })}
+          >
+            {LEASE_TERMS.map((t) => (
+              <option key={t} value={t}>
+                {Math.round(t / 12)}年（{t}回）
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -246,11 +245,11 @@ export default function FleetEditor({
                 <td className={`num ${calc.diffYearly < 0 ? "save" : "cut"}`}>{sign(calc.diffYearly)}</td>
               </tr>
               <tr>
-                <th>合計金額（{calc.totalYears}年間）</th>
+                <th>合計金額（{calc.leaseYears}年間）</th>
                 <td className="num">{yen(calc.current.longTerm)}</td>
                 <td className="num">{yen(calc.proposal.longTerm)}</td>
                 <td className={`num ${calc.diffMonthly < 0 ? "save" : "cut"}`}>
-                  {sign(calc.diffMonthly * 12 * calc.totalYears)}
+                  {sign(calc.diffLeaseTerm)}
                 </td>
               </tr>
               <tr>

@@ -516,10 +516,12 @@ export interface Fleet {
   enabled: boolean;
   /** 印刷枚数の集計期間（見出しの括弧書き。例: 2023年-2024年印刷枚数） */
   pagesNote?: string;
-  /** 合計金額を出す年数（既定6年） */
-  totalYears: number;
-  /** 削減効果を出す年数（既定7年） */
-  effectYears: number;
+  /**
+   * 提案するリースの支払回数（60/72/84）。
+   * 合計金額と削減額の「◯年間」は、この回数から出した年数に合わせる
+   * （6年リースなら6年間）。
+   */
+  leaseTerm: number;
   units: FleetUnit[];
 }
 
@@ -563,7 +565,7 @@ export interface FleetTotals {
   /** 合計金額（単月・税込） */
   monthly: number;
   yearly: number;
-  /** 合計金額（totalYears 年間） */
+  /** 合計金額（リース年数ぶん） */
   longTerm: number;
 }
 
@@ -574,10 +576,12 @@ export interface FleetCalc {
   /** 提案 − 現行（マイナスが削減） */
   diffMonthly: number;
   diffYearly: number;
-  /** effectYears 年間の削減額 */
-  diffLongTerm: number;
-  totalYears: number;
-  effectYears: number;
+  /** リース年数ぶんの削減額 */
+  diffLeaseTerm: number;
+  /** リースの支払回数（60/72/84） */
+  leaseTerm: number;
+  /** リース年数（5/6/7）。表の見出しに使う */
+  leaseYears: number;
   /** 削減率（マイナスが削減）。diffMonthly ÷ 現行の合計金額 */
   reductionRate: number;
 }
@@ -778,7 +782,10 @@ export interface ProposalCalc {
   /** 現行との差額（マイナスが削減） */
   diffMonthly: number;
   diffYearly: number;
-  diffSixYears: number;
+  /** リース期間ぶんの削減額（リース年数 × 12ヶ月） */
+  diffLeaseTerm: number;
+  /** この提案のリース年数（5/6/7）。比較表の見出しに使う */
+  leaseYears: number;
   /** 収益 */
   cost: number;
   grossProfit: number;

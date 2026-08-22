@@ -490,7 +490,9 @@ export function calcProposal(
     monthlyTotal,
     diffMonthly,
     diffYearly: diffMonthly * 12,
-    diffSixYears: diffMonthly * 72,
+    // 削減額の最後の1行は、提案するリース年数に合わせる（6年リースなら6年間）
+    diffLeaseTerm: diffMonthly * targetTerm,
+    leaseYears: Math.round(targetTerm / 12),
     cost,
     grossProfit: Math.round(grossProfit),
     ptf: ptf.total,

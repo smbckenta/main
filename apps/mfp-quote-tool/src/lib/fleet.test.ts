@@ -118,8 +118,7 @@ const unit16: FleetUnit = {
 const fleet: Fleet = {
   enabled: true,
   pagesNote: "2023年-2024年印刷枚数",
-  totalYears: 6,
-  effectYears: 7,
+  leaseTerm: 72,
   units: [unit1, unit4, unit7, unit16],
 };
 
@@ -178,17 +177,31 @@ describe("複数台比較表：全台の合計", () => {
     expect(calc.proposal.monthly).toBe(23_100 + 43_563);
   });
 
-  it("年間・6年間は単月から伸ばす", () => {
+  it("年間・リース年数ぶんは単月から伸ばす", () => {
     expect(calc.current.yearly).toBe(calc.current.monthly * 12);
     expect(calc.current.longTerm).toBe(calc.current.monthly * 72);
-    expect(calc.totalYears).toBe(6);
+    expect(calc.leaseYears).toBe(6);
   });
 
-  it("削減額はマイナスが削減。7年間ぶんまで出す", () => {
+  it("削減額はマイナスが削減。単月・年間・リース年数ぶんの3段で出す", () => {
     expect(calc.diffMonthly).toBe(66_663 - 99_804);
     expect(calc.diffYearly).toBe(calc.diffMonthly * 12);
-    expect(calc.diffLongTerm).toBe(calc.diffMonthly * 12 * 7);
+    expect(calc.diffLeaseTerm).toBe(calc.diffMonthly * 72);
     expect(calc.diffMonthly).toBeLessThan(0);
+  });
+
+  it("リース年数を変えると、合計も削減もその年数に合わせる", () => {
+    const five = calcFleet({ ...fleet, leaseTerm: 60 }, TAX);
+    expect(five.leaseYears).toBe(5);
+    expect(five.current.longTerm).toBe(five.current.monthly * 60);
+    expect(five.diffLeaseTerm).toBe(five.diffMonthly * 60);
+
+    const seven = calcFleet({ ...fleet, leaseTerm: 84 }, TAX);
+    expect(seven.leaseYears).toBe(7);
+    expect(seven.diffLeaseTerm).toBe(seven.diffMonthly * 84);
+    // 単月と年間はリース年数によらず同じ
+    expect(seven.diffMonthly).toBe(five.diffMonthly);
+    expect(seven.diffYearly).toBe(five.diffYearly);
   });
 
   it("削減率は現行の合計金額に対する割合", () => {
@@ -302,7 +315,7 @@ describe("A3ヨコの複数台比較表（HTML）", () => {
   it("合計と削減額を出す", () => {
     expect(html).toContain("カウンター料金 小計");
     expect(html).toContain("合計金額 （6年間）");
-    expect(html).toContain("合計合算削減金額 （7年間）");
+    expect(html).toContain("合計合算削減金額 （6年間）");
     expect(html).toContain("削減率");
     // 提案のほうが安いので、削減は▲表示になる
     expect(html).toContain("▲33,141");

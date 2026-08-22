@@ -465,7 +465,7 @@ function addCompareBlock(
 
   putRow(sheet, r++, ["合計合算削減金額　（単月）", "", calc.diffMonthly], { numFmt: YEN, bold: true });
   putRow(sheet, r++, ["合計合算削減金額　（年間）", "", calc.diffYearly], { numFmt: YEN, bold: true });
-  putRow(sheet, r++, ["合計合算削減金額　（6年間）", "", calc.diffSixYears], { numFmt: YEN, bold: true });
+  putRow(sheet, r++, [`合計合算削減金額　（${calc.leaseYears}年間）`, "", calc.diffLeaseTerm], { numFmt: YEN, bold: true });
   r++;
 
   const save = Math.max(0, -calc.diffYearly);
@@ -531,7 +531,8 @@ export function addMultiCompareSheet(
   row("月間経費（税込）", current.monthlyTotal, calcs.map((c) => c.monthlyTotal), YEN);
   row("削減額（単月）", "－", calcs.map((c) => c.diffMonthly), YEN);
   row("削減額（年間）", "－", calcs.map((c) => c.diffYearly), YEN);
-  row("削減額（6年間）", "－", calcs.map((c) => c.diffSixYears), YEN);
+  const years = [...new Set(calcs.map((c) => c.leaseYears))].join("・");
+  row(`削減額（${years}年間＝リース期間）`, "－", calcs.map((c) => c.diffLeaseTerm), YEN);
 
   return sheet;
 }
@@ -861,14 +862,14 @@ export function addFleetSheet(
     putFleetRow(sheet, r++, [label, a, b, b - a], { border: true, numFmt: YEN });
   totalRow("合計金額 （単月）", calc.current.monthly, calc.proposal.monthly);
   totalRow("合計金額 （年間）", calc.current.yearly, calc.proposal.yearly);
-  totalRow(`合計金額 （${calc.totalYears}年間）`, calc.current.longTerm, calc.proposal.longTerm);
+  totalRow(`合計金額 （${calc.leaseYears}年間）`, calc.current.longTerm, calc.proposal.longTerm);
   r++;
 
   // ── トータル削減料金
   fleetBand(sheet, r++, "- ト ー タ ル 削 減 料 金 -");
   putFleetRow(sheet, r++, ["合計合算削減金額 （単月）", calc.diffMonthly], { border: true, numFmt: YEN });
   putFleetRow(sheet, r++, ["合計合算削減金額 （年間）", calc.diffYearly], { border: true, numFmt: YEN });
-  putFleetRow(sheet, r++, [`合計合算削減金額 （${calc.effectYears}年間）`, calc.diffLongTerm], {
+  putFleetRow(sheet, r++, [`合計合算削減金額 （${calc.leaseYears}年間）`, calc.diffLeaseTerm], {
     border: true,
     numFmt: YEN,
   });

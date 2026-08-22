@@ -13,6 +13,7 @@ import {
   serviceWarningOf,
 } from "./pricing";
 import { DEFAULT_SETTINGS } from "./defaults";
+import { renderCompareHtml } from "./export/html";
 import type { PriceBookEntry, Proposal, Quote, Settings } from "./types";
 
 const settings: Settings = structuredClone(DEFAULT_SETTINGS);
@@ -390,14 +391,39 @@ describe("保守対応エリア", () => {
 });
 
 describe("削減額", () => {
-  it("現行と提案の月間経費の差を単月・年間・6年で出す", () => {
+  it("現行と提案の月間経費の差を、単月・年間・リース期間ぶんで出す", () => {
     const quote = makeQuote();
     const calc = calcProposal(quote, makeProposal(), settings);
     const current = calcCurrent(quote, 0.1);
     expect(calc.diffMonthly).toBe(calc.monthlyTotal - current.monthlyTotal);
     expect(calc.diffYearly).toBe(calc.diffMonthly * 12);
-    expect(calc.diffSixYears).toBe(calc.diffMonthly * 72);
+    // 既定は6年リースなので6年間ぶん
+    expect(calc.leaseYears).toBe(6);
+    expect(calc.diffLeaseTerm).toBe(calc.diffMonthly * 72);
     expect(calc.diffMonthly).toBeLessThan(0); // 削減提案になっている
+  });
+
+  it("リース年数を変えると、最後の1行もその年数に合わせる", () => {
+    const quote = makeQuote();
+    for (const [term, years] of [
+      [60, 5],
+      [72, 6],
+      [84, 7],
+    ] as const) {
+      const calc = calcProposal(quote, makeProposal({ leaseTerm: term }), settings);
+      expect(calc.leaseYears).toBe(years);
+      expect(calc.diffLeaseTerm).toBe(calc.diffMonthly * term);
+    }
+  });
+
+  it("比較表の見出しもリース年数に合わせる（5年リースなら5年間）", () => {
+    const quote = makeQuote();
+    quote.proposals = [makeProposal({ leaseTerm: 60 })];
+    const current = calcCurrent(quote, settings.company.taxRate);
+    const calc = calcProposal(quote, quote.proposals[0], settings);
+    const html = renderCompareHtml(quote, current, calc, settings);
+    expect(html).toContain("合計合算削減金額　（5年間）");
+    expect(html).not.toContain("（6年間）");
   });
 });
 

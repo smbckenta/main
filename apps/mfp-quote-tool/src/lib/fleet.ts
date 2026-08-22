@@ -40,8 +40,8 @@ export function emptyFleetUnit(id: string): FleetUnit {
 
 export const DEFAULT_FLEET: Fleet = {
   enabled: false,
-  totalYears: 6,
-  effectYears: 7,
+  // 既定は6年リース。合計・削減の「◯年間」はこの回数に合わせる
+  leaseTerm: 72,
   units: [],
 };
 
@@ -110,7 +110,7 @@ export function calcFleetSide(side: FleetSide, taxRate: number): FleetSideCalc {
 }
 
 /** 片側の全台合計 */
-function totalsOf(sides: FleetSideCalc[], taxRate: number, totalYears: number): FleetTotals {
+function totalsOf(sides: FleetSideCalc[], taxRate: number, leaseYears: number): FleetTotals {
   const leaseMonthly = sides.reduce((sum, s) => sum + s.monthlyLease, 0);
   const leaseTax = Math.round(leaseMonthly * taxRate);
   const leaseTotal = leaseMonthly + leaseTax;
@@ -123,14 +123,15 @@ function totalsOf(sides: FleetSideCalc[], taxRate: number, totalYears: number): 
     counterSubtotal,
     monthly,
     yearly: monthly * 12,
-    longTerm: monthly * 12 * totalYears,
+    longTerm: monthly * 12 * leaseYears,
   };
 }
 
 /** 複数台比較表ぜんぶを計算する */
 export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
-  const totalYears = fleet.totalYears > 0 ? fleet.totalYears : 6;
-  const effectYears = fleet.effectYears > 0 ? fleet.effectYears : 7;
+  // 合計も削減も、提案するリース年数に合わせる（6年リースなら6年間）
+  const leaseTerm = fleet.leaseTerm > 0 ? fleet.leaseTerm : 72;
+  const leaseYears = Math.round(leaseTerm / 12);
 
   const units: FleetUnitCalc[] = fleet.units.map((unit, i) => ({
     unit,
@@ -139,8 +140,8 @@ export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
     proposal: calcFleetSide(unit.proposal, taxRate),
   }));
 
-  const current = totalsOf(units.map((u) => u.current), taxRate, totalYears);
-  const proposal = totalsOf(units.map((u) => u.proposal), taxRate, totalYears);
+  const current = totalsOf(units.map((u) => u.current), taxRate, leaseYears);
+  const proposal = totalsOf(units.map((u) => u.proposal), taxRate, leaseYears);
 
   const diffMonthly = proposal.monthly - current.monthly;
 
@@ -150,9 +151,9 @@ export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
     proposal,
     diffMonthly,
     diffYearly: diffMonthly * 12,
-    diffLongTerm: diffMonthly * 12 * effectYears,
-    totalYears,
-    effectYears,
+    diffLeaseTerm: diffMonthly * leaseTerm,
+    leaseTerm,
+    leaseYears,
     reductionRate: current.monthly > 0 ? diffMonthly / current.monthly : 0,
   };
 }

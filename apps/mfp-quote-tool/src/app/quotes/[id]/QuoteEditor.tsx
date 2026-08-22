@@ -623,6 +623,7 @@ export default function QuoteEditor({
                 <th className="num">月間経費(税込)</th>
                 <th className="num">削減（単月）</th>
                 <th className="num">削減（年間）</th>
+                <th className="num">削減（リース期間）</th>
                 <th className="num">GP</th>
                 <th className="num">PTF</th>
                 <th className="num">NP</th>
@@ -641,6 +642,7 @@ export default function QuoteEditor({
                 <td className="num">－</td>
                 <td className="num">－</td>
                 <td className="num">－</td>
+                <td className="num">－</td>
               </tr>
               {calcs.map((c) => (
                 <tr key={c.proposal.id}>
@@ -652,6 +654,10 @@ export default function QuoteEditor({
                   <td className="num">{yen(c.monthlyTotal)}</td>
                   <td className={`num ${c.diffMonthly < 0 ? "save" : "cut"}`}>{sign(c.diffMonthly)}</td>
                   <td className={`num ${c.diffYearly < 0 ? "save" : "cut"}`}>{sign(c.diffYearly)}</td>
+                  <td className={`num ${c.diffLeaseTerm < 0 ? "save" : "cut"}`}>
+                    {sign(c.diffLeaseTerm)}
+                    <span className="muted">（{c.leaseYears}年）</span>
+                  </td>
                   <td className="num">{yen(c.grossProfit)}</td>
                   <td className="num">{yen(c.ptf)}</td>
                   <td className="num">{yen(c.netProfit)}</td>
