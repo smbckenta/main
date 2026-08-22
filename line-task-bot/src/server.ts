@@ -8,9 +8,11 @@ import { handleEvents } from "./line/webhook.js";
 import { runAnalyze } from "./jobs/analyze.js";
 import { runReminders } from "./jobs/reminders.js";
 import { runDigest } from "./jobs/digest.js";
+import { runSyncRecords } from "./jobs/syncRecords.js";
 import { ensureTasksSheet } from "./store/taskRepo.js";
 import { ensureMessagesSheet } from "./store/messageRepo.js";
 import { ensureActionsSheet } from "./store/actionRepo.js";
+import { ensureRecordsSheet } from "./store/recordRepo.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -36,6 +38,7 @@ export function createApp(): express.Express {
       groups: results.length,
       created: results.reduce((sum, r) => sum + r.createdTasks.length, 0),
       updated: results.reduce((sum, r) => sum + r.updatedTasks, 0),
+      records: results.reduce((sum, r) => sum + r.createdRecords.length, 0),
     };
   }));
 
@@ -52,11 +55,17 @@ export function createApp(): express.Express {
     return { groups: results.length };
   }));
 
+  // 承認済みの折衝記録を基幹システムへ送る
+  app.post("/jobs/sync-records", jobHandler("sync-records", async () => {
+    return runSyncRecords();
+  }));
+
   // シートの初期化。デプロイ後に一度だけ叩く。
   app.post("/admin/bootstrap", jobHandler("bootstrap", async () => {
     await ensureTasksSheet();
     await ensureMessagesSheet();
     await ensureActionsSheet();
+    await ensureRecordsSheet();
     return { ok: true };
   }));
 

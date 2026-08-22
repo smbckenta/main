@@ -12,7 +12,14 @@ import { sortByUrgency } from "../jobs/digest.js";
 import { runAnalyze } from "../jobs/analyze.js";
 import { planActions } from "../ai/planner.js";
 import { dispatchActions } from "../actions/executor.js";
-import { HELP_TEXT, taskListMessage, text } from "./messages.js";
+import { findRecordById, listRecords } from "../store/recordRepo.js";
+import {
+  HELP_TEXT,
+  draftRecordsMessage,
+  recordApprovalMessage,
+  taskListMessage,
+  text,
+} from "./messages.js";
 import type { messagingApi } from "@line/bot-sdk";
 
 type Message = messagingApi.Message;
@@ -67,6 +74,12 @@ export async function handleCommand(
       if (!argument) return null;
       return proposeActions(context.groupId, argument);
 
+    case "記録":
+    case "/records":
+      return argument
+        ? showRecord(argument)
+        : draftRecords(context.groupId);
+
     case "ヘルプ":
     case "へるぷ":
     case "/help":
@@ -99,18 +112,25 @@ async function analyzeNow(groupId: string): Promise<Message[]> {
   if (!result) {
     return [text("解析対象の新しいメッセージはありませんでした。")];
   }
-  if (result.createdTasks.length === 0 && result.updatedTasks === 0) {
+  const found =
+    result.createdTasks.length + result.updatedTasks + result.createdRecords.length;
+  if (found === 0) {
     return [
       text(
-        `${result.analyzedMessages} 件のメッセージを読みましたが、新しいタスクは見つかりませんでした。`,
+        `${result.analyzedMessages} 件のメッセージを読みましたが、タスクも折衝記録も見つかりませんでした。`,
       ),
     ];
   }
-  // 新規タスクの通知は runAnalyze 側が送るため、ここでは件数だけ返す
+
+  // 新規タスクの通知と記録の確認カードは runAnalyze 側が送るため、ここでは件数だけ返す
+  const parts = [
+    `タスク 新規 ${result.createdTasks.length} 件 / 更新 ${result.updatedTasks} 件`,
+    ...(result.createdRecords.length > 0
+      ? [`折衝記録 ${result.createdRecords.length} 件`]
+      : []),
+  ];
   return [
-    text(
-      `${result.analyzedMessages} 件のメッセージを解析しました。新規 ${result.createdTasks.length} 件 / 更新 ${result.updatedTasks} 件。`,
-    ),
+    text(`${result.analyzedMessages} 件のメッセージを解析しました。\n${parts.join("\n")}`),
   ];
 }
 
@@ -158,4 +178,26 @@ async function proposeActions(
       `「${task.title}」の実行案: 自動実行 ${result.executed} 件 / 要承認 ${result.awaitingApproval} 件${result.failed > 0 ? ` / 失敗 ${result.failed} 件` : ""}`,
     ),
   ];
+}
+
+/** 未承認（draft）の折衝記録を一覧する。 */
+async function draftRecords(groupId: string): Promise<Message[]> {
+  const records = await listRecords({ groupId, status: "draft" });
+  return [draftRecordsMessage(records)];
+}
+
+/** ID を指定して記録の内容と承認ボタンを出し直す。 */
+async function showRecord(recordId: string): Promise<Message[]> {
+  const record = await findRecordById(recordId);
+  if (!record) {
+    return [text(`ID ${recordId} の記録が見つかりません。`)];
+  }
+  if (record.status !== "draft") {
+    return [
+      text(
+        `[${record.id}] ${record.counterpartyName} / ${record.subject}\n状態: ${record.status}${record.externalUrl ? `\n${record.externalUrl}` : ""}${record.error ? `\n理由: ${record.error}` : ""}`,
+      ),
+    ];
+  }
+  return [recordApprovalMessage(record)];
 }

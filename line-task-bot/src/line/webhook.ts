@@ -14,6 +14,8 @@ import { toIsoInTimezone } from "../time.js";
 import { appendMessages } from "../store/messageRepo.js";
 import { findActionById, updateActionStatus } from "../store/actionRepo.js";
 import { findTaskById, updateTask } from "../store/taskRepo.js";
+import { findRecordById, updateRecord } from "../store/recordRepo.js";
+import { getRecordSink } from "../sinks/index.js";
 import { planActions } from "../ai/planner.js";
 import { dispatchActions, executeApprovedAction } from "../actions/executor.js";
 import { reply, resolveDisplayName } from "./client.js";
@@ -133,6 +135,10 @@ async function handlePostbackEvent(event: PostbackEvent): Promise<void> {
       return completeTask(event, params.get("taskId"));
     case "plan":
       return planForTask(event, groupId, params.get("taskId"));
+    case "rec_approve":
+      return approveRecord(event, params.get("recordId"));
+    case "rec_reject":
+      return rejectRecord(event, params.get("recordId"));
     default:
       logger.warn("未知の postback を受信しました", {
         data: event.postback.data,
@@ -221,5 +227,50 @@ async function planForTask(
     text(
       `「${task.title}」: 自動実行 ${result.executed} 件 / 要承認 ${result.awaitingApproval} 件${result.failed > 0 ? ` / 失敗 ${result.failed} 件` : ""}`,
     ),
+  ]);
+}
+
+/**
+ * 折衝記録を承認する。
+ *
+ * ここでは基幹システムへ送らず status=approved にするだけ。
+ * 送信は syncRecords ジョブが行う。postback の応答を外部 API の待ち時間で
+ * 引き延ばさないため、また基幹システムが落ちていても承認を成立させるため。
+ */
+async function approveRecord(
+  event: PostbackEvent,
+  recordId: string | null,
+): Promise<void> {
+  if (!recordId) return;
+  const record = await findRecordById(recordId);
+  if (!record) {
+    await reply(event.replyToken, [text("対象の記録が見つかりませんでした。")]);
+    return;
+  }
+  if (record.status !== "draft") {
+    await reply(event.replyToken, [
+      text(`この記録はすでに処理済みです（状態: ${record.status}）。`),
+    ]);
+    return;
+  }
+
+  await updateRecord(record, { status: "approved" });
+  await reply(event.replyToken, [
+    text(
+      `承認しました: ${record.counterpartyName} / ${record.subject}\n次回の同期で ${getRecordSink().name} に登録されます。`,
+    ),
+  ]);
+}
+
+async function rejectRecord(
+  event: PostbackEvent,
+  recordId: string | null,
+): Promise<void> {
+  if (!recordId) return;
+  const record = await findRecordById(recordId);
+  if (!record) return;
+  await updateRecord(record, { status: "rejected" });
+  await reply(event.replyToken, [
+    text(`破棄しました: ${record.counterpartyName} / ${record.subject}`),
   ]);
 }

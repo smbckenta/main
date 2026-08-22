@@ -15,9 +15,21 @@ import {
 } from "../store/messageRepo.js";
 import { createTasks, listOpenTasks, updateTasks } from "../store/taskRepo.js";
 import { extractTasks, type ExtractedTask } from "../ai/extractor.js";
+import {
+  extractInteractions,
+  type ExtractedInteraction,
+} from "../ai/interactionExtractor.js";
+import { createRecords, listRecentRecords } from "../store/recordRepo.js";
+import { isInteractionGroup } from "./syncRecords.js";
 import { pushSafely } from "../line/client.js";
-import { newTasksMessage } from "../line/messages.js";
-import type { StoredChatMessage, StoredTask, Task } from "../types.js";
+import { newTasksMessage, recordApprovalMessage } from "../line/messages.js";
+import type {
+  InteractionRecord,
+  StoredChatMessage,
+  StoredInteractionRecord,
+  StoredTask,
+  Task,
+} from "../types.js";
 
 /** 抽出結果を採用する最低ライン。これ未満は「たぶんタスクではない」として捨てる。 */
 const MIN_CONFIDENCE = 0.5;
@@ -28,6 +40,7 @@ export interface AnalyzeResult {
   createdTasks: Task[];
   updatedTasks: number;
   skipped: number;
+  createdRecords: InteractionRecord[];
 }
 
 export interface AnalyzeOptions {
@@ -94,14 +107,29 @@ async function analyzeGroup(
     .filter((message) => message.processed)
     .slice(-config.behavior.contextMessages);
 
+  const withRecords = isInteractionGroup(groupId);
   const openTasks = await listOpenTasks(groupId);
+  const recentRecords = withRecords ? await listRecentRecords(groupId) : [];
 
-  const extraction = await extractTasks({
+  // タスク抽出と折衝記録の抽出は目的が違うので別プロンプトにしてある。
+  // 入力は同じなので、直列にせず並行で投げて待ち時間を重ねる。
+  const [extraction, interactions] = await Promise.all([
+    extractTasks({ groupId, targetMessages, contextMessages, openTasks }),
+    withRecords
+      ? extractInteractions({
+          groupId,
+          targetMessages,
+          contextMessages,
+          recentRecords,
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const createdRecords = await saveInteractions(
     groupId,
-    targetMessages,
-    contextMessages,
-    openTasks,
-  });
+    interactions,
+    recentRecords,
+  );
 
   if (!extraction) {
     // 抽出に失敗したメッセージを未処理のまま残すと毎回リトライして詰まるため、処理済みにする
@@ -112,6 +140,7 @@ async function analyzeGroup(
       createdTasks: [],
       updatedTasks: 0,
       skipped: 0,
+      createdRecords,
     };
   }
 
@@ -144,6 +173,7 @@ async function analyzeGroup(
     created: createdTasks.length,
     updated: updatedCount,
     skipped,
+    records: createdRecords.length,
   });
 
   return {
@@ -152,7 +182,108 @@ async function analyzeGroup(
     createdTasks,
     updatedTasks: updatedCount,
     skipped,
+    createdRecords,
   };
+}
+
+/**
+ * 抽出した折衝記録を records シートへ保存し、承認カードをグループへ送る。
+ *
+ * ここでは基幹システムへ送らない。人が承認したものだけを syncRecords ジョブが送る。
+ */
+async function saveInteractions(
+  groupId: string,
+  interactions: ExtractedInteraction[] | null,
+  recentRecords: StoredInteractionRecord[],
+): Promise<InteractionRecord[]> {
+  if (!interactions || interactions.length === 0) return [];
+
+  const accepted = filterNewInteractions(interactions, recentRecords);
+  if (accepted.length === 0) return [];
+
+  const created = await createRecords(
+    accepted.map((item) => ({
+      groupId,
+      kind: item.kind,
+      counterpartyName: item.counterpartyName,
+      counterpartyId: "",
+      contactPerson: item.contactPerson,
+      ourStaff: item.ourStaff,
+      occurredAt: isValidIso(item.occurredAt) ? item.occurredAt : "",
+      channel: item.channel,
+      subject: item.subject,
+      summary: item.summary,
+      detail: item.detail,
+      nextAction: item.nextAction,
+      nextActionDueAt: isValidIso(item.nextActionDueAt)
+        ? item.nextActionDueAt
+        : "",
+      stage: item.stage,
+      amount: item.amount,
+      sourceMessageIds: item.sourceMessageIds,
+      confidence: item.confidence,
+    })),
+  );
+
+  for (const record of created) {
+    await pushSafely(groupId, [recordApprovalMessage(record)]);
+  }
+  return created;
+}
+
+/**
+ * 確度が低いもの、相手先が空のもの、既存記録と同じ接触を落とす。
+ * 同じ接触かどうかは「相手先が同じ」かつ「発生日が同じ」で判定する。
+ */
+export function filterNewInteractions(
+  candidates: ExtractedInteraction[],
+  existing: StoredInteractionRecord[],
+): ExtractedInteraction[] {
+  const knownSourceIds = new Set(
+    existing.flatMap((record) => record.sourceMessageIds),
+  );
+  const knownKeys = new Set(
+    existing.map((record) =>
+      contactKey(record.counterpartyName, record.occurredAt),
+    ),
+  );
+  const accepted: ExtractedInteraction[] = [];
+
+  for (const candidate of candidates) {
+    if (candidate.confidence < config.behavior.interactionMinConfidence) {
+      continue;
+    }
+    if (!candidate.counterpartyName.trim() || !candidate.subject.trim()) {
+      continue;
+    }
+    if (
+      candidate.sourceMessageIds.length > 0 &&
+      candidate.sourceMessageIds.every((id) => knownSourceIds.has(id))
+    ) {
+      continue;
+    }
+    const key = contactKey(candidate.counterpartyName, candidate.occurredAt);
+    if (knownKeys.has(key)) continue;
+
+    knownKeys.add(key);
+    accepted.push(candidate);
+  }
+
+  return accepted;
+}
+
+/** 相手先名と発生日で「同じ接触」を表すキーを作る。 */
+export function contactKey(
+  counterpartyName: string,
+  occurredAt: string | null,
+): string {
+  const name = counterpartyName
+    .replace(/[\s　]/g, "")
+    .replace(/株式会社|有限会社|合同会社|\(株\)|（株）|\(有\)|（有）/g, "")
+    .toLowerCase();
+  // 日付までで比較する。同じ日の同じ相手なら 1 回の接触とみなす
+  const day = occurredAt ? occurredAt.slice(0, 10) : "";
+  return `${name}@${day}`;
 }
 
 /**

@@ -31,6 +31,28 @@ function optionalBoolean(name: string, fallback: boolean): boolean {
   return raw === "true" || raw === "1";
 }
 
+/** JSON オブジェクトとして解釈する環境変数。未設定なら空オブジェクト。 */
+function optionalJson(name: string): Record<string, string> {
+  const raw = process.env[name];
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("オブジェクトではありません");
+    }
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
+    );
+  } catch (error) {
+    throw new Error(
+      `環境変数 ${name} は JSON オブジェクトである必要があります: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 function optionalList(name: string): string[] {
   const raw = process.env[name];
   if (!raw) return [];
@@ -71,6 +93,32 @@ export const config = {
     tasksSheet: optional("TASKS_SHEET_NAME", "tasks"),
     messagesSheet: optional("MESSAGES_SHEET_NAME", "messages"),
     actionsSheet: optional("ACTIONS_SHEET_NAME", "actions"),
+    recordsSheet: optional("RECORDS_SHEET_NAME", "records"),
+  },
+
+  /**
+   * 折衝記録の登録先（自社基幹システム）。
+   * sink=sheets の間は外部への送信をせず、records シートに溜めるだけになる。
+   */
+  core: {
+    sink: optional("RECORD_SINK", "sheets") as "sheets" | "http",
+    baseUrl: optional("CORE_BASE_URL", ""),
+    createPath: optional("CORE_CREATE_PATH", "/api/interactions"),
+    /** 空にすると相手先マスタの照合を行わない。 */
+    searchPath: optional("CORE_SEARCH_PATH", "/api/counterparties"),
+    searchQueryParam: optional("CORE_SEARCH_QUERY_PARAM", "q"),
+    /** レスポンス中の配列・各要素の位置（ドット区切り）。 */
+    searchItemsPath: optional("CORE_SEARCH_ITEMS_PATH", "items"),
+    searchIdPath: optional("CORE_SEARCH_ID_PATH", "id"),
+    searchNamePath: optional("CORE_SEARCH_NAME_PATH", "name"),
+    /** 登録レスポンスから ID / URL を読む位置（ドット区切り）。 */
+    idPath: optional("CORE_ID_PATH", "id"),
+    urlPath: optional("CORE_URL_PATH", "url"),
+    authHeader: optional("CORE_AUTH_HEADER", "Authorization"),
+    authValue: optional("CORE_AUTH_VALUE", ""),
+    timeoutMs: optionalNumber("CORE_TIMEOUT_MS", 15000),
+    /** こちらのフィールド名 → 先方のフィールド名。 */
+    fieldMap: optionalJson("CORE_FIELD_MAP"),
   },
 
   google: {
@@ -102,6 +150,25 @@ export const config = {
     allowedGroupIds: optionalList("ALLOWED_GROUP_IDS"),
     /** 新規タスクを検出したときにグループへ通知するか。 */
     notifyOnNewTasks: optionalBoolean("NOTIFY_ON_NEW_TASKS", true),
+
+    /**
+     * 折衝記録の抽出を行うか。既定は無効。
+     * 有効にすると解析 1 回あたりの Claude 呼び出しが 1 回増える（タスク抽出とは別プロンプト）。
+     */
+    enableInteractionExtraction: optionalBoolean(
+      "ENABLE_INTERACTION_EXTRACTION",
+      false,
+    ),
+    /**
+     * 折衝記録の抽出を行うグループ。空なら（抽出が有効な限り）全グループ。
+     * 顧客・パートナーとのやり取りが出るグループだけに絞ると無駄な呼び出しが減る。
+     */
+    interactionGroupIds: optionalList("INTERACTION_GROUP_IDS"),
+    /** これ未満の確度の記録案は捨てる。 */
+    interactionMinConfidence: optionalNumber(
+      "INTERACTION_MIN_CONFIDENCE",
+      0.6,
+    ),
   },
 
   jobs: {
@@ -112,5 +179,12 @@ export const config = {
     secret: optional("JOB_SECRET", ""),
   },
 } as const;
+
+// 起動時に整合性を確認する。Cloud Run のヘルスチェックで気づけるよう、ここで落とす。
+if (config.core.sink === "http" && !config.core.baseUrl) {
+  throw new Error(
+    "RECORD_SINK=http のときは CORE_BASE_URL を設定してください",
+  );
+}
 
 export type AppConfig = typeof config;

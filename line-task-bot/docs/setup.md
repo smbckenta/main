@@ -34,7 +34,7 @@
    https://docs.google.com/spreadsheets/d/【ここが SPREADSHEET_ID】/edit
    ```
 3. シート（タブ）は作らなくて構いません。あとで `/admin/bootstrap` が
-   `tasks` / `messages` / `actions` を自動生成します。
+   `tasks` / `messages` / `actions` / `records` を自動生成します。
 
 ### サービスアカウントを作る
 
@@ -146,8 +146,8 @@ export SERVICE_URL=$(gcloud run services describe line-task-bot \
 curl -X POST -H "x-job-secret: ${JOB_SECRET}" "${SERVICE_URL}/admin/bootstrap"
 ```
 
-`{"ok":true}` が返り、スプレッドシートに `tasks` / `messages` / `actions` の
-3 シートがヘッダーつきで作られます。
+`{"ok":true}` が返り、スプレッドシートに `tasks` / `messages` / `actions` / `records` の
+4 シートがヘッダーつきで作られます。
 
 ---
 
@@ -165,6 +165,7 @@ PROJECT_ID="$PROJECT_ID" SERVICE_URL="$SERVICE_URL" JOB_SECRET="$JOB_SECRET" \
 | `line-task-bot-analyze` | 平日 8〜20 時、10 分おき | 会話解析 |
 | `line-task-bot-reminders` | 平日 9 時 / 14 時 / 18 時 | 期限リマインド |
 | `line-task-bot-digest` | 平日 8:30 | 日次サマリー |
+| `line-task-bot-sync-records` | 平日 8〜20 時、15 分おき | 承認済み折衝記録の基幹システムへの送信 |
 
 ---
 
@@ -195,6 +196,54 @@ gcloud run services logs read line-task-bot --region asia-northeast1 --limit 50
 
 ---
 
+## 8. 折衝記録を使う場合
+
+会話から顧客折衝・パートナー打合せの記録を抽出し、基幹システムへ登録する機能です。
+既定では無効なので、使う場合だけ設定します。
+
+### 段階を踏んで有効化する
+
+**第 1 段階: シートに溜めるだけ（基幹システムの API が無くても今日から使える）**
+
+```bash
+ENABLE_INTERACTION_EXTRACTION=true
+INTERACTION_GROUP_IDS=<顧客の話が出るグループの groupId>
+RECORD_SINK=sheets
+```
+
+グループで「A 社さんへ訪問しました。〜という話でした」のように報告すると、
+確認カードが出て、承認すると `records` シートに `synced` として残ります。
+まずこの状態で 1〜2 週間動かし、**抽出の精度と拾う範囲が業務に合っているか**を確認してください。
+外し方の傾向が分かったら `src/ai/interactionExtractor.ts` のプロンプトを調整します。
+
+**第 2 段階: 基幹システムへ送る**
+
+基幹システム側に API ができたら切り替えます。仕様は
+[core-system-api.md](core-system-api.md) にまとめてあります。
+
+```bash
+RECORD_SINK=http
+CORE_BASE_URL=https://core.example.com
+CORE_AUTH_VALUE=Bearer xxxxx
+```
+
+切り替え後、最初の 1 件は手で同期ジョブを叩いて確認するのが確実です。
+
+```bash
+curl -X POST -H "x-job-secret: ${JOB_SECRET}" "${SERVICE_URL}/jobs/sync-records"
+```
+
+`{"synced":1,"failed":0,"skipped":0}` が返れば成功です。
+
+### 記録の内容を直したいとき
+
+`records` シートで該当行を直接編集してください。`status` が `draft` のうちなら、
+LINE で `記録 <ID>` と送ると修正後の内容で確認カードが出ます。
+
+LINE 上で本文を編集する機能は用意していません。チャットで長文を直すのは現実的でないためです。
+
+---
+
 ## 運用の調整ポイント
 
 | 環境変数 | 効果 |
@@ -204,6 +253,9 @@ gcloud run services logs read line-task-bot --region asia-northeast1 --limit 50
 | `NOTIFY_ON_NEW_TASKS` | `false` にすると新規タスクの通知が止まる（うるさい場合） |
 | `ALLOWED_GROUP_IDS` | 特定グループだけに限定する。試験導入時に有効 |
 | `REMINDER_LEAD_HOURS` | 何時間前からリマインドを始めるか |
+| `ENABLE_INTERACTION_EXTRACTION` | 折衝記録の抽出を有効にする（既定 `false`） |
+| `INTERACTION_GROUP_IDS` | 記録抽出を行うグループを絞る。顧客の話が出るグループだけにすると無駄が減る |
+| `RECORD_SINK` | `sheets`（既定、シートに溜めるだけ）/ `http`（基幹システムへ送る） |
 
 `ALLOWED_GROUP_IDS` に入れる groupId は、ボットを招待したあとの Cloud Logging か、
 `messages` シートの `groupId` 列で確認できます。

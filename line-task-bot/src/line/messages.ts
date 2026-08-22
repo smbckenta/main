@@ -6,7 +6,12 @@ type Message = messagingApi.Message;
 type FlexBubble = messagingApi.FlexBubble;
 type FlexComponent = messagingApi.FlexComponent;
 import { formatLocal, formatLocalDate, hoursUntil } from "../time.js";
-import type { StoredAction, StoredTask, Task } from "../types.js";
+import type {
+  InteractionRecord,
+  StoredAction,
+  StoredTask,
+  Task,
+} from "../types.js";
 
 const PRIORITY_LABEL: Record<Task["priority"], string> = {
   high: "高",
@@ -259,6 +264,175 @@ function actionDetailLines(action: Omit<StoredAction, "rowNumber">): string[] {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * 折衝記録
+ * ------------------------------------------------------------------ */
+
+const CHANNEL_LABEL: Record<InteractionRecord["channel"], string> = {
+  visit: "訪問",
+  phone: "電話",
+  online: "オンライン",
+  email: "メール",
+  chat: "チャット",
+  other: "その他",
+};
+
+const KIND_LABEL: Record<InteractionRecord["kind"], string> = {
+  customer: "顧客折衝",
+  partner: "パートナー打合せ",
+};
+
+/**
+ * 抽出した折衝記録の確認カード。
+ * 基幹システムへ入る内容なので、承認前に中身がすべて見えるようにしている。
+ */
+export function recordApprovalMessage(record: InteractionRecord): Message {
+  const rows: [string, string][] = [
+    ["日時", record.occurredAt ? formatLocal(record.occurredAt) : "未特定"],
+    ["手段", CHANNEL_LABEL[record.channel]],
+    ["先方担当", record.contactPerson || "未記載"],
+    ["弊社担当", record.ourStaff || "未記載"],
+    ...(record.stage ? ([["段階", record.stage]] as [string, string][]) : []),
+    ...(record.amount ? ([["金額", record.amount]] as [string, string][]) : []),
+  ];
+
+  const bubble: FlexBubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: `${KIND_LABEL[record.kind]}の記録`,
+          size: "xs",
+          weight: "bold",
+          color: COLOR_ACCENT,
+        },
+        {
+          type: "text",
+          text: record.counterpartyName,
+          weight: "bold",
+          size: "lg",
+          wrap: true,
+        },
+        { type: "text", text: record.subject, size: "sm", wrap: true },
+      ],
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        ...rows.map(
+          ([label, value]): FlexComponent => ({
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            contents: [
+              {
+                type: "text",
+                text: label,
+                size: "xs",
+                color: COLOR_NORMAL,
+                flex: 2,
+              },
+              { type: "text", text: value, size: "xs", flex: 5, wrap: true },
+            ],
+          }),
+        ),
+        { type: "separator", margin: "md" },
+        {
+          type: "text",
+          text: record.summary,
+          size: "sm",
+          wrap: true,
+          margin: "md",
+        },
+        ...(record.nextAction
+          ? [
+              {
+                type: "text" as const,
+                text: `次回: ${record.nextAction}${record.nextActionDueAt ? `（${formatLocalDate(record.nextActionDueAt)}）` : ""}`,
+                size: "xs" as const,
+                color: COLOR_SOON,
+                wrap: true,
+                margin: "md" as const,
+              },
+            ]
+          : []),
+      ],
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        {
+          type: "box",
+          layout: "horizontal",
+          spacing: "sm",
+          contents: [
+            {
+              type: "button",
+              style: "secondary",
+              height: "sm",
+              action: {
+                type: "postback",
+                label: "破棄",
+                data: `action=rec_reject&recordId=${record.id}`,
+                displayText: "この記録を破棄します",
+              },
+            },
+            {
+              type: "button",
+              style: "primary",
+              height: "sm",
+              color: COLOR_ACCENT,
+              action: {
+                type: "postback",
+                label: "登録する",
+                data: `action=rec_approve&recordId=${record.id}`,
+                displayText: "この記録を登録します",
+              },
+            },
+          ],
+        },
+        {
+          type: "text",
+          text: `修正が必要なら records シートの ID ${record.id} を直してから登録してください`,
+          size: "xxs",
+          color: COLOR_NORMAL,
+          wrap: true,
+        },
+      ],
+    },
+  };
+
+  return {
+    type: "flex",
+    altText: `折衝記録の確認: ${record.counterpartyName} / ${record.subject}`,
+    contents: bubble,
+  };
+}
+
+/** 未承認の記録一覧。件数だけ伝えて、詳細は個別カードで見てもらう。 */
+export function draftRecordsMessage(
+  records: InteractionRecord[],
+): Message {
+  if (records.length === 0) {
+    return text("未承認の折衝記録はありません。");
+  }
+  const lines = records.map(
+    (record) =>
+      `・[${record.id}] ${record.counterpartyName} / ${record.subject}${record.occurredAt ? `（${formatLocalDate(record.occurredAt)}）` : ""}`,
+  );
+  return text(
+    `未承認の折衝記録が ${records.length} 件あります。\n\n${lines.join("\n")}\n\n「記録 <ID>」で内容を確認できます。`,
+  );
+}
+
 /** 新規タスクを検出したときの通知。 */
 export function newTasksMessage(tasks: Task[]): Message {
   const lines = tasks.map((task) => {
@@ -279,6 +453,8 @@ export const HELP_TEXT = `使い方
 完了 <ID>     タスクを完了にする
 追加 <内容>   タスクを手動で追加
 実行案 <ID>   タスクに対する実行案を出す
+記録          未承認の折衝記録の一覧
+記録 <ID>     折衝記録の内容を確認して登録
 ヘルプ        この説明
 
 一覧のボタンからも完了・実行案の操作ができます。`;

@@ -42,3 +42,7 @@ create_job "line-task-bot-reminders" "0 9,14,18 * * 1-5" "/jobs/reminders"
 
 # 日次サマリー: 平日の朝 8:30
 create_job "line-task-bot-digest" "30 8 * * 1-5" "/jobs/digest"
+
+# 折衝記録の同期: 平日の 8〜20 時、15 分おき
+# 承認済みの記録を基幹システムへ送る（RECORD_SINK=sheets の間は何もしない）
+create_job "line-task-bot-sync-records" "*/15 8-20 * * 1-5" "/jobs/sync-records"
