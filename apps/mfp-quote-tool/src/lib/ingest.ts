@@ -118,7 +118,7 @@ export async function ingestDocuments(
   inputs: { name: string; buffer: Buffer; mime?: string; role?: DocRole }[],
 ): Promise<IngestResult> {
   const settings = await getSettings();
-  const useAi = isAiReady(settings.ai);
+  const useAi = await isAiReady(settings.ai);
 
   const files: IngestedFile[] = [];
   const collected = {
@@ -129,6 +129,8 @@ export async function ingestDocuments(
   const warnings = collected.warnings;
   const modelCandidates: string[] = [];
   let makerGuess: Maker | undefined;
+  /** PDF・写真（AIで読める資料）が含まれていたか */
+  let sawAiTarget = false;
   const usage: AiUsage = {
     model: settings.ai.model,
     files: 0,
@@ -142,6 +144,7 @@ export async function ingestDocuments(
     // （PDFの文字レイヤーは軽いので、AIを使う場合も抽出しておく）
     let doc = await extractDocument(input.name, input.buffer, input.mime, { ocr: !useAi });
     const aiTarget = doc.kind === "pdf" || doc.kind === "image";
+    if (aiTarget) sawAiTarget = true;
 
     let ai: AiDocument | undefined;
     if (useAi && aiTarget) {
@@ -239,6 +242,13 @@ export async function ingestDocuments(
     maintenanceMonthly: 0,
   };
 
+  if (!useAi && sawAiTarget) {
+    warnings.push(
+      settings.ai.enabled
+        ? "AIのAPIキーが未設定のため、OCR（文字起こし）で読み取りました。設定画面でAPIキーを登録すると、スキャン書類・写真の読み取り精度が上がります。"
+        : "設定でAIの読み取りをOFFにしているため、OCR（文字起こし）で読み取りました。",
+    );
+  }
   if (!bestLease)
     warnings.push("リース契約書・支払予定表から契約条件を読み取れませんでした。手入力してください。");
   if (!counterReadings.length)

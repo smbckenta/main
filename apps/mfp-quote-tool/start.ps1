@@ -69,6 +69,31 @@ if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Fo
 $env:MFP_DATA_DIR = $dataDir
 Show "データの保存先: $dataDir" "Green"
 
+# --- AI（Claude）のAPIキー ---
+# PDF・写真の読み取りに使う。保存先の api-key.txt に置いておき、
+# 見つからないときだけ初回に1度たずねる（Enterのみで後回しにもできる）。
+$keyFile = Join-Path $dataDir "api-key.txt"
+if (Test-Path $keyFile) {
+    $env:ANTHROPIC_API_KEY = (Get-Content $keyFile -Raw -Encoding UTF8).Trim()
+    Show "AI読み取り用のAPIキーを読み込みました。" "Green"
+} elseif (-not $env:ANTHROPIC_API_KEY) {
+    Show ""
+    Show "PDF・写真の読み取りに使うAIのAPIキーが未登録です。" "Yellow"
+    Show "https://console.anthropic.com/settings/keys で発行したキー（sk-ant-… ）を貼り付けてください。"
+    Show "あとで設定画面から登録する場合は、何も入力せずに Enter を押してください。" "Gray"
+    $secure = Read-Host "APIキー" -AsSecureString
+    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)).Trim()
+    if ($plain) {
+        # BOM無しUTF-8で保存する（アプリ側がそのまま読めるように）
+        [IO.File]::WriteAllText($keyFile, $plain, (New-Object Text.UTF8Encoding($false)))
+        $env:ANTHROPIC_API_KEY = $plain
+        Show "APIキーを保存しました（$keyFile）。次回からは入力不要です。" "Green"
+    } else {
+        Show "APIキーなしで起動します。PDF・写真はOCRでの読み取りになります。" "Yellow"
+    }
+}
+
 # --- 使用中のポートを避ける ---
 $port = 3100
 while ((Test-NetConnection -ComputerName "localhost" -Port $port -InformationLevel Quiet -WarningAction SilentlyContinue) -and $port -lt 3110) {

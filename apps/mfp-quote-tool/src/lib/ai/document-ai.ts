@@ -36,13 +36,31 @@ export interface AiAnalysisResult {
 
 export class AiUnavailableError extends Error {}
 
-/** 設定のAPIキー、無ければ環境変数 ANTHROPIC_API_KEY を使う */
-export function resolveApiKey(ai?: AiSettings): string {
-  return (ai?.apiKey?.trim() || process.env.ANTHROPIC_API_KEY || "").trim();
+/** 保存先に置いておけるAPIキーのファイル（start.bat が作る） */
+const KEY_FILE = "api-key.txt";
+
+/**
+ * APIキーの置き場所は3通り。上から順に探す。
+ *  1. 設定画面で入力したキー（settings.json）
+ *  2. 環境変数 ANTHROPIC_API_KEY
+ *  3. データ保存先の api-key.txt（start.bat の初回起動時に作られる）
+ */
+export async function resolveApiKey(ai?: AiSettings): Promise<string> {
+  const direct = (ai?.apiKey?.trim() || process.env.ANTHROPIC_API_KEY || "").trim();
+  if (direct) return direct;
+  try {
+    const { promises: fs } = await import("node:fs");
+    const path = await import("node:path");
+    const { DATA_DIR } = await import("../store");
+    return (await fs.readFile(path.join(DATA_DIR, KEY_FILE), "utf8")).trim();
+  } catch {
+    return "";
+  }
 }
 
-export function isAiReady(ai?: AiSettings): boolean {
-  return Boolean(ai?.enabled && resolveApiKey(ai));
+export async function isAiReady(ai?: AiSettings): Promise<boolean> {
+  if (!ai?.enabled) return false;
+  return Boolean(await resolveApiKey(ai));
 }
 
 /** 画像形式をマジックナンバーから判定する（拡張子が当てにならないため） */
@@ -151,7 +169,7 @@ export interface AnalyzeInput {
 
 /** 1ファイルをAIに読み取らせる */
 export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnalysisResult> {
-  const apiKey = resolveApiKey(input.ai);
+  const apiKey = await resolveApiKey(input.ai);
   if (!apiKey) throw new AiUnavailableError("APIキーが設定されていません。");
 
   const client = new Anthropic({ apiKey, maxRetries: 2 });

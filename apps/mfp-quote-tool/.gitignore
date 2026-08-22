@@ -11,3 +11,6 @@ data/settings.json
 
 # 機種スペックDBは共有資産なのでコミットする（data/devices.json）
 .chromium-installed
+
+# 認証情報（AI読み取り用のAPIキー）
+data/api-key.txt
