@@ -1,0 +1,903 @@
+<title>削減品目カルテ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --paper:#F4F6F3;
+  --card:#FFFFFF;
+  --sunk:#EDF0EC;
+  --ink:#1A211D;
+  --ink-2:#4C5751;
+  --ink-3:#7A857E;
+  --rule:#D7DDD6;
+  --rule-soft:#E6EAE4;
+  --accent:#1E5F4E;
+  --accent-soft:#E2EDE8;
+  --accent-ink:#164A3D;
+  --warn:#9C5A24;
+  --warn-soft:#F5EADF;
+  --shadow:0 1px 2px rgba(26,33,29,.05), 0 8px 24px -16px rgba(26,33,29,.28);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --disp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#121614;
+    --card:#1A201D;
+    --sunk:#151B18;
+    --ink:#E3E8E3;
+    --ink-2:#A6B0AA;
+    --ink-3:#7C8781;
+    --rule:#2C3531;
+    --rule-soft:#232B27;
+    --accent:#63C4A4;
+    --accent-soft:#1D2E28;
+    --accent-ink:#8FD9BE;
+    --warn:#D9A06A;
+    --warn-soft:#2A2219;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121614;
+  --card:#1A201D;
+  --sunk:#151B18;
+  --ink:#E3E8E3;
+  --ink-2:#A6B0AA;
+  --ink-3:#7C8781;
+  --rule:#2C3531;
+  --rule-soft:#232B27;
+  --accent:#63C4A4;
+  --accent-soft:#1D2E28;
+  --accent-ink:#8FD9BE;
+  --warn:#D9A06A;
+  --warn-soft:#2A2219;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+/* ---------- shell ---------- */
+.shell{
+  display:grid;
+  grid-template-columns:262px minmax(0,1fr);
+  gap:0;
+  max-width:1320px;
+  margin:0 auto;
+  align-items:start;
+}
+
+/* ---------- rail ---------- */
+.rail{
+  position:sticky;
+  top:0;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  border-right:1px solid var(--rule);
+  background:var(--paper);
+  padding:26px 22px 0;
+}
+.brand{display:flex;flex-direction:column;gap:2px;margin-bottom:20px}
+.brand b{
+  font-family:var(--disp);
+  font-weight:700;
+  font-size:21px;
+  letter-spacing:.06em;
+  line-height:1.3;
+}
+.brand span{font-size:11px;color:var(--ink-3);letter-spacing:.11em;font-family:var(--mono)}
+
+.search{position:relative;margin-bottom:6px}
+.search input{
+  width:100%;
+  font:500 13px/1.6 var(--body);
+  color:var(--ink);
+  background:var(--card);
+  border:1px solid var(--rule);
+  border-radius:2px;
+  padding:9px 11px 9px 30px;
+}
+.search input::placeholder{color:var(--ink-3)}
+.search input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.7}
+.hits{
+  font-family:var(--mono);font-size:10.5px;color:var(--ink-3);
+  letter-spacing:.06em;padding:2px 0 12px;min-height:20px;
+}
+.hits b{color:var(--accent);font-weight:600}
+
+.nav{overflow-y:auto;flex:1;padding-bottom:24px;margin-right:-8px;padding-right:8px}
+.nav a{
+  display:grid;
+  grid-template-columns:15px 1fr auto;
+  gap:9px;
+  align-items:baseline;
+  padding:6px 0;
+  color:var(--ink-2);
+  text-decoration:none;
+  font-size:12.5px;
+  border-bottom:1px solid var(--rule-soft);
+}
+.nav a:hover{color:var(--accent)}
+.nav a .k{font-family:var(--disp);font-weight:700;font-size:13px;color:var(--accent)}
+.nav a .c{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.railfoot{
+  border-top:1px solid var(--rule);
+  padding:11px 0 14px;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.05em;
+  color:var(--ink-3);
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.tog{
+  font:inherit;color:var(--ink-3);background:none;border:1px solid var(--rule);
+  border-radius:2px;padding:3px 8px;cursor:pointer;letter-spacing:.06em;
+}
+.tog:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ---------- main ---------- */
+main{padding:0 40px 120px;min-width:0}
+
+.masthead{padding:52px 0 30px;border-bottom:2px solid var(--ink);}
+.eyebrow{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;
+  color:var(--accent);text-transform:uppercase;margin-bottom:14px;
+}
+.masthead h1{
+  font-family:var(--disp);font-weight:700;
+  font-size:clamp(30px,4.4vw,46px);
+  line-height:1.28;margin:0 0 16px;letter-spacing:.02em;
+  text-wrap:balance;
+}
+.lede{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+
+.meta{
+  display:flex;flex-wrap:wrap;gap:0;
+  border-bottom:1px solid var(--rule);
+  margin-bottom:44px;
+}
+.meta div{
+  padding:13px 24px 13px 0;margin-right:24px;
+  border-right:1px solid var(--rule-soft);
+}
+.meta div:last-child{border-right:0}
+.meta dt{font-family:var(--mono);font-size:10px;letter-spacing:.13em;color:var(--ink-3);margin:0 0 1px}
+.meta dd{margin:0;font-family:var(--mono);font-size:16px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* structural preamble */
+.prem{
+  background:var(--sunk);
+  border:1px solid var(--rule);
+  border-left:3px solid var(--accent);
+  border-radius:2px;
+  padding:26px 30px;
+  margin-bottom:56px;
+}
+.prem h2{
+  font-family:var(--disp);font-size:17px;font-weight:700;
+  margin:0 0 4px;letter-spacing:.03em;
+}
+.prem > p{margin:0 0 20px;font-size:13.5px;color:var(--ink-2)}
+.prem ol{margin:0;padding:0;list-style:none;display:grid;gap:16px}
+.prem li{display:grid;grid-template-columns:22px 1fr;gap:12px;align-items:start}
+.prem li i{
+  font-family:var(--mono);font-style:normal;font-size:11px;font-weight:600;
+  color:var(--accent);border:1px solid var(--accent);border-radius:50%;
+  width:20px;height:20px;display:grid;place-items:center;margin-top:4px;
+}
+.prem li b{display:block;font-size:14px;font-weight:700;margin-bottom:1px}
+.prem li p{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.8}
+
+/* ---------- category ---------- */
+.cat{margin-bottom:12px;scroll-margin-top:20px}
+.cathead{
+  display:flex;align-items:baseline;gap:14px;
+  padding:14px 0 12px;margin:44px 0 26px;
+  border-bottom:1px solid var(--ink);
+}
+.cathead .k{
+  font-family:var(--disp);font-weight:700;font-size:34px;line-height:1;
+  color:var(--accent);letter-spacing:.02em;
+}
+.cathead h2{font-family:var(--disp);font-size:23px;font-weight:700;margin:0;letter-spacing:.05em}
+.cathead .c{
+  margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  letter-spacing:.09em;
+}
+
+/* ---------- item ---------- */
+.item{
+  background:var(--card);
+  border:1px solid var(--rule);
+  border-radius:2px;
+  box-shadow:var(--shadow);
+  margin-bottom:20px;
+  overflow:hidden;
+  scroll-margin-top:16px;
+}
+.ihead{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:16px;
+  align-items:start;
+  padding:18px 24px 16px;
+  border-bottom:1px solid var(--rule-soft);
+  background:linear-gradient(var(--sunk),var(--sunk)) padding-box;
+}
+.no{
+  font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--accent);background:var(--accent-soft);
+  border-radius:2px;padding:3px 7px;line-height:1.4;
+  font-variant-numeric:tabular-nums;margin-top:3px;
+}
+.ihead h3{
+  font-family:var(--disp);font-size:20px;font-weight:700;
+  margin:0 0 7px;letter-spacing:.03em;line-height:1.4;
+}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;
+  color:var(--ink-2);border:1px solid var(--rule);border-radius:2px;
+  padding:2px 7px;background:var(--card);white-space:nowrap;
+}
+.chip b{color:var(--ink-3);font-weight:400;margin-right:5px}
+.chip.hot{color:var(--warn);border-color:var(--warn);background:var(--warn-soft)}
+
+.body{padding:4px 24px 22px}
+.blk{padding:16px 0;border-bottom:1px dashed var(--rule-soft)}
+.blk:last-child{border-bottom:0;padding-bottom:2px}
+.lab{
+  font-family:var(--mono);font-size:10px;letter-spacing:.17em;
+  color:var(--accent);text-transform:uppercase;
+  display:flex;align-items:center;gap:9px;margin-bottom:8px;
+}
+.lab::after{content:"";flex:1;height:1px;background:var(--rule-soft)}
+.blk p{margin:0 0 9px;font-size:14px;color:var(--ink-2);line-height:1.9}
+.blk p:last-child{margin-bottom:0}
+.blk strong{color:var(--ink);font-weight:700}
+
+ul.pts{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+ul.pts li{
+  position:relative;padding-left:16px;font-size:14px;
+  color:var(--ink-2);line-height:1.9;
+}
+ul.pts li::before{
+  content:"";position:absolute;left:2px;top:12px;
+  width:5px;height:5px;background:var(--accent);border-radius:50%;
+}
+ul.pts li strong{color:var(--ink)}
+
+/* price rows */
+.rates{display:grid;gap:0;margin:2px 0 0}
+.rate{
+  display:grid;grid-template-columns:1fr auto;gap:18px;align-items:baseline;
+  padding:7px 0;border-bottom:1px dotted var(--rule);
+}
+.rate:last-child{border-bottom:0}
+.rate span{font-size:13.5px;color:var(--ink-2)}
+.rate b{
+  font-family:var(--mono);font-size:13.5px;font-weight:500;
+  color:var(--ink);font-variant-numeric:tabular-nums;text-align:right;
+  white-space:nowrap;
+}
+.rate b.up{color:var(--warn)}
+
+/* required docs */
+.docs{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.docs li{
+  display:grid;grid-template-columns:14px 1fr;gap:9px;align-items:start;
+  font-size:13px;color:var(--ink-2);line-height:1.75;
+}
+.docs li svg{width:12px;height:12px;margin-top:6px;stroke:var(--accent);fill:none;stroke-width:2.2}
+.docs li em{font-style:normal;color:var(--ink);font-weight:500}
+
+.scroller{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+.empty{
+  display:none;text-align:center;padding:70px 20px;color:var(--ink-3);
+  font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+}
+.empty.on{display:block}
+
+footer{
+  margin-top:60px;padding-top:22px;border-top:1px solid var(--rule);
+  font-size:12px;color:var(--ink-3);line-height:1.9;
+}
+footer b{font-family:var(--mono);font-size:10px;letter-spacing:.15em;color:var(--ink-2);display:block;margin-bottom:6px}
+footer a{color:var(--ink-2)}
+
+@media (max-width:940px){
+  .shell{grid-template-columns:1fr}
+  .rail{
+    position:static;height:auto;border-right:0;
+    border-bottom:1px solid var(--rule);padding:20px 22px 14px;
+  }
+  .nav{display:none}
+  .railfoot{border-top:0;padding:0}
+  main{padding:0 22px 90px}
+  .meta div{padding-right:16px;margin-right:16px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <b>削減品目カルテ</b>
+      <span>57 ITEMS / 2026.08</span>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="q" type="search" placeholder="品目・会社名・キーワード" autocomplete="off" aria-label="品目を検索">
+    </div>
+    <div class="hits" id="hits"></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="railfoot">
+      <span>REV. 2026-08</span>
+      <button class="tog" id="tog" type="button">配色</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="masthead">
+      <div class="eyebrow">Cost Reduction · Category Dossier</div>
+      <h1>コスト削減57品目の<br>業界・プレイヤー・相場</h1>
+      <p class="lede">削減品目一覧の全品目について、業界がどう成り立っていて、誰がシェアを握り、いくらが相場で、どこに削減余地が眠っているかを一枚に集約したもの。商談前の下調べと、初回ヒアリングの当たりをつけるための実務資料です。</p>
+    </header>
+
+    <dl class="meta">
+      <div><dt>ITEMS</dt><dd>57</dd></div>
+      <div><dt>CATEGORIES</dt><dd>9</dd></div>
+      <div><dt>AS OF</dt><dd>2026.08</dd></div>
+      <div><dt>BASIS</dt><dd>公開情報</dd></div>
+    </dl>
+
+    <section class="prem">
+      <h2>57品目を貫く3つの構造</h2>
+      <p>個別品目に入る前に、ほぼ全部に共通する「なぜ削れるのか」の根拠。</p>
+      <ol>
+        <li><i>1</i><div>
+          <b>価格が「相見積りされない前提」で決まっている</b>
+          <p>エレベーター保守・複合機カウンター・電気保安・消防点検・機械警備・医療機器保守は、いずれも「入れた業者がそのまま保守も持つ」商流。導入時は競争があっても、保守と消耗品には競争がない。日本病院会も高額医療機器について「機器購入時はメーカー間競争が働くが、保守契約では働かないため金額の妥当性が見いだせない」と公式に指摘している。削減余地はここに集中する。</p>
+        </div></li>
+        <li><i>2</i><div>
+          <b>単価より「数量・仕様・契約形態」の方が効く</b>
+          <p>単価▲5%より、フルメンテ→POG、月次点検→隔月、純正→互換、2週交換→4週交換の方がインパクトが大きい。仕様を落とさずに落とせる仕様を見つけるのが付加価値の本体で、単価交渉はその後の話。</p>
+        </div></li>
+        <li><i>3</i><div>
+          <b>2024〜2026年は値上げの波の最中にある</b>
+          <p>郵便・段ボール・損保・電気・AdBlue・加入電話基本料——ほぼ全品目で値上げが進行中。値上げ通知が来たタイミングは最大の商談機会であると同時に、削減効果を「値上げ前比」で見せるか「値上げ後比」で見せるかの定義を、着手前にクライアントと握っておく必要がある。</p>
+        </div></li>
+      </ol>
+    </section>
+
+    <div id="cats"></div>
+    <div class="empty" id="empty">該当する品目がありません</div>
+
+    <footer>
+      <b>SOURCES</b>
+      資源エネルギー庁「石油製品価格調査」／<a href="https://oil-info.ieej.or.jp/">石油情報センター</a>、<a href="https://www.post.japanpost.jp/business/discount/index.html">日本郵便 大口・法人向け料金</a>、<a href="https://www.j-bma.or.jp/">全国ビルメンテナンス協会</a>、<a href="https://www.e-miki.com/rent/">三鬼商事 オフィスマーケット</a>、<a href="https://www.w-nexco.co.jp/etc/frequency/about/">NEXCO西日本 大口・多頻度割引</a>、<a href="https://pps-net.org/">新電力ネット</a>、日本病院会「医療機器・医療情報システム 保守契約、費用に関する実態調査」、<a href="https://www.yano.co.jp/">矢野経済研究所</a>、<a href="https://www.nikkei.com/compass/">NIKKEI COMPASS</a>、Synergy Research。<br>
+      金額はすべて目安であり、地域・数量・契約条件で大きく振れます。提案前に一次資料（請求明細・契約書）で必ず裏取りしてください。
+    </footer>
+  </main>
+</div>
+
+<script>
+const CATS = [
+  ["A","エネルギー・水"],
+  ["B","通信・IT・OA"],
+  ["C","建物設備・保守・警備"],
+  ["D","廃棄物・環境衛生"],
+  ["E","車両・物流・資材"],
+  ["F","金融・保険・税・不動産"],
+  ["G","医療・介護"],
+  ["H","店舗・ホテル・サービス"],
+  ["I","販促・郵送・印刷"]
+];
+
+/* rate: [label, value, "up"?]  */
+const ITEMS = [
+/* ---------------- A ---------------- */
+{n:46,c:"A",name:"電気料金",lot:"月間10,000円以上",hot:"値上げ局面",
+docs:["直近12か月分の電気料金明細"],
+ov:"2016年の全面自由化で参入した新電力は、2021〜22年の卸電力市場高騰で多数が撤退。その後市況が落ち着き、2024年以降は営業が再び活発化している。料金は<strong>基本料金＋電力量料金＋燃料費調整額＋再エネ賦課金</strong>の4層構造で、削減提案が触れられるのは前2つだけ。残り2つは制度で決まる。",
+pl:"旧一般電気事業者10社（東京電力EP、関西電力、中部電力ミライズほか）が最大勢力。新電力側はエネット、丸紅新電力、サミットエナジー、Looop、リミックスでんき。高圧・特別高圧は商社系・ガス会社系が強い。",
+rates:[["2026年度 再エネ賦課金","4.18 円/kWh","up"],["高圧 電力量料金（目安）","17〜25 円/kWh"],["東電EP 高圧・特別高圧","2026年4月 標準メニュー見直し","up"]],
+tips:["<strong>12か月分の明細が必須なのは負荷率を出すため。</strong>負荷率（平均使用電力÷最大需要電力）が高いほど新電力は安値を出せる。負荷率30%未満の施設は良い条件が出にくい。","<strong>デマンドは基本料金を1年間拘束する。</strong>夏の一瞬のピークが12か月効き続けるので、デマンド抑制だけで基本料金が数%落ちる。","再エネ賦課金は<strong>契約先を変えても1円も安くならない</strong>。ここを「削減できる」と説明する業者は要注意。減らす正攻法は自家消費のみ。","2026年4月以降、燃料費調整の平均燃料価格の算定期間が見直され、各月の調整単価は1か月間の貿易統計価格ベースになった。"]},
+
+{n:18,c:"A",name:"空調料金",lot:"1台から可",
+docs:["空調機器の年式・型番","設置台数、設置場所の床面積及び天井高（おおよそで可）"],
+ov:"業務用エアコンは製造から10年で補修用部品の保有期間が切れ、15年前後で更新期を迎える。<strong>壊れてから緊急対応で言い値更新</strong>が業界の常態で、計画更新に切り替えるだけで単価が下がる。15年前の機種からの更新で消費電力が3〜4割下がるケースもあり、電気代削減とセットで提案できる。",
+pl:"<strong>ダイキン工業が約40%で圧倒的首位</strong>、三菱電機が約20%で2位。以下、日立ジョンソンコントロールズ空調、三菱重工サーマルシステムズ、東芝キヤリア、パナソニックが続き、<strong>上位6社で約80%</strong>の寡占市場。",
+rates:[["天井カセット4方向 4馬力（本体＋標準工事）","60〜90 万円"],["定価からの実勢値引き","60〜80 %引"]],
+tips:["<strong>型番と年式が要る理由</strong>は、そこから能力・冷媒種別・期間消費電力量が引け、更新後の電気代削減額まで含めた投資回収年数が出せるから。","<strong>カタログ定価はほぼ意味がない。</strong>流通の値引き率が極端に大きく「定価の◯%引き」は削減額を演出しやすい。必ず実額で横比較する。","2026年時点で省エネ機器更新の補助金メニューが複数あり、更新時期を公募に合わせるだけで実負担が下がる。"]},
+
+{n:8,c:"A",name:"LPガス",lot:"月間10,000円〜",
+docs:["直近の購入量・購入単価がわかるガス料金明細"],
+ov:"<strong>日本で最も価格が不透明な公共料金的サービス。</strong>都市ガスと違い料金は完全自由で公表義務もなく、同じ地域・同じ使用量でも事業者によって2倍以上の差がつく。2024年4月施行の液石法省令改正で設備費用の料金への上乗せ（無償配管）が規制され、透明化が進行中。販売事業者数はピークから約6割減。",
+pl:"<strong>輸入元売シェア</strong>：ENEOSグローブ 29.5%／アストモスエネルギー 26.9%／ジクシス 16.5%／ジャパンガスエナジー 11.5%／岩谷産業 7.6%／東京ガス 4.2%。<strong>小売販売量では岩谷産業が首位</strong>、以下ニチガス、TOKAI、サイサン。全国に1万数千の販売店がひしめく多層流通。",
+rates:[["全国平均 10m³（2026年4月）","9,281 円"],["└ 基本料金 / 従量単価","2,311円 / 689円·m³"],["1m³あたり平均（2026年）","700〜740 円"],["業務用（飲食・工場）の着地","400〜600 円/m³"]],
+tips:["<strong>「基本料金＋従量単価」の2要素しかないのに、業者はこの2つを自由に動かせる。</strong>従量単価だけ下げて基本料金を上げる見せかけ提案があるので、必ず月額総額で比較する。","<strong>切替後の値上げ（リバウンド）が業界の悪弊。</strong>切替時は「単価保証期間」を契約に書かせるのが必須。","集合住宅では設備費用が料金に潜んでいることが多く、償却済みかどうかで交渉余地が変わる。"]},
+
+{n:33,c:"A",name:"重油",lot:"年間1,000万円以上",hot:"値決め方式が本丸",
+docs:["請求書12カ月分","契約書","値決め方法のわかる資料（各月の見積書）"],
+ov:"ボイラー・熱源用のA重油が主戦場。価格は「元売り仕切価格＋販売店マージン」で決まり、<strong>値決め方式が業者ごとに違う</strong>のが最大の論点。連動指標（元売仕切、通関CIF、MOPS等）と改定頻度、そしてマージン幅がどこにも書かれていない契約が非常に多い。",
+pl:"元売りは<strong>ENEOS（最大手）、出光興産、コスモ石油の実質3社寡占</strong>。この下に地場の燃料商社・特約店が入る二層構造で、交渉相手は通常この特約店。",
+rates:[["公的ベンチマーク","資源エネルギー庁／石油情報センターが A重油の産業用価格を月次公表（毎月最終営業日）"]],
+tips:["<strong>「値決め方法のわかる資料」を要求しているのが本質。</strong>単価そのものより、フォーミュラ（連動式）に変えてマージンを固定させることが最大の削減。「公表指標＋α円/L」に書き換えられれば、以後の値上げ局面でも上げ幅を制御できる。","12か月分を見るのは季節変動と、<strong>値上げ局面の追随の速さ・値下げ局面の追随の遅さ（非対称性）</strong>を検証するため。ここに数円/Lが眠っている。","大口はローリー1台（約10kL）単位の配送効率がマージンに直結。タンク在庫を厚く持てるなら単価は下がる。"]},
+
+{n:34,c:"A",name:"上下水道料金",lot:"年間1,000万円〜（エリア判断）",
+docs:["1年分の購入量・購入単価がわかる水道料金明細"],
+ov:"<strong>水道は自由化されていない</strong>ため「業者を変える」削減はできない。削減は①減免・還付の適用漏れ回収 ②節水機器 ③下水道使用量の認定（蒸発・製品混入分の控除）の3本柱。老朽管更新の負担から2024年以降、全国で水道料金の値上げが相次いでいる。",
+pl:"各自治体の水道局・企業団（東京都水道局、大阪市水道局ほか）。民間側は節水コマ・節水バルブメーカー、節水コンサル、宅内漏水調査業者。",
+rates:[["料金体系","逓増制（使うほど単価が上がる）＝大口ほど高い単価帯にいる"],["東京都 水道料金の減免","2029年3月まで継続"],["東京都 下水道料金の減免","2031年3月まで継続"]],
+tips:["<strong>「エリアによって判断」の理由</strong>は、自治体ごとに料金体系も減免制度もまったく違うから。同じ使用量でも自治体間で単価が2〜3倍違う。","<strong>使った水が下水に出ていない分（蒸発・製品への混入）を申告すれば下水道使用料が減額される制度がある。</strong>自己申告制なので知らずに払い続けている事業者が多い。冷却塔・ボイラーを持つ施設は要チェック。","井戸水併用は水質検査コストとのトレードオフ。<strong>井戸に切り替えても下水道料金は井戸使用量に課される</strong>点を見落としがち。"]},
+
+{n:36,c:"A",name:"太陽光設置",sub:"電気料金・再エネ賦課金削減",lot:"低圧13,000円〜/月・高圧1,000万円/年・築15年以下",
+docs:["1年分の電気料金明細","立面図","平面図","単線結線図（高圧のみ）","30分毎のデマンドデータ1年分（高圧のみ）"],
+ov:"FIT売電中心から<strong>自家消費（＋PPA / TPOによる初期費用ゼロ）モデル</strong>へ完全に軸足が移った。売電価格が買電価格を大きく下回ったため、発電した電気は売るより使った方が得になったから。自家消費分には<strong>再エネ賦課金がかからない</strong>ので、4.18円/kWh分も丸ごと浮く。",
+pl:"パネルは中国勢（ジンコソーラー、ロンジ、トリナ）が世界シェア上位、国内はシャープ・京セラ・長州産業・カナディアンソーラー。PPA事業者はアイ・グリッド・ソリューションズ、東京電力EP、関西電力、リコージャパン、オリックス。施工は地場EPCが多数。",
+rates:[["自己所有 設置費用（産業用）","20〜28 万円/kW"],["PPA 電力単価","13〜20 円/kWh"],["└ 大手電力の通常プラン比","＋3〜5 円/kWh 高が多数派","up"],["PPA 契約期間","10年・15年が主流（一部20年）"]],
+tips:["<strong>「築年数15年以下」は屋根荷重と防水保証の条件。</strong>20年以上の建物は屋根改修とセットにしないと後で高くつく。","<strong>30分デマンドデータが要る理由</strong>：発電カーブと消費カーブを重ねないと自家消費率が出せない。土日休みの事業所は昼のピーク発電を消費できず自家消費率が落ちるため、24時間稼働の工場・スーパー・介護施設が最も向く。","PPAは初期費用ゼロだが<strong>契約期間中の解約違約金が重く、増改築や売却の足かせになる</strong>。「タダで載る」の裏側は必ず説明しておく。"]},
+
+/* ---------------- B ---------------- */
+{n:6,c:"B",name:"インターネット回線",lot:"1回線〜",
+docs:["インターネット料金明細（直近月分）"],
+ov:"FTTH市場は2025年3月末で契約数4,104.8万件。物理設備はNTT東西のほぼ独占で、その上に「光コラボレーション」事業者が数百社ひしめく構造。<strong>同じNTTの物理回線に、価格だけ違う数百のラベルが貼られている</strong>のが実態。",
+pl:"<strong>NTT東西（フレッツ光＋光コラボ合計でFTTHシェア約57.9%）</strong>、KDDI（auひかり）、ソフトバンク（ソフトバンク光／NURO）、電力系（コミュファ光、eo光、メガエッグ）。法人向けはNTTコミュニケーションズ、アルテリア・ネットワークス、USEN NETWORKSも強い。",
+rates:[["法人向け光（1Gbps ベストエフォート）","月額 5,000〜8,000 円"],["10Gbps 帯（フレッツ光クロスBiz等）","月額 1万円台"],["帯域確保型（専用線・ギャランティ）","月額 数万〜数十万円"]],
+tips:["<strong>「1回線から可」なのは、多拠点企業の回線が拠点ごとにバラバラの契約になっているから。</strong>10拠点あれば10社と契約していることも普通で、集約するだけで単価が下がる。","<strong>使っていない回線が生き残っているのが法人回線の最頻出案件。</strong>移転・閉店した拠点の回線、バックアップ用に引いたまま忘れられた回線。明細の突合だけで削減が出る。","光コラボは<strong>事業者変更が工事なし・番号そのまま</strong>で切替ハードルが極めて低い。逆に割引期間終了後に放置される率も高い。"]},
+
+{n:24,c:"B",name:"固定電話代",sub:"ビジホン等",lot:"1台から可",hot:"2026年4月 基本料値上げ",
+docs:["直近月の電話代請求明細 ※全台分"],
+ov:"NTTの公衆交換電話網は<strong>2024年1月から順次IP網へ移行し、同年11月に完了</strong>。これによりメタル回線でも中継部分がIP化され、<strong>通話料が全国一律3分9.35円</strong>になった。距離別課金の時代は終わっているのに、旧料金体系やINSネットを惰性で維持している企業が多数。",
+pl:"NTT東日本・NTT西日本（回線）。ビジネスホン主装置はNTT（αシリーズ）、NEC（Aspire）、サクサ、ナカヨ、日立、パナソニック。クラウドPBX側はMOT/TEL、Arcstar Smart PBX、Dialpad、BIZTEL。",
+rates:[["通話料（IP網移行後・全国一律）","3分 9.35 円"],["加入電話 基本料（事務所用）","月 2,500〜3,000 円台"],["2026年4月〜 基本料改定","住宅用 +220円 / 事務用 +330円","up"]],
+tips:["<strong>「全台分」の明細を求めるのは休眠回線を炙り出すため。</strong>FAX専用・アラーム専用・エレベーター非常電話用の回線が、用途廃止後も生き続けている率が非常に高い。","<strong>INSネット ディジタル通信モードは2024年に終了済み。</strong>まだ残っていれば即対応案件。","主装置のリースが再リースで延々続いているケースは、年額が1/10なら維持が正解。<strong>安易にクラウドPBXに替えると総額が上がることもある</strong>ので要注意。"]},
+
+{n:54,c:"B",name:"法人携帯電話",lot:"10台以上から可",
+docs:["直近月の携帯料金明細 ※全台数分"],
+ov:"4キャリア＋MVNOの構図。法人契約は<strong>「表の料金表」と「実際に適用される法人割引」が別物</strong>で、台数・期間・端末購入有無で条件が大きく動く。相見積りが最も素直に効く品目のひとつ。",
+pl:"NTTドコモ、KDDI（au）、ソフトバンク、楽天モバイル。販売は各キャリアの法人代理店（ベルパーク、ティーガイア、コネクシオ等）が担い、<strong>代理店ごとにインセンティブ原資が違うため、同じキャリアでも代理店を変えると条件が変わる</strong>。",
+rates:[["ドコモ 法人プラン（低容量帯）","月額 550 円〜"],["法人向け格安SIM／MVNO","月額 500 円前後（1GB）"],["実務目安（10〜50台・スマホ1台）","月 2,000〜3,500 円"],["└ 通話定額込み","月 3,500〜5,000 円"]],
+tips:["<strong>10台が閾値なのは、そこから法人一括割引の交渉テーブルに乗るから。</strong>10台未満は個人向けとほぼ同条件しか出ない。","<strong>明細を全台分見るのはデータ使用量の実績分布を出すため。</strong>「無制限プランを全台に付けているが、実際は8割が3GB未満」が典型。台数×プラン最適化だけで3〜4割落ちる。","端末代の割賦が終わっているのに割賦相当額を含んだ料金のまま、という取りこぼしも多い。","社内利用中心ならMVNO、外勤・現場中心ならキャリア。<strong>用途別に混在させるのが正解で、全台同一プランは大抵ムダ。</strong>"]},
+
+{n:27,c:"B",name:"CTI",lot:"特段なし",
+docs:["席数・通話時間・通話料金単価記載の資料"],
+ov:"電話とシステムを統合する仕組み。オンプレPBX＋CTIサーバの時代から<strong>クラウドPBX / CCaaS へ移行中</strong>で、クラウドPBX市場は2025年222.9億ドル→2026年254.2億ドル→2032年570.2億ドル（CAGR 14.35%）と高成長。",
+pl:"国内CTIでは<strong>BIZTEL（リンク）がシェア上位</strong>。ほかに楽天コネクト Speed、Genesys Cloud、Amazon Connect、Zendesk、MiiTel（RevComm）。PBX基盤ではAvayaが世界・国内コンタクトセンター市場で高シェア。",
+rates:[["クラウドCTI ライセンス","1席 月 2,000〜5,000 円"],["通話料 固定宛（IP発信）","3分 8.8 円前後"],["通話料 携帯宛","17.6 円/分 前後"]],
+tips:["<strong>「席数・通話時間・通話料単価」の3点セットを求めるのは、ライセンス費と通話料を分けて叩くため。</strong>この2つは削減アプローチがまったく違う。","<strong>通話料はキャリア（発信経路）だけ差し替えれば下がることが多い。</strong>CTIシステムを替えずに発信キャリアだけ変更する提案は導入負荷ゼロで刺さる。","席数は<strong>同時ログイン数課金かID数課金か</strong>で最適化余地が変わる。シフト制なら同時課金が圧倒的に安い。"]},
+
+{n:52,c:"B",name:"複合機",lot:"1台から可",hot:"削減の王道",
+docs:["カウンター請求書（単価・枚数が確認できるもの）※全台数分","リース契約書（期間・料金のわかるもの）※全台数分"],
+ov:"<strong>コスト削減の王道品目。</strong>「本体は安く、カウンター料金（1枚あたりの保守・トナー込み従量課金）で回収する」構造のため、カウンター単価に極めて大きな交渉余地がある。ペーパーレス化で印刷枚数が減った結果、<strong>最低基本料金（ミニマムチャージ）に引っかかって使っていない枚数分を払っている</strong>企業が急増中。",
+pl:"<strong>キヤノン、リコー、富士フイルムビジネスイノベーションの3社で国内シェア約60〜70%</strong>（各社15%超）。以下、シャープ、コニカミノルタ、京セラドキュメントソリューションズ、東芝テック。3強は全国の保守拠点網が厚く、地方でも即日対応できるのが強み。",
+rates:[["全メーカー平均 モノクロ / カラー","1.0 円 / 10 円 ·枚"],["リコー平均","1.2 円 / 12 円 ·枚"],["交渉着地の実勢 モノクロ","0.5〜0.8 円 ·枚"],["交渉着地の実勢 カラー","5〜7 円 ·枚"]],
+tips:["<strong>カウンター料金にはトナー代・保守・出張修理費が全部含まれている。</strong>「トナーが無料」は当たり前で、セールストークとしては無意味。","<strong>最低基本料金の罠。</strong>在宅勤務で枚数が半減した企業は、実質単価が表示単価の2倍になっている。明細を見ればすぐ出る。","<strong>リース残期間が交渉の生命線。</strong>残1年を切ってから動くのが最も条件が良い。残債があると新規業者が巻き取り、その分が新リース料に乗るため削減幅が縮む。","<strong>カウンター契約はリース会社ではなく販売店との別契約。</strong>リースを継続したままカウンターだけ他社に切り替えられるケースがあることは意外と知られていない。"]},
+
+{n:37,c:"B",name:"卓上プリンタートナー料金",lot:"1本から可",
+docs:["トナー購入単価記載の資料"],
+ov:"複合機と違い<strong>トナーを都度買う</strong>モデル。本体を安く売って消耗品で回収するジレットモデルの典型で、純正トナーの粗利率は極めて高い。ここに互換・リサイクルトナー業者が入り込む余地が生まれている。",
+pl:"純正はブラザー、キヤノン、エプソン、HP、リコー、OKI。互換・リサイクルはエコリカ、インク革命、こまもの本舗ほか中小が多数。",
+rates:[["純正トナー","1本 8,000〜20,000 円"],["互換・リサイクル品","純正の 1/3〜1/2"]],
+tips:["<strong>メーカー保証との関係が最大の論点。</strong>互換使用時に故障すると有償修理になり得るが、実務上はトナー起因と証明された場合に限られる。台数が多いなら節約額が上回ることがほとんど。","<strong>リサイクルトナー（純正の空カートリッジを再生）と互換トナー（新規製造）は別物。</strong>品質はリサイクル＞互換であることが多い。","本気で削減するなら<strong>卓上プリンタを廃止して複合機に集約</strong>が最も効く。台数分の消耗品在庫と管理工数がまるごと消える。"]},
+
+{n:41,c:"B",name:"テプラカートリッジ",lot:"月間30,000円以上",
+docs:["カートリッジ購入単価記載の資料"],
+ov:"ラベルライターの消耗品。<strong>キングジム「テプラ」がほぼ代名詞化した寡占市場</strong>で、純正テープ価格は長年ほぼ据え置き＝高止まり。製造・物流・医療現場など「ラベルを大量に貼る」業種で地味に効いてくる。",
+pl:"純正はキングジム（テプラ）、ブラザー（ピータッチ）、カシオ（ネームランド）。互換はこまもの本舗、インク革命.COM、SOHO Partner、CHIPS。",
+rates:[["純正テープ（36mm・8m）","1本 1,500〜2,500 円"],["互換テープ","純正の 1/3〜1/2 以下"]],
+tips:["<strong>月3万円＝年36万円。</strong>この規模になると互換化だけで年間10〜20万円が浮く。","互換品の懸念は粘着力と印字耐久性だが、近年は強粘着タイプが標準で屋内用途の差はほぼない。<strong>屋外・薬品環境だけ純正推奨。</strong>","品目としては小さいが、<strong>「こんな細かいところまで見てくれるのか」という信頼獲得のフック</strong>として使い勝手が良い。"]},
+
+{n:50,c:"B",name:"PC",lot:"30台以上の購入",
+docs:["過去のPC購入金額等が確認できる資料"],
+ov:"<strong>Windows 10サポート終了（2025年10月）に伴う大量更新需要を通過した直後。</strong>Windows 11でスペック要件（TPM 2.0等）が上がったため旧機を延命できず、更新を強いられた企業が多い。国内メーカーは実質レノボ傘下に再編済みで、「国産」の意味は設計・サポート体制に限られる。",
+pl:"レノボ、HP、<strong>デル（2024年の国内出荷シェア14.6%で3位）</strong>、NEC、富士通、Dynabook、Apple、マイクロソフト。<strong>NEC（NECパーソナルコンピュータ）と富士通（FCCL）はいずれもレノボが過半を握る合弁</strong>で、NECは法人向けPCの販売機能移管も進行中。",
+rates:[["法人ノート（Core i5・14型）","8〜13 万円/台"],["└ 30台以上のボリューム","7 万円台も"],["デスクトップ（ミニタワー）","6〜10 万円/台"]],
+tips:["<strong>30台が閾値なのは、そこから直販の法人ボリュームディスカウントとメーカー入札が成立するから。</strong>単発購入では量販店価格とさして変わらない。","<strong>購入かリース（PCaaS）かは単価だけで決めてはいけない。</strong>リースは資産管理・キッティング・廃棄・データ消去を含むので、情シスの工数を金額換算すると逆転することがある。","<strong>買い替えサイクルを4年→5年に伸ばすのが最大の削減</strong>だが、Windowsのサポートサイクルとぶつかると失敗する。OSサポート期限から逆算して更新計画を立て直すのが正攻法。"]},
+
+{n:25,c:"B",name:"サーバー費用",sub:"AWS等",lot:"年間1,000万円以上",
+docs:["サーバー利用状況が確認できる資料","請求明細（直近12か月分）"],
+ov:"生成AI需要でクラウド市場は爆発的に成長中（<strong>2026年Q2は前年比43%成長、市場規模1,430億ドル</strong>）。同時に「使っていないリソースへの課金」が構造的に膨らんでいる。クラウドコスト最適化（FinOps）は独立した専門領域になっており、<strong>削減余地は平均20〜30%</strong>と言われる。",
+pl:"<strong>2026年Q2のクラウドインフラシェア：AWS 28% / Microsoft Azure 20% / Google Cloud 15%</strong>（3社で約63%）。国内はこれに加えてさくらインターネット、IIJ、NTTコミュニケーションズ、富士通、ニフクラ。",
+rates:[["Reserved Instances / Savings Plans","最大 60〜70 %引"],["Spot Instance","最大 90 %引"],["開発環境の夜間停止","開発費 約 60 %減"]],
+tips:["<strong>12か月分の明細が必須なのは、季節変動とコミット購入の適正量を決めるため。</strong>1か月だけ見てコミットすると、閑散期に使い切れないコミットを抱える。","削減の定石は①アイドルリソース停止 ②Savings Plans／RI購入 ③ライトサイジング ④ストレージ階層化 ⑤<strong>データ転送料（Egress）の削減</strong>。特に⑤は請求書で見落とされやすい。","<strong>年1,000万円が閾値なのは、それ未満だと最適化の工数がペイしないから。</strong>ただしEC2数台程度の使い方なら小規模でも即効性がある。","「マルチクラウドにすれば安くなる」は基本的に誤り。<strong>運用の複雑性コストが削減額を食う。</strong>"]},
+
+{n:45,c:"B",name:"電子契約書",lot:"特段なし",
+docs:["契約内容が明記された資料"],
+ov:"2022年の電子帳簿保存法改正等で一気に普及。<strong>「印紙税がかからない」という一点だけで投資回収するケースが多い</strong>のが特徴（電子契約書には印紙税法上の課税文書が存在しない）。市場は成熟期に入り価格競争が始まっている。",
+pl:"<strong>弁護士ドットコム（クラウドサイン）が2024年度の売上シェア23.6%でトップ、導入250万社超</strong>で自治体採用も業界最多クラス。<strong>GMOグローバルサイン・HD（電子印鑑GMOサイン）は導入350万社突破</strong>を掲げ社数ベースでNo.1を主張。ほかfreeeサイン、マネーフォワード クラウド契約、DocuSign、Adobe Acrobat Sign、シヤチハタクラウド。2026年上半期の資料請求数上位はクラウドサイン／freeeサイン／マネーフォワード。",
+rates:[["クラウドサイン Corporate","月額 28,000 円"],["GMOサイン スタンダード","月額 24,000 円"],["freeeサイン 電子サイン / 電子署名","100 円 / 200 円 ·通"]],
+tips:["<strong>削減効果の主役は印紙税。</strong>請負契約書（2号文書）なら契約金額1億円で6万円、5億円で10万円の印紙が不要に。建設・不動産・製造業では年間数百万円規模になる。","<strong>「電子サイン（立会人型）」と「電子署名（当事者型）」で単価が倍違う。</strong>全件を当事者型にする必要はほぼない。文書のリスク区分で使い分けるだけで通信費が半減する。","相手方に導入負担がかからない（受信側は無料）ため、<strong>社外調整のハードルが低い数少ないIT案件。</strong>"]},
+
+/* ---------------- C ---------------- */
+{n:9,c:"C",name:"エレベーター・エスカレーター保守料金",lot:"1基〜",hot:"削減の最重要品目",
+docs:["定期検査報告書（1年に1回の法定検査）","保守契約書"],
+ov:"<strong>コスト削減の最重要品目のひとつ。</strong>新設市場はメーカー寡占だが、保守市場には独立系（メーカー系列でない保守会社）が存在し、<strong>メーカー系→独立系の切替で保守料が3〜5割下がる</strong>のが業界の常識。メーカー側も対抗値下げに応じるため、独立系の見積りを取るだけで交渉材料になる。",
+pl:"<strong>新設シェアは三菱電機、日立製作所（日立ビルシステム）、東芝エレベータ、フジテック（専業・国内4位）、日本オーチス・エレベータ</strong>の4〜5社で国内の大半。保守はメーカー系（三菱電機ビルソリューションズ、日立ビルシステム等）と、ジャパンエレベーターサービスHDをはじめとする独立系に分かれる。",
+rates:[["POG契約（メーカー系）","月 2.5〜4 万円/基"],["フルメンテナンス（メーカー系）","月 4〜7 万円/基"],["独立系 POG","月 1.5〜2.5 万円/基"]],
+tips:["<strong>POGとフルメンテの選択が最大の分岐。</strong>フルメンテは保険であり、築浅で故障が少ない期間はPOGの方が総額で安いことが多い。逆に築20年超はフルメンテが合理的。機械的に判断せず、定期検査報告書の指摘事項から劣化度を読むのがプロの仕事。","<strong>定期検査報告書を求めるのは、建築基準法12条3項の法定検査結果から「要是正」項目を見るため。</strong>是正指摘があると独立系が引き受けを渋る／条件が悪化する。","<strong>制御盤のブラックボックス化が壁になることがある。</strong>近年の遠隔監視付き機種はメーカー独自の通信仕様で独立系が保守しづらい。切替前に対応可否の確認が必須。"]},
+
+{n:15,c:"C",name:"機械警備",lot:"年間100万円以上",
+docs:["「現状確認表」（弊社指定のExcelに警備会社よりご記入いただく）"],
+ov:"警備業は1号（施設）〜4号（身辺）に区分され、機械警備は1号の一部。センサー＋通信＋緊急対処員の駆けつけをパッケージで売るモデルで、<strong>初期に設置した機器を減価償却し終えた後も同じ月額が続く</strong>のが削減余地の源泉。",
+pl:"<strong>セコムが業界1位、ALSOK（綜合警備保障）が2位</strong>で、連結売上ではセコムが長年上回る。3位以下に中央警備保障、全日警、共栄セキュリティーサービス。事業構成では<strong>ALSOKが輸送警備・介護に強く、セコムは医療・保険・海外の幅が特徴</strong>。",
+rates:[["事業所向け機械警備","月 8,000〜30,000 円/拠点"],["ALSOK セルフセキュリティ系","月 990 円〜のオプションも"]],
+tips:["<strong>「現状確認表」を警備会社に書かせる方式なのが重要。</strong>センサーの種類・台数・設置位置がわからないと相見積りが取れないが、顧客側では把握できていないことがほとんど。既存業者に書かせるのが最短ルート。","<strong>機器の償却が終わっているかがすべて。</strong>導入から7〜10年経っていれば機器代は回収済み。それでも同額を払い続けているなら値下げ交渉の正当性がある。","多拠点企業は拠点ごとに別の警備会社というケースが多い。<strong>集約すれば単価が下がるだけでなく管理も一元化できる。</strong>","「駆けつけ何分以内」「対処員が何名」は仕様で決まる。無人倉庫に高頻度巡回を付けている等、<strong>過剰仕様になっていないか</strong>の点検が効く。"]},
+
+{n:30,c:"C",name:"消防設備点検",lot:"年間100万円以上",
+docs:["点検報告書1年分（2回分）","請求書1年分（2回分）"],
+ov:"消防法第17条の3の3により<strong>特定防火対象物は年2回（機器点検・総合点検）の点検と年1回の報告が義務</strong>。義務であるがゆえに「やらない」選択肢がなく価格交渉されにくい。実際には<strong>元請→下請→孫請の多層構造</strong>で中間マージンが積み上がっていることが多い。",
+pl:"メーカー系は能美防災（NOHMI）、ホーチキ、パナソニック、ニッタン、モリタホールディングス。点検専業は全国に無数の中小工事・点検会社があり、ビルメン各社も併営。",
+rates:[["小規模マンション","1〜2 万円/回"],["中規模ビル","数万〜十数万円/回"],["大型商業施設","数十万円/回"],["業者・契約見直しによる削減幅","2〜3 割"]],
+tips:["<strong>「2回分の点検報告書と請求書」を揃えるのは、機器点検と総合点検の単価が違うから。</strong>合算した年額でしか提示されないと比較できない。","<strong>元請がビルメン会社・管理会社の場合、点検自体は下請に丸投げされていることが多い。</strong>実施会社に直接発注できれば中間マージン分がそのまま削減額になる（管理会社との関係性は要考慮）。","<strong>点検業者と工事業者が同じだと、是正指摘が増えるインセンティブが働く</strong>構造。ここを分離するのも一つの手。","用途変更や区画変更があった建物は、<strong>そもそも点検対象設備の範囲が変わっている</strong>ことがある。"]},
+
+{n:29,c:"C",name:"消火器",lot:"30本〜",
+docs:["使用している消火器の型番"],
+ov:"業務用消火器は<strong>製造から10年で耐圧性能点検（水圧試験）が必要</strong>になり、実務上は10年での入替が選択される。つまり10年周期で必ず調達が発生する消耗資産。2011年の規格変更で旧規格品は2021年末で使用不可となり、入替需要が一巡した後の平常運転期にある。",
+pl:"<strong>ヤマトプロテック</strong>（国内シェア上位を掲げる）、<strong>初田製作所（HATSUTA）</strong>、<strong>モリタ宮田工業</strong>（モリタHD）、能美防災、日本ドライケミカル。",
+rates:[["粉末ABC10型 定価","8,000〜12,000 円"],["同 実勢","3,500〜6,000 円/本"],["└ 30本以上のロット","3,000 円台も"],["リサイクルシール（廃棄処理費）","600〜700 円/本"]],
+tips:["<strong>「型番」だけで足りるのは、消火器が完全な規格品だから。</strong>型番がわかれば同等品の相見積りが即座に取れる、57品目中もっとも情報要件が軽い品目。","<strong>リサイクルシール代を見積りに含めているかが業者比較の落とし穴。</strong>本体単価だけ安く見せて処分費を別建てで乗せる手法がある。","<strong>設置本数そのものが過剰</strong>なケースがある。消防法上の必要本数は「歩行距離20m以内に1本」で計算されるので、レイアウト変更後に見直せば台数削減できることも。"]},
+
+{n:44,c:"C",name:"電気保安業務",lot:"年間100万円以上",
+docs:["「現状確認表」（弊社指定のExcelに電気保安業者様よりご記入いただく）"],
+ov:"自家用電気工作物（高圧受電＝キュービクル設置施設）は電気事業法により<strong>電気主任技術者の選任が義務</strong>。中小規模では外部委託承認制度により保安協会や電気管理技術者に委託するのが一般的。<strong>長らく各地域の電気保安協会が事実上の独占</strong>だったが、民間の保安法人が増加し価格競争が起きている。",
+pl:"<strong>各地域の電気保安協会</strong>（関東電気保安協会、関西電気保安協会ほか／全国連絡会を組織）が最大勢力。加えて民間保安法人、個人の電気管理技術者。",
+rates:[["料金体系","点数単価 × 点数"],["関東圏の点数単価相場","25,000〜35,000 円"],["例：33点の月額（25,000円時）","825,000 円"],["例：33点の月額（34,000円時）","1,122,000 円","up"]],
+tips:["<strong>点数単価に9,000円（約35%）の開きがあるのがこの品目の本質。</strong>同じ設備・同じ法定要件なのに業者によってこれだけ違う。","<strong>「現状確認表」を既存業者に書かせるのは、点数の算定根拠（設備構成）を正確に取るため。</strong>ここが不正確だと見積りが出ない。","<strong>年次点検（停電作業）は法令上年1回だが、隔年に緩和できる条件</strong>（絶縁監視装置の設置等）がある。停電すると生産・営業が止まる施設ではコスト以上のメリット。","保安協会は「公的っぽい名前」だが<strong>公益法人であって行政機関ではない</strong>。民間と競争させて構わない。"]},
+
+{n:40,c:"C",name:"貯水槽清掃",lot:"年間100万円以上",
+docs:["業務委託契約書（仕様書記載のもの）","請求明細（直近月）"],
+ov:"<strong>有効容量10m³超の受水槽は「簡易専用水道」として、水道法により年1回以上の清掃と検査が義務。</strong>10m³以下は法定義務ではないが条例で求められる自治体が多い。清掃自体は半日〜1日の単純作業で、<strong>技術差が小さく価格差が大きい</strong>＝相見積りが素直に効く。",
+pl:"ビルメンテナンス各社（イオンディライト、日本管財、大成、東急コミュニティー等）が併営。加えて水槽清掃専業の中小事業者が全国に多数。管理会社経由の発注が大半。",
+rates:[["5トン（5m³）あたり","3.5〜3.9 万円"],["10〜20m³","5〜8 万円"],["大型（50m³超）","10 万円超"],["水質検査費用（別途）","1〜2 万円"]],
+tips:["<strong>管理会社が元請で実作業は専門業者が下請</strong>という構造が典型。中間マージンが2〜3割乗っていることも。","<strong>契約書と仕様書を見るのは「清掃＋水質検査＋点検」がセットで幾らなのかを分解するため。</strong>バラで見ると各々の相場と比較できる。","高置水槽と受水槽の両方持つ建物は2槽分の費用。近年は<strong>直結増圧方式への切替で受水槽自体を撤去し、清掃費用と水質検査費用を恒久的にゼロにする</strong>抜本策もある。","「年1回以上」なので、<strong>年2回やっている物件は1回に減らせないか</strong>を確認する価値がある。"]},
+
+{n:42,c:"C",name:"定期清掃",lot:"年間100万円以上",
+docs:["業務委託契約書（仕様書記載のもの）","請求明細（直近月）"],
+ov:"日常清掃（毎日／週数回）と定期清掃（月1回〜年数回の床洗浄・ワックス等）は別物。<strong>定期清掃は頻度が仕様で決まっており、その頻度が慣性で続いている</strong>のが最大の削減余地。人件費上昇で単価は上昇圧力にあるため、単価交渉より頻度・範囲の最適化が主戦場。",
+pl:"総合ビルメンテナンス各社（イオンディライト、日本管財、東急コミュニティー、大成、ビケンテクノ）＋地場中小が多数。",
+rates:[["定期清掃（床洗浄ワックス）","200 円〜/㎡"],["└ 100㎡ 1回あたり","2 万円〜"],["日常清掃","1,500〜2,000 円/人時","up"]],
+tips:["<strong>頻度の見直しが最大のレバー。</strong>月1回のワックスがけを2か月に1回にすれば単純に半額。床材によっては年2〜4回で十分なものもある。","<strong>面積の実測が効く。</strong>契約書の面積が竣工時のままで、レイアウト変更で対象面積が減っているケースが頻出。","「日常と定期を別業者にすると安くなる」は場合による。<strong>分離すると管理工数が増え、床トラブル時の責任所在が曖昧</strong>になる。","単価だけでなく<strong>作業時間×人数の妥当性</strong>を見る。仕様は2名2時間なのに実態は1名1.5時間、というのは現地確認で判明することがある。"]},
+
+{n:49,c:"C",name:"総合ビルメンテナンス",lot:"年間300万円以上",
+docs:["業務委託契約書（仕様書記載のもの）","請求明細（直近月）"],
+ov:"清掃・設備管理・警備・衛生管理を一括受託する形態。市場規模は<strong>2024年度 5兆1,615億円（前年度比106.9%）、2025年度 5兆2,685億円（同102.1%）見込み</strong>と、人件費上昇を価格転嫁しながら拡大中。<strong>一括受託は管理が楽な反面、内訳が見えなくなり個別品目の割高が隠れる。</strong>",
+pl:"<strong>売上首位はイオンディライト（約1,826億円）</strong>。東急不動産HD系、<strong>日本管財</strong>（従業員数では業界トップの4,766人）が700億円超で続く。以下、大成、ビケンテクノ、東急コミュニティー、三菱地所プロパティマネジメント。デベロッパー系列は親会社物件で安定、独立系は価格競争力が武器。",
+rates:[["中規模オフィスビル（5,000㎡程度）","年 2,000〜4,000 万円"],["内訳目安 設備管理","40〜50 %"],["内訳目安 清掃","30〜40 %"],["内訳目安 警備","10〜20 %"]],
+tips:["<strong>削減の第一歩はアンバンドル（分解）。</strong>一括で見ると比較不能なので、清掃・設備・警備・点検に分解して個別に相場と突き合わせる。ここで消防点検や貯水槽清掃の割高が露見することが多い。","<strong>常駐から巡回への切替が最も効く。</strong>設備管理を24時間常駐→日勤＋遠隔監視にすると人件費が大幅に落ちる。ただし緊急対応力とのトレードオフ。","業界は<strong>深刻な人手不足で高齢化が進行</strong>。極端な値下げを飲む業者は品質低下・撤退リスクが高い。「取れる限界」を見極めるのがコンサルの責任範囲。"]},
+
+/* ---------------- D ---------------- */
+{n:26,c:"D",name:"産業廃棄物",lot:"年間100万円以上",
+docs:["業務委託契約書・仕様書・報告書","請求明細（直近1か月分）"],
+ov:"市場規模は<strong>約5〜5.3兆円</strong>。<strong>業者数が2万社超と極めて多く、地域密着・多重下請けが常態</strong>という日本有数の不透明市場。排出事業者責任（マニフェスト制度）があるため「安ければいい」で選べない一方、価格差は極めて大きい。",
+pl:"上場・大手は<strong>大栄環境（2026年3月期 売上878億円、+9.6%）</strong>、TREホールディングス、ダイセキ、ミダック、要興業（同149億円）、エンビプロ・ホールディングス。ただし<strong>上位数社を合わせても市場の数%</strong>にしかならない超分散市場。",
+rates:[["混合廃棄物","30〜60 円/kg","up"],["廃プラスチック類","25〜50 円/kg"],["汚泥","15〜40 円/kg"],["木くず","10〜25 円/kg"],["がれき類・コンクリート","3〜10 円/kg"],["金属くず","有価買取になることも"]],
+tips:["<strong>分別が単価を決める。</strong>混合廃棄物は最も高く、分別すればするほど安い（金属は逆に売れる）。現場での分別ルール変更だけで20〜30%落ちることがあり、設備投資不要の削減として提案価値が高い。","<strong>収集運搬と中間処理・最終処分が別料金。</strong>契約書上で分離されているか確認。一体で丸められていると、どちらが割高か判別できない。","<strong>処理施設までの距離が運搬費を決める。</strong>近隣に処理施設がある業者に替えるだけで運搬費が落ちる。","<strong>無許可業者・不適正処理は排出事業者に責任が跳ね返る</strong>（措置命令の対象）。許可証の種類・期限確認は削減以前の前提条件。安すぎる見積りには必ず理由がある。"]},
+
+{n:14,c:"D",name:"感染性廃棄物",lot:"年間100万円以上 ※要現地調査",
+docs:["直近2か月分の請求書（廃棄量・廃棄物内容・金額単価記載のもの）"],
+ov:"「特別管理産業廃棄物」に分類され、<strong>収集運搬・処分ともに専用の許可が必要</strong>。許可業者が限られるため競争が働きにくく、産廃の中でも突出して単価が高い。医療機関・介護施設・研究機関が主な排出者。",
+pl:"特別管理産業廃棄物の許可を持つ専門事業者。全国区では大栄環境、要興業（容器セット提供）、ダイセキ環境ソリューション。地域ごとに強い事業者が異なり、医療系はディーラー（メディセオ、アルフレッサ等）経由の商流も存在。",
+rates:[["20L容器（容器単位課金）","1個 1,500〜3,000 円"],["重量課金","100〜300 円/kg","up"],["└ 通常の産廃比","5〜10 倍","up"],["医療施設 特管廃棄物2tの事例","約 85 万円"]],
+tips:["<strong>「要現地調査」なのは、分別実態を見ないと削減できないから。</strong>感染性でないもの（一般ごみ、非感染の紙・プラ）が感染性容器に混入しているのが最頻出の無駄で、分別を正すだけで数量が3〜5割落ちるケースがある。","<strong>回収頻度がコストに最も効く。</strong>週2回を週1回にできれば容器数が減り直接効く。ただし院内保管スペースと感染管理上の制約とのバランス。","<strong>容器サイズの最適化。</strong>大きい容器に少量しか入れずに出していると、容器単価をまるごと無駄にする。","感染性廃棄物は<strong>排出事業者（医療機関）が「感染性か否か」を判断する</strong>（環境省ガイドライン）。判断基準を院内で明文化すること自体が削減施策になる。"]},
+
+{n:20,c:"D",name:"グリストラップ",sub:"粉体を用いた清掃頻度削減",lot:"10個以上〜",
+docs:["1か月間の外注費用がわかる資料","アルバイトがかけている凡その時間（ヒアリング）","グリストラップ個数","グリストラップの体積","現状がわかる写真"],
+ov:"飲食店の厨房排水から油脂を分離する装置。<strong>下水道法・条例で設置が義務</strong>、清掃は「毎日（バスケット）／週1（浮上油）／月1〜3か月（沈殿物）」が標準。悪臭・詰まりの原因になるため放置できない。近年は<strong>バクテリア製剤・粉体（油脂分解剤）を投入して清掃頻度そのものを下げる</strong>ソリューションが商品化されている。",
+pl:"サニクリーン（グリストラップクリーンシステム）、ダスキン、アイエスジー、地域の清掃業者・バキューム業者が多数。油脂分解剤メーカーも複数。",
+rates:[["専門業者による清掃","1回 7,500〜30,000 円"],["250L以下のグリストラップ","19,000〜25,000 円/回"],["廃油の産廃処理費","別途乗るケースあり"]],
+tips:["<strong>必要情報の設計が秀逸。</strong>外注費だけでなく「アルバイトがかけている時間」を聞いているのは、この品目の隠れコストが人件費だから。日々の汚れ作業を店内で回している場合、外注費ゼロでも実は人件費が発生している。効果は「外注費削減＋人時削減」の合算で出す。","<strong>写真を求めるのは、堆積状況で必要な初期清掃レベルが変わるから。</strong>汚れ切った状態からいきなり粉体投入しても効かない。","<strong>10個以上＝多店舗チェーン向け。</strong>1店舗ではペイしないが、50店舗なら年間数百万円規模になる。","粉体・バクテリア剤は<strong>「清掃をゼロにする」ものではない。</strong>頻度を月1→3か月に1回に落とすもの。過剰な期待値設定は後でクレームになる。"]},
+
+{n:47,c:"D",name:"生ごみ処理費用",lot:"月間30,000円以上",
+docs:["直近12か月分の生ごみ処理費用請求書"],
+ov:"食品廃棄物は<strong>食品リサイクル法</strong>で再生利用等の目標が定められ、年間100t以上の排出者は定期報告義務がある。削減アプローチは①処理単価の交渉 ②<strong>業務用生ごみ処理機の導入で排出量そのものを減らす</strong>の2系統。",
+pl:"収集運搬・処理は地域の一般廃棄物／産業廃棄物処理業者。生ごみ処理機は<strong>バイオ式（堆肥型／消滅型）、乾燥式、炭化式</strong>の3方式でメーカーは中小が多数。食品リサイクル（飼料化・堆肥化）では日本フードエコロジーセンター等。",
+rates:[["収集処理","20〜60 円/kg"],["業務用生ごみ処理機 本体","100〜1,000 万円"],["生ごみの水分比率","重量の 70〜90 %"]],
+tips:["<strong>12か月分を見るのは、季節変動と「水分」を掴むため。</strong>生ごみは重量の70〜90%が水分で、脱水するだけで重量課金が3〜5割落ちる。処理機導入の前に、まず脱水機や水切りの徹底で効果が出ることが多い。","<strong>処理機は投資回収年数がすべて。</strong>月3万円（年36万円）の処理費に対して500万円の機械を入れても回収に14年かかる。自治体の補助金が使えるかで結論が変わるので、まず補助金の確認から。","<strong>バイオ式（堆肥型）は堆肥の引き取り先を確保できないと、堆肥の処分費が新たに発生する</strong>という落とし穴がある。消滅型・乾燥式の方が実務的なことが多い。"]},
+
+/* ---------------- E ---------------- */
+{n:1,c:"E",name:"AdBlue®（アドブルー）",lot:"月間使用量300ℓ〜",hot:"2026年4月 +10円/L",
+docs:["1年分の購入量・購入単価がわかる資料（なければ月々の購入量・購入単価がわかるもの）"],
+ov:"ディーゼル車のSCRシステムに補給する<strong>高品位尿素水</strong>。<strong>32.5%の尿素＋67.5%の脱イオン水</strong>という完全な規格品（JIS K2247-1）で品質差がほぼ存在せず、<strong>純粋に価格だけで比較できる稀有な品目</strong>。2021〜22年に中国の尿素輸出規制で世界的な供給危機が起き、価格が数倍に高騰した記憶が業界に残っている。",
+pl:"<strong>三井化学</strong>が国内の代表的メーカー（AdBlue®の商標ライセンスを保有）。流通は三井物産プラスチック、丸紅ケミックス、石油元売り系商社、燃料商社。輸入品も流通。",
+rates:[["バルク（ローリー・IBC）","60〜100 円/L"],["小口（10L BIB・20Lポリ）","120〜200 円/L"],["2026年4月20日出荷分〜 改定","全荷姿 +10 円/L","up"]],
+tips:["<strong>荷姿を変えるのが最大の削減。</strong>月300L以上使うなら小口容器からIBC（1,000Lコンテナ）やローリー・専用タンクに切り替えるだけで単価が半分以下になる。「最低ロット300ℓ〜」はまさにこの閾値。","<strong>品質は規格で担保されているので、安い＝悪いにならない</strong>（JIS適合品であることは確認する）。ここが他品目と決定的に違い、提案がしやすい。","尿素水は<strong>凍結（-11℃）と長期保管での劣化</strong>があるため過剰在庫は禁物。タンク化する場合は保温・保管期間の設計が要る。","中東・中国の尿素市況に連動するので、<strong>長期の固定価格契約は値上げ局面で有利、値下げ局面で不利。</strong>"]},
+
+{n:13,c:"E",name:"ガソリン代",lot:"月間50万円〜",
+docs:["料金明細（給油日、給油量、単価が記載のもの）※全台分"],
+ov:"石油元売りはENEOS・出光興産・コスモエネルギーの<strong>実質3社寡占</strong>。法人の給油は法人カード（給油カード）で行うのが一般的で、<strong>カードの種類によって適用単価の決まり方がまったく違う</strong>のが削減の急所。",
+pl:"元売りは<strong>ENEOS（最大手）、出光興産（apollostation）、コスモ石油</strong>。カード発行はENEOS BUSINESSカード、apollostationカード、コスモ・コーポレートカード、および協同組合系（ETC協同組合「TRUST&amp;FLEX」、全商連）。",
+rates:[["ENEOS BUSINESSカード","発券時に取り決めた契約価格（量が多いほど安く）"],["apollostation カード","常時 1L 2円引"],["└ オプション申込時","最大 1L 10円引"],["実務的な着地","店頭価格から 3〜10 円/L 引"]],
+tips:["<strong>「全台分の明細」を求める理由</strong>は、①現金給油やETC付帯カードでの高値給油が混じっていないか ②私的給油や不正が混じっていないか ③特定のSSでのみ高値になっていないか——を見るため。","<strong>「全国共通の固定単価」は必ずしも得ではない。</strong>市況が下がる局面では固定単価が店頭価格より高くなる逆転が起きる。変動連動（店頭価格−○円）と固定のどちらが有利かは走行エリアと市況次第。","月50万円＝概ね月3,000L前後＝車両20〜30台規模。ここから元売りとの直接交渉テーブルに乗る。","給油量だけでなく<strong>燃費データが取れる</strong>のが明細の副産物。燃費の悪い車両・運転者を特定でき、車両更新や運転指導につながる。"]},
+
+{n:4,c:"E",name:"ETC",lot:"月間30,000円/台〜",
+docs:["料金明細（利用日時、区間、料金記載のもの）※全台分"],
+ov:"法人の高速道路料金は<strong>カードの種類で割引率が根本的に変わる</strong>。クレジットカード付帯のETCカードでは通常の時間帯割引しか効かないが、<strong>NEXCO発行の「ETCコーポレートカード」なら大口・多頻度割引</strong>が使える。この差が非常に大きい。",
+pl:"発行元は<strong>東日本・中日本・西日本高速道路株式会社（NEXCO）</strong>。実務的には協同組合（全国商工事業協同組合連合会、情報通信システム協同組合、ETC協同組合等）経由で発行するのが一般的で、組合が与信を担保する。",
+rates:[["車両単位割引","最大 40 %"],["契約単位割引","10 %"],["合計","最大 50 %"],["ETC2.0 事業用車両の上乗せ","2027年3月末まで期間限定"]],
+tips:["<strong>1台あたり月3万円が閾値なのは、車両単位割引が「1台あたり月額利用額」で段階的に決まるから。</strong>月5,000円超で割引が始まり、月3万円超で率が上がる。台数を分散させず1枚のカードに集約する方が有利という設計。","<strong>ETCコーポレートカードはETCマイレージサービスに登録できない。</strong>通常は大口・多頻度割引の方が大きいので問題ないが、走行量が少ない車両は逆転する。混在運用が最適解になることが多い。","明細から<strong>同一区間の反復走行</strong>が見えると経路変更の余地が見つかる。深夜割引（0-4時通過で30%引）の活用余地も明細から判定できる。"]},
+
+{n:32,c:"E",name:"車両リース",lot:"10台〜",
+docs:["契約内容確認シート（弊社指定のExcelにリース業者よりご記入いただく）"],
+ov:"ファイナンスリース／メンテナンスリースで車両調達・税金・保険・整備を月額に丸めるサービス。<strong>メンテナンスリースは「整備費用の予測」を業者が握るため、実費との差＝業者の利益が見えない</strong>構造。ここに削減余地が生まれる。",
+pl:"<strong>オリックス自動車が国内車両管理台数141.9万台で首位</strong>、<strong>住友三井オートサービスが約102万台で2位</strong>。以下、トヨタモビリティサービス、日本カーソリューションズ（NTT系）、三菱オートリース、出光リテール販売、コスモ石油マーケティング。",
+rates:[["商用バン（軽・小型／5年メンテリース）","月 25,000〜45,000 円/台"],["営業車（セダン・コンパクト）","月 35,000〜60,000 円/台"],["内訳目安 車両代（残価控除後）","60〜70 %"],["内訳目安 税金・保険 / 整備","15〜20 % / 10〜20 %"]],
+tips:["<strong>「契約内容確認シート」をリース業者に書かせるのは、月額の内訳が契約書に書かれていないから。</strong>総額しか出ていない見積りは比較不能。ここを分解させるのが第一歩。","<strong>残価設定が効く。</strong>中古車相場が高い時期は残価を高く設定でき月額が下がる。","<strong>整備を自社・地場工場でやれる会社ならファイナンスリースの方が安い</strong>ことが多い。逆に管理工数を持てないならメンテナンスリースが正解。","<strong>契約満了時の超過走行距離精算・原状回復費</strong>が想定外コストになる。契約時の設定距離が実態と合っているか要確認。"]},
+
+{n:51,c:"E",name:"フォークリフト",lot:"5台以上保有",
+docs:["メンテナンス費用が分かる請求明細（バッテリー・タイヤ等）"],
+ov:"<strong>車両本体ではなく「メンテナンス費用」を狙う品目</strong>というのが必要情報から明白。購入・リースいずれでもメーカー系ディーラーが整備を握り、消耗品（バッテリー・タイヤ・フォーク・オイル）が継続的に発生する。<strong>特に電動式の鉛蓄電池が最大の費目</strong>で、3〜5年で交換が必要。",
+pl:"<strong>トヨタL&amp;F（豊田自動織機）が国内シェア約40%で圧倒的首位</strong>（世界シェアもトップクラス、130か国以上に展開）。<strong>三菱ロジスネクスト</strong>が国内2位・世界5位、<strong>コマツ</strong>、<strong>住友ナコ フォークリフト</strong>が続き、この4社で国内市場の大半を占める高度な寡占。",
+rates:[["新車 1.5tカウンター式（エンジン）","250〜400 万円"],["同（電動）","300〜500 万円"],["バッテリー交換","30〜80 万円/個"],["タイヤ交換","1.5〜5 万円/本"],["年間メンテナンス費","10〜30 万円/台"]],
+tips:["<strong>バッテリーは純正以外の選択肢がある。</strong>国産バッテリーメーカーや再生バッテリー業者から直接調達すると、ディーラー経由より3〜5割安いことがある。タイヤも同様。","<strong>定期点検の頻度：</strong>労働安全衛生法上、年次点検（特定自主検査）は年1回が義務、月次点検は自主。月次を外注しているなら社内実施に切り替える余地がある（有資格者要件に注意）。","<strong>5台が閾値なのは、消耗品の一括調達でボリュームが効き始めるライン。</strong>","電動化（鉛→リチウムイオン）は初期費用が高いが、<strong>充電時間・メンテナンスフリー・寿命で総コストが逆転</strong>するケースが増えている。"]},
+
+{n:38,c:"E",name:"段ボール",lot:"年間100万円以上",hot:"原紙 約1割上昇",
+docs:["「現状確認表」（弊社指定のExcelに段ボール業者様よりご記入いただく）"],
+ov:"<strong>原紙（製紙メーカー）→シート（コルゲータ）→ケース（貼合・製函）</strong>の3段階流通。EC需要で数量は堅調だが原紙価格の上昇が続く値上げ局面。古紙価格・エネルギー価格に連動して原紙が動き、それが製品価格に転嫁される構造。",
+pl:"<strong>レンゴー</strong>が国内首位（原紙から製函まで一貫）。<strong>王子ホールディングス（王子マテリア）、日本製紙、大王製紙</strong>、トーモク、セッツカートン、森紙業。上位数社で市場の過半。",
+rates:[["段ボール原紙（2025年10月納入分〜）","+10 円/kg 以上","up"],["王子マテリア 包装用紙（2026年1月〜）","+10 % 以上","up"],["日本製紙 包装用紙（2026年3月〜）","+10 % 以上","up"],["製品単価（目安）","60〜120 円/㎡"]],
+tips:["<strong>「現状確認表」を業者に書かせるのは、価格が「材質（ライナー・中芯の坪量）×サイズ×ロット」で決まるから。</strong>この仕様が分からないと相見積りが取れないが、顧客側は「箱」としか認識していない。","<strong>最大の削減はサイズと材質の適正化。</strong>過剰強度（Kライナー→Cライナー、AF→BF）で十分なケースが多い。中身に対して箱が大きすぎると段ボール代だけでなく<strong>送料（容積重量）も無駄</strong>になり、段ボール削減は物流費削減と直結する。","<strong>ロットの集約。</strong>品種が多いと1品種あたりのロットが小さくなり単価が上がる。サイズを統合するだけで下がる。","値上げ局面では「値上げ幅の圧縮」が実質的な成果になる。<strong>成果の定義をクライアントと事前に握ること。</strong>"]},
+
+/* ---------------- F ---------------- */
+{n:19,c:"F",name:"クレジットカード加盟店手数料",sub:"JCB・AMEX以外",lot:"年間手数料1,000万円以上",
+docs:["カード会社との契約書","決済金額データ（直近1年分）"],
+ov:"加盟店手数料は<strong>インターチェンジフィー（発行会社取り分）＋ブランド手数料＋アクワイアラ／決済代行のマージン</strong>で構成される。長らく内訳が非公開だったが、<strong>経済産業省の主導でVisa・Mastercardがインターチェンジフィーの標準料率を公開</strong>し透明性が大きく向上した。「原価が分かるようになった」ことで交渉が可能になった品目。",
+pl:"アクワイアラ／決済代行は三井住友カード（stera）、GMOペイメントゲートウェイ、SBペイメントサービス、ROBOT PAYMENT、Square、楽天ペイ、リクルート（Airペイ）。<strong>JCB・AMEXを除外しているのは、この2ブランドは自社発行・自社加盟店契約でインターチェンジの概念が異なり、交渉余地が構造的に小さいため。</strong>",
+rates:[["一般的な相場","2〜3.5 %"],["最安クラス（stera pack）","1.98 %"],["一般的なサービス","3.24 %"],["└ 月商100万円での年間差","約 15 万円"]],
+tips:["<strong>年間手数料1,000万円＝決済額でおよそ3〜5億円規模。</strong>この規模になるとアクワイアラが個別料率を出す。","<strong>インターチェンジフィーが原価</strong>なので、それを下回る料率は物理的にあり得ない。標準料率が公開された今、「原価＋マージン」を分解してマージン部分だけを叩くのが正しい交渉。","<strong>ブランド別・カード種別（一般／ゴールド／法人／デビット）で原価が違う。</strong>決済データを1年分見るのは、自社の決済ミックスを出して加重平均原価を計算するため。ここが提案の核心。","加盟店規約上、<strong>手数料を消費者に転嫁することは原則禁止</strong>。だからこそ店舗が飲むしかなく、削減インパクトが直に利益に効く。","入金サイクル（月2回／翌営業日）を短くすると料率が上がる。<strong>資金繰りとのトレードオフ</strong>を確認すること。"]},
+
+{n:53,c:"F",name:"振込手数料",lot:"月件数300件以上〜",
+docs:["月間振込件数","30,000円までの単価、30,001円〜単価の情報"],
+ov:"振込手数料は<strong>銀行間手数料（内国為替制度運営費）＋各行のマージン</strong>。2021年10月に銀行間手数料が引き下げられ、その後もネット銀行の攻勢で下落が続く。全銀システムの刷新でさらなる引き下げ余地があるとされる。<strong>メガバンクを惰性で使い続けている企業が最も損をしている</strong>費目。",
+pl:"メガバンク（三菱UFJ、三井住友、みずほ）、ネット銀行（<strong>GMOあおぞらネット銀行、住信SBIネット銀行、楽天銀行、PayPay銀行</strong>）、新興ではみずほ「UPSIDER BANK by MIZUHO」。",
+rates:[["法人 他行宛（2026年時点のレンジ）","100〜660 円"],["└ ネット銀行とメガバンクの差","5.1 倍","up"],["GMOあおぞら（2026年8月17日〜）","143円 → 100 円"],["UPSIDER BANK by MIZUHO","100 円"],["メガバンク窓口振込","700〜900 円","up"]],
+tips:["<strong>「30,000円まで／30,001円〜」の単価を聞くのは、この境界で料率が変わるのが業界標準だから。</strong>振込1件あたりの平均額によって、どの銀行が有利かが変わる。","<strong>月300件が閾値。</strong>300件×差額300円＝月9万円、年間108万円。ここから提案が成立する。","<strong>削減の本丸は「メインバンクを変えずに、振込だけネット銀行に移す」。</strong>融資取引があるメインバンクとの関係を壊さずに済むのがポイントで、多くの企業がここを混同して踏み切れずにいる。","<strong>同行宛は無料または安い。</strong>取引先の口座を集約できれば大きく下がる。総合振込（データ伝送）への一本化も定石。"]},
+
+{n:11,c:"F",name:"外国為替コスト",sub:"為替デリバティブ・外国送金等",lot:"年間200万USD相当額以上",
+docs:["決済通貨、年間取扱高、為替優遇減免取引の有無確認（ヒアリングで可）","金融機関からのオプション取引提案資料（為替デリバティブのみ必要）"],
+ov:"輸出入企業の為替コストは<strong>「送金手数料（見える）」と「為替スプレッド（見えない）」の二層</strong>。後者が圧倒的に大きいのに多くの企業が認識していない。TTM（仲値）からのスプレッドが銀行の実質的な手数料で、優遇レート適用で大幅に縮められる。為替デリバティブは2008年以降の中小企業被害（通貨オプション訴訟）の記憶があり、<strong>新規提案には慎重さが要る領域</strong>。",
+pl:"銀行（三菱UFJ、三井住友、みずほ、地銀各行）、ネット系（<strong>住信SBIネット銀行 NEOBANK</strong>、GMOあおぞら）、ノンバンク／フィンテック（<strong>Wise</strong>、OFX、SBIレミット）。",
+rates:[["送金手数料（銀行）","1件 2,000〜7,500 円"],["為替スプレッド（店頭標準）","TTM ± 1 円/ドル","up"],["中継銀行手数料","1行 1,000〜3,000 円"],["受取銀行手数料","10〜25 ドル"]],
+tips:["<strong>年間200万USD＝約3億円。</strong>スプレッドを1円→30銭に縮められれば、それだけで年間140万円。「ヒアリングでOK」なのは、取扱高と通貨さえ分かれば削減額が概算できるから。","<strong>「為替優遇減免取引の有無」を聞くのが核心。</strong>すでに優遇を受けているならスプレッド交渉の余地は小さく、受けていなければ大きい。これで案件化の可否がほぼ決まる。","<strong>輸出入の両方がある企業は「マリー（相殺）」でコストがゼロにできる。</strong>外貨建ての入金と出金を相殺すれば、その分は両替が発生しない。意外と実施されていない。","<strong>為替デリバティブは「削減」ではなく「リスク管理」。</strong>提案資料を求めるのは、不利な条項（ノックアウト、レバレッジ、期間の長さ）を検証するためであって、新規に組ませるためではない。"]},
+
+{n:35,c:"F",name:"損害保険",sub:"火災・賠償・労災・自動車",lot:"条件は特段なし",hot:"2026年 過去最大の値上げ",
+docs:["「保険証券」（明細書、条件書付きのもの）","加入保険の一覧","過去5年間の保険金請求履歴"],
+ov:"2023〜24年の<strong>保険料調整行為（カルテル）問題と代理店手数料をめぐる不祥事</strong>で業界の商慣行に強い監督が入り、乗合代理店での相見積りが以前より機能しやすい環境になった。同時に自然災害の増加と修理費高騰で<strong>保険料は全面的な値上げ局面</strong>にある。",
+pl:"<strong>3メガ損保グループが市場の約9割</strong>：東京海上ホールディングス（東京海上日動＝実質No.1）、MS&amp;ADホールディングス（三井住友海上、あいおいニッセイ同和損保）、SOMPOホールディングス（損害保険ジャパン）。外資系（AIG、Chubb）、共栄火災、日新火災、大同火災。",
+rates:[["2026年1月 損保ジャパン 自動車","約 +7.5 %","up"],["2026年1月 三井住友海上 自動車","約 +7 %","up"],["2026年1月 あいおいニッセイ同和 自動車","約 +6 %","up"],["東京海上日動","2026年10月改定を計画","up"]],
+tips:["<strong>「過去5年の保険金請求履歴」が最重要。</strong>損害率（受け取った保険金÷払った保険料）が低い＝優良契約者なら、それを武器に大幅な料率交渉ができる。これを整理せずに相見積りを取るのは素人の動き。","<strong>削減は「安い保険に替える」より「補償の重複を消す」方が本質。</strong>施設賠償と生産物賠償、火災保険の特約と業務災害保険が二重になっているケースが極めて多い。加入保険の一覧を求めるのはこのため。","<strong>免責金額（自己負担額）の引き上げ</strong>が最も確実な保険料削減。小口の事故を自社で持つ判断ができれば保険料は大きく下がる。","<strong>火災保険の契約期間は最長5年に短縮</strong>された（2022年10月〜）。長期一括の割引が縮小したので更新頻度が上がり、交渉機会も増えた。","「条件は特段なし」なのは、<strong>中小企業でも必ず複数の保険に入っており、必ず重複か過剰がある</strong>から。全社に提案余地がある。"]},
+
+{n:31,c:"F",name:"社会保険料",lot:"従業員10名以上",hot:"適法性の線引きが必須",
+docs:["平均額面給与","正規雇用と非正規雇用の各人数"],
+ov:"社会保険料は労使折半で、事業主負担は給与の<strong>およそ15〜16%</strong>。これを「削減」する手法には<strong>適法なものと極めてグレーなものが混在</strong>している。近年、厚労省は実態と乖離したスキームへの監視を強めており、提案には慎重な線引きが必須。",
+pl:"社会保険労務士事務所、選択制DC（企業型確定拠出年金）の運営管理機関（りそな、SBIベネフィット・システムズ、野村證券等）、福利厚生アウトソーサー。",
+rates:[["厚生年金保険料率","18.3 %（労使折半）"],["健康保険料率（協会けんぽ）","約 10 %前後（都道府県別）"],["厚生年金 標準賞与額の上限","1回 150 万円"],["健康保険 賞与の年度累計上限","573 万円"]],
+tips:["<strong>選択制DC（企業型確定拠出年金）＝適法。</strong>給与の一部を掛金に振り替え、掛金は報酬に含まれず保険料の対象外。厚労省も認める正規の制度。ただし従業員の将来年金・傷病手当金等が減る点の説明が必須で、<strong>「選択制」であることが適法性の根拠</strong>なので強制すると制度が崩れる。","<strong>現物給与・福利厚生への振替（通勤手当・社宅・食事補助）＝適法。</strong>社宅は特に効果が大きい。","<strong>賞与への配分集中＝グレー。</strong>実態と乖離した設計は社会保険調査で否認リスク。<strong>事前確定届出給与の活用＝リスク高</strong>（役員退職金の適正額が下がる、支給前死亡時の受領不能等の副作用）。<strong>社会保険の適用逃れ＝不可</strong>（2026年の厚労省通達で追徴リスクが現実化）。","2024年10月・2026年10月と<strong>社会保険の適用拡大</strong>が段階的に進行。パート比率の高い企業はむしろ負担が増える局面で、削減提案の前に適用拡大への対応が必要なことも。"]},
+
+{n:22,c:"F",name:"固定資産税還付請求調査",sub:"年間3,000万円以上対象",lot:"固定資産税3,000万円以上/年",
+docs:["固定資産税 納税通知書 ※本年度より過去5年分","固定資産税 課税通知書 ※本年度より過去5年分","償却資産申告書（償却資産課税台帳）※直近1年分","償却資産申告書（種類別明細書）※直近1年分"],
+ov:"固定資産税は<strong>自治体が評価額を算定する「賦課課税方式」</strong>で、納税者が計算しない。だからこそ自治体側の評価誤りが構造的に発生する。家屋の再建築価格評価における部材の過大認定、非課税・減免の適用漏れ、<strong>家屋と償却資産の二重課税</strong>が典型。完全成功報酬型のコンサルが成立する数少ない税務領域。",
+pl:"固定資産税還付専門のコンサル会社、税理士法人（鳥飼総合法律事務所等が著名）、不動産鑑定士・一級建築士を擁する調査会社。",
+rates:[["業界標準の成功報酬","還付額の 50 %"],["低めの事務所","還付額の 30 %（最低5〜10万円）"],["着手金","原則ゼロ（完全成功報酬）"]],
+tips:["<strong>地方税法上、還付は原則5年。</strong>だから過去5年分の資料を求める。ただし自治体の条例で20年まで遡及還付する例もあり、誤りの性質によって遡及年数が変わる。","<strong>最も見つかりやすいのは「家屋と償却資産の二重課税」。</strong>建物付属設備（空調、電気設備、給排水）を、家屋評価にも含まれているのに償却資産としても申告してしまっているパターン。種類別明細書を求めるのはこれを突合するため。","<strong>「年間3,000万円以上」の足切りは、実は税額と誤りの発生率に相関はない</strong>という批判がある。純粋に報酬額が調査工数に見合うかの経済判断で、この点は正直に説明した方が信頼される。","還付されると<strong>過誤納金には還付加算金（利息）が付く</strong>。これも成果に含まれる。","償却資産は<strong>取得価額10万円以上が課税対象</strong>で、土地・家屋と違い課税台帳がなく自己申告制。だから申告漏れも過大申告も両方起きる。"]},
+
+{n:23,c:"F",name:"新築固定資産税・不動産取得税適正化",sub:"1物件5億円以上・竣工前対象",lot:"1物件5億円以上 ※竣工前",
+docs:["新築建物の見積書（Excel版）","平面図／立面図","仕様書"],
+ov:"22番の「還付（事後）」に対して、こちらは<strong>「竣工前の適正化（事前）」</strong>。家屋の固定資産税評価額は自治体が再建築価格方式で評価するが、その際に<strong>工事費の内訳を家屋に含まれるもの／含まれないものに正しく仕分けないと過大評価になる</strong>。竣工前に整理し評価担当者に正しく説明することで、以後数十年の固定資産税と、一度きりの不動産取得税の両方が下がる。",
+pl:"一級建築士・不動産鑑定士を擁する専門コンサル、大手建設会社の税務部門、税理士法人。",
+rates:[["報酬","成功報酬型（削減税額の一定割合）"],["不動産取得税 標準税率","住宅・土地 3 % / 非住宅家屋 4 %"],["固定資産税","課税標準 × 1.4 %（＋都市計画税 0.3%）"]],
+tips:["<strong>「竣工前対象」が絶対条件。</strong>竣工後に評価が確定してしまうと22番の「還付」ルートしかなくなり、難易度が跳ね上がる。タイミングがすべての品目。","<strong>効果が永続するのが最大の特徴。</strong>評価額が1%下がれば、その1%が建物の耐用年数（数十年）にわたって効き続ける。5億円の建物なら初年度だけで数十万円、累計で数百万〜千万円規模。","<strong>見積書がExcel版でないといけない理由</strong>は、工事費内訳を科目ごとに分解・集計して家屋評価対象／対象外に仕分けるため。PDFでは実務にならない。","家屋評価に含まれない典型例は<strong>外構工事、屋外給排水、特定生産用設備、什器備品、仮設工事の一部</strong>。これらが家屋に混入していると過大評価になる。","建設会社は<strong>税務的に有利な内訳書を作る動機がない</strong>（工事の管理単位で作る）ので、税務目線での組み替えが専門家の仕事になる。"]},
+
+{n:39,c:"F",name:"賃料",lot:"1拠点1,000万円以上",hot:"貸手優位・上昇局面",
+docs:["賃貸借契約書"],
+ov:"<strong>2026年時点の東京オフィス市況は完全な貸手優位。</strong>空室率は2%を割り込み、賃料は2年以上連続上昇中。<strong>この市況では「減額交渉」はほぼ通らない</strong>のが率直な現実で、削減提案は①更新時の増額幅の圧縮 ②移転・集約による総額削減 ③フリーレント・工事費負担などの条件獲得——に軸足が移る。地方・郊外や築古ビルは状況が異なる。",
+pl:"調査は<strong>三鬼商事</strong>（都心5区オフィスマーケット＝業界標準指標）、日本不動産研究所、CBRE、JLL。仲介は三幸エステート、三鬼商事、CBRE、JLL、ザイマックス。貸主は三井不動産、三菱地所、住友不動産、森ビル、東京建物。",
+rates:[["2026年1月 都心5区 平均募集賃料","21,648 円/坪","up"],["└ 空室率","2.15 %（11か月連続低下）"],["2026年7月 平均募集賃料","23,287 円/坪（前年比 +11.38%）","up"],["└ 空室率","1.95 %（既存1.78 / 新築11.37）"]],
+tips:["<strong>賃貸借契約書だけで足りるのは、そこにすべてが書いてあるから。</strong>賃料・共益費・更新料・敷金（償却）・原状回復条件・中途解約予告期間・賃料改定条項。削減余地は賃料そのものより、これらの周辺条件にあることが多い。","<strong>共益費が実費精算になっていないケース。</strong>定額の共益費が実際の管理費を大きく上回っていることがある。","<strong>フリーレントは募集賃料には現れない。</strong>三鬼商事の数字は募集賃料なので実質賃料はこれより低い。新築の空室率が11.37%と高いのは、大量供給された新築ビルがフリーレントで埋めている最中ということ。","借地借家法32条の賃料増減額請求権は借主側からも行使できるが、上昇局面では現実的でない。<strong>むしろ貸主からの増額請求に備える局面。</strong>","1拠点1,000万円＝月80万円強＝概ね30〜50坪。この規模からコンサルの工数がペイする。"]},
+
+/* ---------------- G ---------------- */
+{n:3,c:"G",name:"医療保守削減",lot:"病床数200床以上（グループ合算可）",hot:"言い値が最も通る領域",
+docs:["1年分のログデータ","保守契約書"],
+ov:"<strong>日本の医療コストで最も「言い値」が通っている領域。</strong>日本病院会が「機器購入時はメーカー間の競争が働くが、<strong>保守契約についてはメーカー間の競争が働かないため、金額の妥当性が見いだせない</strong>」と公式に指摘し、保守費用の透明化と国によるコントロールの検討まで提言しているほど。",
+pl:"画像診断装置は<strong>GEヘルスケア、シーメンスヘルスィニアース、キヤノンメディカルシステムズ、フィリップス、富士フイルムヘルスケア</strong>。保守は基本的にメーカー本体またはメーカー系サービス会社が独占し、<strong>第三者保守（ISO）</strong>は日本ではまだ限定的だが選択肢として存在する。",
+rates:[["X線撮影装置 年間保守","約 20 万円"],["CT 年間保守","約 200 万円"],["MRI 年間保守","500〜600 万円","up"],["【実例】フルメンテナンス契約","2億6,100 万円","up"],["【実例】スポット点検契約","1億1,300 万円"],["└ スポット＋修理費での差額","▲3,200 万円"]],
+tips:["<strong>「1年分のログデータ」が核心。</strong>装置には稼働ログ（撮影件数、エラー、部品稼働時間）が記録されている。実際の稼働率と故障頻度が分かれば、フルメンテナンスの保険料が過大かどうかを定量的に判定できる。ログを出させられるかが案件の成否を分ける。","<strong>フルメンテナンス→スポット点検（都度課金）への切替が最大の削減手法。</strong>稼働率が低く故障の少ない装置ほど有利。逆に24時間稼働の基幹装置はフルメンテが合理的。","<strong>200床以上・グループ合算可</strong>なのは、複数施設の装置をまとめて一括交渉すると初めてメーカーが動くから。500床以上になると100床あたり費用が下がるが、499床以下では規模の経済が働きにくいという調査結果があり、だからこそグループ合算が効く。","保守契約には<strong>稼働率保証・オンサイト対応時間・部品供給保証</strong>などの条項がある。単価だけ見て条項を落とすと、装置停止＝診療停止という致命的リスクになる。"]},
+
+{n:12,c:"G",name:"外注検査",sub:"血液検査、検便等",lot:"年間100万円以上",
+docs:["「現状確認表」（弊社指定のExcelに検査会社よりご記入いただく）"],
+ov:"医療機関が自院で行わない検査を衛生検査所（ラボ）に委託する市場。<strong>保険点数が公定価格として決まっている一方、ラボへの委託単価は自由価格</strong>なので、その差が医療機関の利益になる。つまり<strong>委託単価を下げればそのまま病院の増益</strong>という分かりやすい構造。",
+pl:"<strong>日本三大臨床検査センター</strong>：<strong>SRL（エスアールエル／H.U.グループホールディングス）</strong>が売上首位、<strong>BML（ビー・エム・エル）</strong>が従業員数トップで売上を猛追、<strong>LSIメディエンス（PHCホールディングス傘下）</strong>。以下、保健科学研究所、ミロクメディカルラボラトリー等の地域ラボ。",
+rates:[["委託単価（対 保険点数）","30〜60 %"],["数量","多いほど単価は下がる"]],
+tips:["<strong>「現状確認表」を検査会社に書かせるのが必須</strong>なのは、検査項目が数百〜数千あり項目ごとに単価が違うから。病院側は総額しか把握していないのが普通で、項目別単価表は検査会社しか持っていない。","<strong>項目別に見ると、極端に割高な項目が必ず混じっている。</strong>ボリュームの大きい主力項目は競争的な単価だが、少量項目に高い単価が乗っているのが常套。","<strong>検査会社の切替はハードルが高い</strong>：採血管の種類、集配ルート、システム連携（オーダリング／電子カルテ）、報告書フォーマットがすべて変わる。<strong>現行業者に対抗値下げさせるのが現実的な着地</strong>であることが多い。","<strong>集配頻度と時間帯</strong>も単価に効く。1日2回集配を1回にできれば下がる。","年間100万円は小規模クリニックでも到達する水準で、対象施設が非常に多い品目。"]},
+
+{n:10,c:"G",name:"おむつ",lot:"年間100万円以上",
+docs:["直近12ヶ月分の請求明細書","「現状確認表」（弊社指定のExcelに提供会社よりご記入いただく）"],
+ov:"高齢化により<strong>大人用紙おむつ市場は継続成長</strong>（グローバルでCAGR 8〜9%）。介護施設・病院にとっては消耗品費の主要項目。<strong>「テープ止め＋パッド」の組み合わせ方によってコストが大きく変わる</strong>のが特徴で、単価交渉だけでなく使い方（当て方）の適正化で大きく下がる。",
+pl:"<strong>ユニ・チャーム（ライフリー）</strong>が国内最大手、<strong>大王製紙（アテント）</strong>、<strong>リブドゥコーポレーション（リフレ）</strong>が施設向けに強い。以下、日本製紙クレシア（ポイズ、アクティ）、白十字。流通は介護用品ディーラー・医療材料卸経由が中心。",
+rates:[["テープ止めタイプ（施設向け大口）","60〜120 円/枚"],["尿とりパッド（小〜中）","15〜40 円/枚"],["パンツタイプ","70〜130 円/枚"],["1入居者あたり","月 3,000〜6,000 円"]],
+tips:["<strong>12か月分の請求明細を求めるのは、季節変動（夏は尿量が減る）と品種別の使用構成を見るため。</strong>","<strong>削減の本丸は「アウターとインナー（パッド）の組み合わせ最適化」。</strong>高価なテープ止めを頻繁に交換するより、安価なパッドを重ねて交換する運用にすると総額が下がる。ただし<strong>パッドの重ね使いは皮膚トラブルの原因</strong>になるため、看護・介護の質と表裏一体。これを無視した提案は現場から拒絶される。","<strong>ディーラーのマージンが2〜3割</strong>乗っていることがある。メーカー直・大手通販（アスクル、モノタロウ）との比較が効く。","介護保険施設では<strong>おむつ代の扱いが施設種別で異なる</strong>（特養は施設サービス費に包括、医療保険適用の療養病床では入院基本料に包括等）。包括されている施設ほど削減が直接利益になるので優先度が高い。"]},
+
+{n:7,c:"G",name:"AED",sub:"自動体外式除細動器",lot:"10台〜",
+docs:["購入した際の見積書等"],
+ov:"2004年の一般市民使用解禁以来、<strong>全国に約67万台が設置</strong>。本体寿命は7〜8年、<strong>消耗品（バッテリー・電極パッド）は2〜4年で交換必須</strong>という構造で、本体価格より消耗品とレンタル料の総額が本質。「買った後」に継続コストが発生する典型的な品目。",
+pl:"国内で販売する主要8社：<strong>日本光電工業（国内シェア約半分）</strong>、フィリップス・ジャパン、日本ストライカー、CU Medical、オムロンヘルスケア、旭化成ゾールメディカル、日本ライフライン、フクダ電子。※フィリップス製品は2019年3月末に国内総販売店（レールダルメディカルジャパン）が販売を終了し流通体制が変化している。",
+rates:[["本体購入（実勢）","20〜35 万円/台"],["レンタル（消耗品交換込）","月 3,000〜5,500 円/台"],["電極パッド（2年毎）","8,000〜15,000 円/セット"],["バッテリー（2〜4年毎）","3〜5 万円"]],
+tips:["<strong>10台が閾値なのは、そこからメーカー・販売店が個別条件を出すため。</strong>学校法人、チェーン店、複数工場を持つ企業が主なターゲット。","<strong>購入 vs レンタルの総額比較が提案の核。</strong>購入は初期20〜35万円＋消耗品を7年で10万円前後＝7年総額30〜45万円。レンタルは月4,000円×84か月＝33.6万円。<strong>近い。</strong>だから判断は金額より「消耗品の期限管理を誰がやるか」になる。期限切れパッドで作動しなかった事例が実際にあり、管理負担を外部化できるレンタルが選ばれる理由はここ。","AEDは<strong>設置が義務ではない</strong>（一部条例を除く）ため台数の見直し余地もあるが、人命に関わるため慎重に。<strong>設置場所の適正化</strong>（使われない場所から人が多い場所へ）の方が建設的。"]},
+
+/* ---------------- H ---------------- */
+{n:2,c:"H",name:"アメニティ",lot:"年間100万円以上",
+docs:["業務委託契約書・仕様書・報告書","請求明細（直近1か月分）"],
+ov:"ホテル客室のアメニティ。<strong>プラスチック資源循環促進法（2022年4月施行）で使い捨てプラ製アメニティが規制対象</strong>になり、紙・木製への転換、詰め替えボトル化、フロント設置（希望者のみ提供）への移行が業界全体で進行中。<strong>この転換自体がコスト削減になる</strong>という珍しい構図。",
+pl:"アメニティメーカー・商社は日本パックス、玉川衛材、資生堂（ホテルアメニティ）、ポーラ、フェニックス。ホテル備品商社経由の流通が多い。",
+rates:[["アメニティセット","1室 50〜200 円"],["シャンプー等の詰め替え化","30〜60 % 削減"],["市場規模（2030年見通し）","411.4 億ドル / CAGR 11.7%"]],
+tips:["<strong>「業務委託契約書・仕様書」を求めるのは、アメニティが「モノの購入」ではなく「客室セットアップ業務の一部」として委託されていることが多いから。</strong>この場合、清掃業務とバンドルされていて単価が見えない。","<strong>フロント設置方式（アメニティバー）への転換が最も効く。</strong>全客室に配るのをやめ必要な人だけ持っていく方式にすると消費量が3〜5割減る。かつ環境配慮としてブランド価値にもなり、二重の意味で正当化しやすい。","<strong>宿泊単価とアメニティのグレードは連動している。</strong>高単価ホテルでアメニティを落とすと口コミ評価に直撃する。客室単価帯を確認せずに削減提案をしてはいけない品目。"]},
+
+{n:17,c:"H",name:"客室清掃",sub:"ホテル・民泊 ※エリアにより対応不可",lot:"30室〜",hot:"人手不足で削減余地は小",
+docs:["清掃仕様書（間取り、部屋面積、ベッド数、ベッドサイズ、単価がわかるもの）"],
+ov:"<strong>インバウンド回復で稼働率は高水準だが、清掃の担い手が決定的に不足</strong>している業界。単価は上昇圧力にあり、「安くする」より「確保する」が経営課題になっている。観光庁は2026年に人手不足対策費を前年比6倍に増額し、清掃ロボット等の省力化投資を支援している。",
+pl:"ホテル客室清掃専門会社（地域密着型が多い）、ビルメン各社の宿泊部門、リネン会社の併営、人材派遣会社。<strong>外国人材（特定技能「宿泊」）の活用</strong>が急速に進む。",
+rates:[["20分（コンパクトな部屋）","800〜1,000 円/室"],["30分","1,200〜1,500 円/室"],["40分","1,600〜2,000 円/室"]],
+tips:["<strong>「※エリアにより対応不可」が現実を物語っている。</strong>地方・観光地では清掃業者そのものが不足していて相見積りが成立しない。都市部でも人手が逼迫しており、この品目は削減の余地が構造的に小さい。","<strong>「間取り・面積・ベッド数・ベッドサイズ」を求めるのは、清掃時間が物理的に決まるから。</strong>ベッドメイクの時間はベッドサイズと数でほぼ決まり、単価が適正かは「時間×時給」で逆算できる。時給1,500〜2,000円を下回る単価は業者が持続できない。","<strong>削減余地があるとすれば「仕様」。</strong>連泊時の清掃頻度（毎日→2泊に1回）、リネン交換頻度、アメニティ補充ルール。エコ清掃（連泊時の清掃なしで特典付与）は宿泊客の理解も得やすい。","<strong>安く叩くと業者が撤退して清掃難民になるリスクがある。</strong>この品目は特に、削減より安定確保を優先すべき局面が多い。"]},
+
+{n:21,c:"H",name:"現金輸送業務",lot:"年間300万円以上",
+docs:["業務委託契約書・仕様書・報告書","請求明細（直近1か月分）"],
+ov:"警備業法上の<strong>「3号警備（貴重品運搬警備）」</strong>。原則2名以上の警送隊員と専用車両が必要で人件費が原価の大半。<strong>キャッシュレス化により取扱現金は減少傾向だが、輸送コストは回数と拠点数に依存する</strong>ため、現金が減っても費用は自動的には減らない。このギャップが削減余地。",
+pl:"<strong>ALSOK（綜合警備保障）</strong>は全国64支社＋グループ24社で日本最大級の警備輸送ネットワーク（総資産の約18%が警備輸送業務用現金として計上されるほどの規模）。<strong>セコム</strong>は現金護送サービスを展開し<strong>日本通運と業務提携</strong>、金融機関向け集配金システムの共同販売・効率的運行システムの共同提案を実施。ほかにしけい等の地域系警備会社。",
+rates:[["ALSOK プラン","月額 5 万円台〜"],["1回あたり","3,000〜10,000 円"],["週5回×12か月","年 80〜250 万円/拠点"]],
+tips:["<strong>削減の第一手は「回収頻度の削減」。</strong>週5回→週3回にすれば単純に4割減。店舗の現金保有リスクとのトレードオフだが、キャッシュレス比率が上がっていれば十分成立する。","<strong>「売上金入金機（自動入金機）」の導入で根本的に構造が変わる。</strong>店舗で入金機に入れた時点で預金として計上され、輸送の緊急性が下がる＝回収頻度を大幅に落とせる。ALSOK・セコムともに商品化している。","<strong>必要情報に「報告書」が入っているのが特徴的。</strong>実際の輸送実績（回数・金額・所要時間）が分かると、契約上の想定と実態のズレが見える。契約は週5回なのに実質週3回しか来ていない、という逆パターンも。","キャッシュレス化が進む業種では<strong>5年前の契約のまま現金取扱量だけが半減している</strong>ケースが極めて多い。年1回の棚卸しだけで削減できる。"]},
+
+{n:28,c:"H",name:"自動販売機",lot:"5台〜",hot:"収入増の品目",
+docs:["ベンダーからの手数料明細1ヵ月分（販売本数・料率・金額記載のもの）※全台分"],
+ov:"<strong>業界が構造転換期にある。</strong>2026年、飲料各社が自販機事業で巨額の減損を計上：<strong>コカ・コーラボトラーズジャパンが904億円</strong>、<strong>ダイドーグループHDが298億円</strong>。ダイドーは国内27万台のうち2万台を削減すると発表。値上げ（「コカ・コーラ」200円時代へ）と客離れで<strong>赤字自販機が2〜3割に激増</strong>する見通し。設置者にとっては、ベンダー側が不採算機を減らしたい分、<strong>好立地の交渉力はむしろ上がっている。</strong>",
+pl:"<strong>コカ・コーラボトラーズジャパン</strong>（国内シェア約20%、コカ・コーラシステムの約90%の販売量を担当）、<strong>サントリー食品インターナショナル</strong>、<strong>ダイドードリンコ</strong>、アサヒ飲料、キリンビバレッジ、伊藤園、ジャパンビバレッジ、アペックス。",
+rates:[["人気立地 販売手数料","20〜25 %"],["└ 定価から20円引き時","15〜20 %"],["└ 設置一時金","3〜5 万円"],["平均的立地","10〜15 %"],["不人気立地（20円引き時）","10 % 以下"]],
+tips:["<strong>これは「コスト削減」ではなく「収入増加」の品目。</strong>手数料は設置者が受け取る側なので、料率を上げるのが成果になる。","<strong>「販売本数・料率・金額記載の明細を全台分」求めるのは、台ごとに収益性がまったく違うから。</strong>よく売れる台の料率が低く、売れない台の料率が高い、という逆転が起きていることがある。","<strong>業界の減損局面は交渉のチャンス。</strong>ベンダーは好立地を失いたくないので、販売実績が良い台は料率引き上げ交渉が通りやすい。逆に不振の台は撤去されるリスクがある。","<strong>電気代を誰が負担しているかが隠れた論点。</strong>設置者負担なら、手数料収入から電気代（1台 月2,000〜4,000円）を引いた実質収益で評価すべき。ベンダー負担に切り替えられれば実質的な収入増になる。"]},
+
+{n:43,c:"H",name:"店内放送",sub:"有線費用等",lot:"年間300万円以上",
+docs:["契約書","請求書および明細"],
+ov:"店舗BGMは<strong>「著作権処理込みのサービスを買う」市場</strong>。個別にJASRAC等と契約する手間を回避できるのが価値の源泉。従来はケーブル（有線）配信だったが、現在はIP／アプリ配信が主流化し、<strong>価格が半分以下の新興プレイヤーが台頭して価格破壊が進行中</strong>。",
+pl:"<strong>USEN</strong>が業界シェアNo.1の老舗で、有線放送のブランド力と全国の営業網、店舗DX（POS・決済）との抱き合わせが強み。<strong>モンスター・チャンネル</strong>がアプリ配信型の代表格。ほかにOTORAKU（USEN系）、Sound Design for OFFICE。※Spotify等の一般サービスは商用利用が原則不可。",
+rates:[["USEN（有線）","月 3,000〜6,000 円/店舗＋初期費用"],["モンスター・チャンネル","月 1,880 円〜（著作権料込）"],["└ 複数アカウント","各 10 % オフ"]],
+tips:["<strong>多店舗チェーンで年300万円＝概ね50〜80店舗規模。</strong>1店舗あたり月2,000円下げれば年間150〜200万円の削減になる。","<strong>著作権処理が料金に含まれているかが最重要チェックポイント。</strong>含まれていないサービスに切り替えると、後からJASRAC・NexToneへの支払いが発生して総額が上がる。","<strong>USENはBGM単体ではなく店舗DX（POSレジ、決済、Wi-Fi、電話）とのバンドルで守りを固めている。</strong>BGMだけ切り出すと他サービスの条件が悪化する契約になっていることがあるので、契約書の確認が必須。","契約期間の縛り（3〜5年）と自動更新条項が長いのが業界慣行。<strong>更新月を外すと違約金が発生する</strong>ので、タイミング管理が実務上の肝。"]},
+
+{n:55,c:"H",name:"ユニフォーム",sub:"買取・レンタル",lot:"年間100万円以上",
+docs:["契約書","請求書および明細（直近月）"],
+ov:"「買取（自社所有＋自社洗濯）」と「レンタル（業者所有＋業者洗濯・交換）」の2形態。<strong>レンタルは1着あたり単価は高いが、洗濯・在庫管理・サイズ交換・廃棄の手間が消える。</strong>飲食・食品工場・医療・介護では衛生管理上、業者洗濯が求められることも多く、<strong>人材の入退社が多い業種ほどレンタルが有利</strong>。",
+pl:"レンタルは<strong>白洋舍</strong>（法人向けリネンサプライ・ユニフォームレンタルの大手）、<strong>ダスキン</strong>、ワタキューセイモア、サンリース、地域のリネン会社。買取（製造・販売）は<strong>ミドリ安全、自重堂、ボンマックス、チトセ、アイトス</strong>、ワークウェアではワークマンも法人供給。",
+rates:[["レンタル（週1〜2回交換込）","1着 月 600〜1,500 円"],["買取 作業服","1着 3,000〜8,000 円"],["買取 白衣・調理服","1着 5,000〜15,000 円"],["クリーニング（買取の場合 別途）","300〜600 円/回"]],
+tips:["<strong>総額比較には「洗濯」を必ず入れる。</strong>買取は単価が安く見えるが、クリーニング代を年間で積むとレンタルと逆転することがある。契約書と請求明細の両方を求めるのはこのため。","<strong>交換頻度が最大のレバー。</strong>週2回交換を週1回にすれば概ね3〜4割減。実際の汚れ具合を見れば過剰なケースは多い。","<strong>保有枚数（1人あたり何着）の見直し。</strong>1人3着を2着にできれば単純に33%減。","<strong>退職者分のユニフォームがレンタル契約に残ったままというのが最頻出の無駄。</strong>人員が減っているのに枚数が減っていない。明細と在籍者名簿の突合だけで削減が出る。"]},
+
+{n:56,c:"H",name:"リネン",lot:"年間100万円以上",
+docs:["業務委託契約書","請求明細（直近1年分）"],
+ov:"<strong>リネンサプライ市場は2026年度で5,398億円</strong>とほぼ横ばい。ただし内訳では<strong>ホテルリネンが2026年度見込みで前年度比104.0%と堅調に拡大</strong>しており、市場構成比は2026年度38.2%→2027年度39.2%へ上昇見込み。インバウンド需要で宿泊施設の稼働率が高水準を維持していることが牽引役。病院・介護向けは横ばい〜微減。",
+pl:"<strong>白洋舍</strong>（法人向けリネンサプライの大手。2025年12月期はホテル稼働率回復で売上増）、<strong>ワタキューセイモア</strong>（医療・介護分野で最大手）、日清医療食品グループ、エムアイエス、地域のリネンサプライ会社が多数。",
+rates:[["シーツ（洗濯・配送込）","80〜150 円/枚"],["枕カバー","30〜60 円/枚"],["バスタオル","50〜100 円/枚"],["浴衣・ガウン","150〜400 円/枚"]],
+tips:["<strong>「直近1年分」の請求明細を求めるのは、稼働率の季節変動と品目別の使用枚数構成を出すため。</strong>総額だけでは何も分からない。","<strong>1室あたりのリネン点数の見直しが最大の削減。</strong>デコラティブクッション、ベッドスロー、余分な枕——使われていないのに毎回洗濯しているものが必ずある。","<strong>連泊時の交換頻度。</strong>「エコステイ」（連泊時はリネン交換なし）は、コスト削減と環境訴求を両立できる数少ない施策。","<strong>ロス（紛失・破損）の扱いが契約に明記されているか。</strong>ロス率が高いと請求が膨らむが、実態が検証されないまま請求されているケースがある。","リネン業界も<strong>人手不足と水道光熱費上昇で値上げ局面</strong>。この品目も「値上げ幅の圧縮」が現実的な成果になることが多い。"]},
+
+{n:57,c:"H",name:"レンタルマット",lot:"年間100万円以上",
+docs:["「現状確認表」（弊社指定のExcelにレンタルマット業者よりご記入いただく）"],
+ov:"玄関マット、厨房マット、モップ等を定期交換するレンタルサービス。<strong>日本のダストコントロール市場を実質的にダスキンが作り、今も支配している。</strong>契約は自動更新が基本で、<strong>「いつ入れたか誰も覚えていないが毎月請求が来る」典型的な費目</strong>。それゆえ削減の宝庫。",
+pl:"<strong>ダスキン</strong>（世界の清掃関連レンタル会社の時価総額ランキングで第3位。マットは2週間ごとの定期交換、靴裏ダストの95%以上を除去と訴求）。以下、サニクリーン、テラモト、山崎産業、地域のダストコントロール事業者。<strong>ダスキンは加盟店（フランチャイズ）制</strong>なので、加盟店ごとに営業力・価格提示が異なる。",
+rates:[["玄関マット 600×900mm（2週交換）","月 800〜1,500 円/枚"],["厨房用（吸油・防滑）","月 1,500〜3,000 円/枚"],["モップ・ダスター","月 300〜800 円/本"]],
+tips:["<strong>削減の3手</strong>：①枚数を減らす（本当に必要な場所だけに絞る）②交換頻度を落とす（2週→4週で概ね半額）③レンタルをやめて買取に切り替える（土足導線でない場所なら十分）。","<strong>「現状確認表」を業者に書かせるのが必須なのは、何がどこに何枚あるかを顧客が把握していないから。</strong>これがこの品目の本質。契約から10年経った事業所で、すでに使っていない場所のマットが請求され続けていることは珍しくない。","<strong>現地の棚卸しだけで20〜40%減ることがある。</strong>単価交渉より先に「数量の棚卸し」。","「95%のダスト除去」という機能価値は本物だが、<strong>その機能が要らない場所（バックヤード、倉庫）にも同じマットが敷かれている</strong>のが無駄の正体。"]},
+
+/* ---------------- I ---------------- */
+{n:5,c:"I",name:"印刷物",lot:"年間1,000万円以上",
+docs:["実際のサンプル","請求書および明細","年間費用のわかるデータ"],
+ov:"国内印刷市場は<strong>デジタル化で長期縮小トレンド</strong>（包装印刷を除き、出版・商業・証券のいずれも需要低迷）。設備過剰のため<strong>価格競争が極めて激しく、相見積りが最も素直に効く品目のひとつ</strong>。ただし2024年以降は紙・インキ・エネルギー・物流費の上昇で値上げ局面に転じ、印刷用紙は15%規模の値上げが発表されている。",
+pl:"<strong>TOPPANホールディングス（旧凸版印刷）と大日本印刷（DNP）の2強</strong>で、新分野の開発力に加え既存印刷分野の生産・営業力でも他を圧倒（<strong>軟包装分野では上位2社で約30%</strong>）。中堅は共同印刷、光村印刷、廣済堂、NISSHA。ネット印刷の<strong>ラクスル、プリントパック、グラフィック</strong>が小ロット・短納期領域で価格破壊を起こした。",
+rates:[["A4チラシ 1万部（ネット印刷）","2〜5 万円"],["└ 既存印刷会社経由","2〜3 倍になることも","up"],["カタログ A4・16P 5,000部","20〜50 万円"],["名刺100枚","500〜2,000 円（ルートで10倍差）"]],
+tips:["<strong>「実際のサンプル」を求めるのが最重要。</strong>印刷費は用紙（銘柄・斤量）×色数×加工（PP貼り、箔押し、型抜き）×部数で決まる。サンプルを見れば仕様が確定でき、正確な相見積りが打てる。","<strong>仕様のオーバースペックが最大の無駄。</strong>マットPP加工、特色印刷、厚い紙——見た目の差が販促効果に寄与していないなら、仕様を落とすだけで3〜5割減る。","<strong>部数の見直し。</strong>「余ったチラシが倉庫に積まれている」のは印刷費の丸ごとの損失。オンデマンド印刷への切替で必要な分だけ刷る方が総額で安いことが多い。","<strong>既存印刷会社は営業担当が販促の相談相手になっている</strong>ことが多く、単純な価格比較で切り替えるとデザイン・進行管理の手間が社内に戻ってくる。この隠れコストを織り込むこと。"]},
+
+{n:16,c:"I",name:"切手",lot:"年間1,000万円以上",hot:"2026年10月 割引率引下げ",
+docs:["月々の平均支払い金額がわかるもの"],
+ov:"<strong>日本郵便の値上げが続く逆風の品目。</strong>2024年10月に通常はがき63円→85円、定形郵便84〜94円→110円と大幅改定。さらに2026年10月からバーコード割引の割引率が引き下げられ実質値上げ。加えて2027年10月頃に20円程度の再値上げが検討されている。<strong>「削減」というより「値上げ幅の抑制と割引制度の取りこぼし回収」</strong>が実務。",
+pl:"<strong>日本郵便（ほぼ独占）</strong>。信書は郵便法により民間参入が極めて限定的（特定信書便は要件が厳しい）。代替は「そもそも郵送しない（電子化）」しかないのが構造。",
+rates:[["広告郵便物","最大 44 % 引"],["区分郵便物","最大 5 % 引"],["バーコード付郵便（2026年10月〜）","3% → 1 %","up"],["└ 往復はがき","1.5% → 0.5 %","up"],["└ 負担増（はがき85円 / 封書110円）","+1.7円 / +2.2円 ·通","up"]],
+tips:["<strong>年間1,000万円＝月80万円強＝定形封書で月7,000通超。</strong>この規模なら広告郵便・区分郵便の適用余地が必ずある。","<strong>「月々の平均支払い金額がわかるもの」だけでいいのは、規模さえ分かれば適用可能な割引制度が特定できるから。</strong>57品目中もっとも必要情報が軽い部類。","<strong>最大の削減は「郵送しない」。</strong>請求書・納品書・給与明細の電子化。ただし取引先の同意が要るので、切替率は現実的に5〜7割程度と見積もるべき。","<strong>切手の現物管理はリスクでもある。</strong>金券なので紛失・私的流用が起きやすい。料金別納・後納に切り替えるだけで管理コストと内部統制リスクが両方下がる。"]},
+
+{n:48,c:"I",name:"発送DMコスト",lot:"年間100万円以上",hot:"配送選択肢が縮小",
+docs:["運送会社からの請求書","月々の発送数がわかる資料","各サイズ毎単価メニュー（あれば）"],
+ov:"DM発送は<strong>「印刷＋封入封緘＋郵送（配送）」の3層</strong>。郵便料金の値上げに加え、<strong>ゆうメールが2025年11月にサービス開始以来初の基本運賃値上げ</strong>、<strong>クロネコDM便は2024年1月末で廃止</strong>（→クロネコゆうメール＝ヤマトが集荷し郵便局が配達）と、選択肢が急速に狭まっている。",
+pl:"配送は<strong>日本郵便（ゆうメール、ゆうパケット、広告郵便）</strong>、<strong>ヤマト運輸（クロネコゆうメール、クロネコゆうパケット）</strong>、佐川急便（飛脚メール便）。発送代行はディーエムエス、ジャパンメール、エルネット、アテナ、マイナビサポート。",
+rates:[["1通あたり実質コスト（印刷＋封入＋郵送）","150〜250 円"],["└ 10,000通","150〜250 万円"],["月1万通企業のゆうメール値上げ影響","年 +240 万円（1kgサイズ）","up"],["1,000通 vs 10,000通の単価差","20〜30 %"]],
+tips:["<strong>発送部数の集約が最も確実な単価削減策。</strong>1,000通と10,000通では1通あたり20〜30%の単価差が生まれる。月次で細かく出しているDMを隔月にまとめるだけで単価が落ちる。","<strong>サイズ・重量の1g・1mmの調整が効く。</strong>料金は階段状に上がるので、規格の境界（定形/定形外、100g/150gの境界）をわずかに超えているだけで単価が跳ね上がる。紙の斤量を1ランク落とす、同封物を1枚減らす——これで階段を1段下りられる。「各サイズ毎単価メニュー」を求めるのはこのため。","<strong>リストの精査が地味に最大の削減。</strong>宛先不明・重複・反応ゼロ層への発送は100%の無駄。1万通のうち5%が不達なら、それだけで年間数十万円。","<strong>信書に該当するか否かが配送手段を決定づける。</strong>信書は原則郵便のみ。誤ると郵便法違反になるので判定は慎重に。"]}
+];
+
+/* ---------- render ---------- */
+const esc = s => String(s).replace(/&(?![a-z#]+;)/g,"&amp;");
+const CHECK = '<svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>';
+
+function itemHTML(it){
+  const rates = (it.rates||[]).map(r =>
+    `<div class="rate"><span>${r[0]}</span><b class="${r[2]||''}">${r[1]}</b></div>`).join("");
+  const tips = (it.tips||[]).map(t=>`<li>${t}</li>`).join("");
+  const docs = (it.docs||[]).map(d=>`<li>${CHECK}<em>${d}</em></li>`).join("");
+  const search = [it.name,it.sub||"",it.ov,it.pl,(it.tips||[]).join(" "),(it.docs||[]).join(" ")]
+      .join(" ").replace(/<[^>]+>/g,"");
+  return `<article class="item" id="item-${it.n}" data-s="${search.replace(/"/g,"&quot;")}">
+    <div class="ihead">
+      <div class="no">No.${String(it.n).padStart(2,"0")}</div>
+      <div>
+        <h3>${it.name}${it.sub?`<span style="font-size:13px;font-weight:400;color:var(--ink-3);margin-left:9px">${it.sub}</span>`:""}</h3>
+        <div class="chips">
+          <span class="chip"><b>最低ロット</b>${it.lot}</span>
+          ${it.hot?`<span class="chip hot">${it.hot}</span>`:""}
+        </div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="blk"><div class="lab">業界概要</div><p>${it.ov}</p></div>
+      <div class="blk"><div class="lab">主なプレイヤー</div><p>${it.pl}</p></div>
+      ${rates?`<div class="blk"><div class="lab">価格相場</div><div class="scroller"><div class="rates">${rates}</div></div></div>`:""}
+      <div class="blk"><div class="lab">豆知識・削減の勘所</div><ul class="pts">${tips}</ul></div>
+      <div class="blk"><div class="lab">必要情報</div><ul class="docs">${docs}</ul></div>
+    </div>
+  </article>`;
+}
+
+const catsEl = document.getElementById("cats");
+const navEl  = document.getElementById("nav");
+catsEl.innerHTML = CATS.map(([k,label])=>{
+  const list = ITEMS.filter(i=>i.c===k);
+  return `<section class="cat" id="cat-${k}" data-cat="${k}">
+    <div class="cathead"><span class="k">${k}</span><h2>${label}</h2><span class="c">${list.length} ITEMS</span></div>
+    ${list.map(itemHTML).join("")}
+  </section>`;
+}).join("");
+navEl.innerHTML = CATS.map(([k,label])=>{
+  const n = ITEMS.filter(i=>i.c===k).length;
+  return `<a href="#cat-${k}"><span class="k">${k}</span><span>${label}</span><span class="c">${n}</span></a>`;
+}).join("");
+
+/* ---------- search ---------- */
+const q = document.getElementById("q");
+const hits = document.getElementById("hits");
+const empty = document.getElementById("empty");
+const allItems = [...document.querySelectorAll(".item")];
+const allCats = [...document.querySelectorAll(".cat")];
+
+function filter(){
+  const v = q.value.trim().toLowerCase();
+  let n = 0;
+  allItems.forEach(el=>{
+    const on = !v || el.dataset.s.toLowerCase().includes(v) ;
+    el.style.display = on ? "" : "none";
+    if(on) n++;
+  });
+  allCats.forEach(c=>{
+    const vis = [...c.querySelectorAll(".item")].some(i=>i.style.display!=="none");
+    c.style.display = vis ? "" : "none";
+  });
+  empty.classList.toggle("on", n===0);
+  hits.innerHTML = v ? `<b>${n}</b> / 57 件が該当` : `全 <b>57</b> 品目を表示中`;
+}
+q.addEventListener("input", filter);
+filter();
+
+/* ---------- theme ---------- */
+const root = document.documentElement;
+document.getElementById("tog").addEventListener("click",()=>{
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur = root.getAttribute("data-theme") || (dark ? "dark" : "light");
+  root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+});
+</script>
