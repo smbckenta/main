@@ -10,3 +10,4 @@ data/uploads/
 data/settings.json
 
 # 機種スペックDBは共有資産なのでコミットする（data/devices.json）
+.chromium-installed

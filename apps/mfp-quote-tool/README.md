@@ -26,7 +26,15 @@
 
 ---
 
-## 起動方法
+## 起動方法（Windows・コマンド不要）
+
+1. Node.js を入れる（初回のみ）。PowerShell で `winget install OpenJS.NodeJS.LTS` を実行し、PCを再起動
+2. このフォルダの **`start.bat` をダブルクリック**
+
+初回は必要な部品の取得に数分かかり、そのあとブラウザが自動で開きます。
+2回目以降は `start.bat` をダブルクリックするだけで起動します。終了は黒い画面で Ctrl + C。
+
+### コマンドで起動する場合
 
 ```bash
 cd apps/mfp-quote-tool
