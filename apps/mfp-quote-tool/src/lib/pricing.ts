@@ -229,11 +229,18 @@ export function calcProposal(
   const debt = settings.debtSettlement;
   const remainingDebt = debt.includeInQuote ? (quote.current.remainingDebt ?? 0) : 0;
   const cancellationFee = remainingDebt > 0 ? quote.current.monthlyLease * debt.cancellationMonths : 0;
+  // 見積書では「現行リース料 × 月数」の形で見せるため、残債を月数に直しておく
+  const currentMonthly = quote.current.monthlyLease;
+  const remainingMonths =
+    remainingDebt > 0 && currentMonthly > 0 ? Math.round(remainingDebt / currentMonthly) : 0;
   const debtSettlement = {
     remainingDebt,
     cancellationFee,
     months: debt.cancellationMonths,
     total: Math.round(remainingDebt + cancellationFee),
+    monthlyLease: currentMonthly,
+    remainingMonths,
+    totalMonths: remainingDebt > 0 ? remainingMonths + debt.cancellationMonths : 0,
   };
 
   // 本体価格（PTFの対象）の決定

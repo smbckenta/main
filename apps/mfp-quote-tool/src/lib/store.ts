@@ -89,6 +89,7 @@ export async function getSettings(): Promise<Settings> {
     },
     ai: { ...DEFAULT_SETTINGS.ai, ...(stored.ai ?? {}) },
     deletion: { ...DEFAULT_SETTINGS.deletion, ...(stored.deletion ?? {}) },
+    quoteRegister: { ...DEFAULT_SETTINGS.quoteRegister, ...(stored.quoteRegister ?? {}) },
     staff: stored.staff ?? DEFAULT_SETTINGS.staff,
     twoColorUnitByMaker: stored.twoColorUnitByMaker ?? DEFAULT_SETTINGS.twoColorUnitByMaker,
   };
@@ -261,12 +262,3 @@ export function newId(): string {
   return randomUUID();
 }
 
-/** 見積書番号（既存Excelは連番運用のため、最終番号+1を返す） */
-export async function nextQuoteNo(): Promise<string> {
-  const quotes = await listQuotes();
-  const numbers = quotes
-    .map((q) => Number(String(q.quoteNo).replace(/[^0-9]/g, "")))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  const base = numbers.length ? Math.max(...numbers) : 136000;
-  return String(base + 1);
-}

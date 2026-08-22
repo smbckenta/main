@@ -62,6 +62,8 @@ export default function QuoteEditor({
   );
   /** 保存していない変更があるか */
   const [dirty, setDirty] = useState(false);
+  /** 台帳（スプレッドシート）へ転記した結果 */
+  const [register, setRegister] = useState<{ rows: string[][]; written: number; warning?: string } | null>(null);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -251,6 +253,33 @@ export default function QuoteEditor({
       a.click();
       URL.revokeObjectURL(url);
       setMessage(warn ? `出力しました（${decodeURIComponent(warn)}）` : "出力しました。");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  /** 見積書番号を採番し、台帳へ転記する */
+  async function registerNumbers() {
+    setBusy("台帳に転記中…");
+    setError("");
+    try {
+      await fetch(`/api/quotes/${quote.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(quote),
+      });
+      const res = await fetch(`/api/quotes/${quote.id}/register`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "台帳への転記に失敗しました。");
+      applyServerResult(json);
+      setRegister(json.register);
+      setMessage(
+        json.register.written
+          ? `台帳に${json.register.written}件転記しました。`
+          : (json.register.warning ?? "転記対象がありません。"),
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -618,6 +647,56 @@ export default function QuoteEditor({
           （初回のみ <code>npx playwright install chromium</code>）。
         </p>
       </section>
+
+      <section className="panel">
+        <h2>見積書番号の台帳</h2>
+        <p className="muted">
+          見積書番号は「機種（提案）1件につき1つ」割り当て、
+          {settings.quoteRegister.enabled
+            ? `スプレッドシートの「${settings.quoteRegister.sheetName}」シート`
+            : "台帳"}
+          へ 見積書番号／顧客名／内容 を書き込みます。
+        </p>
+        <div className="row">
+          <button className="secondary" onClick={registerNumbers} disabled={!!busy || !quote.proposals.length}>
+            番号を採番して台帳に転記
+          </button>
+        </div>
+        {register && (
+          <>
+            <table style={{ marginTop: 10 }}>
+              <thead>
+                <tr>
+                  <th>見積書番号</th>
+                  <th>顧客名</th>
+                  <th>内容</th>
+                </tr>
+              </thead>
+              <tbody>
+                {register.rows.map((row) => (
+                  <tr key={row[0]}>
+                    <td>{row[0]}</td>
+                    <td>{row[1]}</td>
+                    <td>{row[2]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {register.warning && <p className="warn">{register.warning}</p>}
+            <button
+              className="secondary"
+              style={{ marginTop: 8 }}
+              onClick={() =>
+                navigator.clipboard
+                  .writeText(register.rows.map((r) => r.join("\t")).join("\n"))
+                  .then(() => setMessage("コピーしました。スプレッドシートに貼り付けてください。"))
+              }
+            >
+              この内容をコピー（スプレッドシートに貼り付け用）
+            </button>
+          </>
+        )}
+      </section>
     </>
   );
 }
@@ -795,8 +874,12 @@ function ProposalPanel({
     <section className="panel">
       <h2>
         提案：{MAKER_LABELS[proposal.maker]} {proposal.modelText && `／ ${proposal.modelText}`}
+        {proposal.quoteNo && <span className="badge" style={{ marginLeft: 10 }}>見積書番号 {proposal.quoteNo}</span>}
       </h2>
       <div className="row">
+        <Field label="見積書番号" width={130}>
+          <input value={proposal.quoteNo ?? ""} onChange={(e) => onChange({ quoteNo: e.target.value })} />
+        </Field>
         <Field label="機種（仕切表）" width={280}>
           <select value={proposal.priceBookId ?? ""} onChange={(e) => selectEntry(e.target.value)}>
             <option value="">（選択してください）</option>

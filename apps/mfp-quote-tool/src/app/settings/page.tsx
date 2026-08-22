@@ -733,6 +733,53 @@ export default function SettingsPage() {
       </section>
 
       <section className="panel">
+        <h2>見積書番号の台帳（Googleスプレッドシート）</h2>
+        <p className="muted">
+          見積書番号は台帳の続きから採番し、発行した番号は「見積書番号／顧客名／内容」の3列で書き戻します。
+          自動転記には、Googleのサービスアカウント鍵（<code>google-service-account.json</code>）を
+          データの保存先に置き、そのアカウントのメールアドレスをスプレッドシートの「編集者」に追加してください。
+          鍵が無い場合でも、案件画面に貼り付け用の行が表示されます。
+        </p>
+        <div className="row">
+          <Field label="台帳を使う" width={150}>
+            <select
+              value={s.quoteRegister.enabled ? "1" : "0"}
+              onChange={(e) =>
+                set({ quoteRegister: { ...s.quoteRegister, enabled: e.target.value === "1" } })
+              }
+            >
+              <option value="1">使う</option>
+              <option value="0">使わない</option>
+            </select>
+          </Field>
+          <Field label="スプレッドシートID" width={380}>
+            <input
+              value={s.quoteRegister.spreadsheetId}
+              placeholder="URLの /d/ と /edit の間"
+              onChange={(e) =>
+                set({ quoteRegister: { ...s.quoteRegister, spreadsheetId: e.target.value.trim() } })
+              }
+            />
+          </Field>
+          <Field label="シート名" width={140}>
+            <input
+              value={s.quoteRegister.sheetName}
+              onChange={(e) => set({ quoteRegister: { ...s.quoteRegister, sheetName: e.target.value } })}
+            />
+          </Field>
+          <Field label="開始番号" width={130}>
+            <input
+              type="number"
+              value={s.quoteRegister.startNumber}
+              onChange={(e) =>
+                set({ quoteRegister: { ...s.quoteRegister, startNumber: Number(e.target.value) } })
+              }
+            />
+          </Field>
+        </div>
+      </section>
+
+      <section className="panel">
         <h2>案件の削除</h2>
         <p className="muted">
           案件一覧から削除するときは、担当者の選択とこのパスワードの入力が必要です。

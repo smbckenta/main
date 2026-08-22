@@ -204,7 +204,7 @@ function companyBlock(settings: Settings, logo?: string): string {
 }
 
 /** 比較表の上部に置く社名・ロゴの帯 */
-function brandBar(settings: Settings, logo: string | undefined, quote: Quote): string {
+function brandBar(settings: Settings, logo: string | undefined, quote: Quote, quoteNo?: string): string {
   const c = settings.company;
   return `
   <div class="head" style="align-items:center">
@@ -214,13 +214,19 @@ function brandBar(settings: Settings, logo: string | undefined, quote: Quote): s
     <div class="small muted" style="text-align:right">
       <div>${esc(c.name)}</div>
       <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
-      <div>見積番号 ${esc(quote.quoteNo)}${quote.staffName ? `　担当 ${esc(quote.staffName)}` : ""}</div>
+      <div>見積番号 ${esc(quoteNo ?? quote.quoteNo)}${quote.staffName ? `　担当 ${esc(quote.staffName)}` : ""}</div>
     </div>
   </div>`;
 }
 
 /** 見積書のヘッダー（宛名・自社情報） */
-function quoteHeader(quote: Quote, settings: Settings, subject: string, logo?: string): string {
+function quoteHeader(
+  quote: Quote,
+  settings: Settings,
+  subject: string,
+  logo?: string,
+  quoteNo?: string,
+): string {
   const c = settings.company;
   return `
   <div class="head">
@@ -230,7 +236,7 @@ function quoteHeader(quote: Quote, settings: Settings, subject: string, logo?: s
     </div>
     <div class="small">
       <div>${esc(jpDate(quote.quoteDate))}</div>
-      <div>見積書番号：${esc(quote.quoteNo)}</div>
+      <div>見積書番号：${esc(quoteNo ?? quote.quoteNo)}</div>
     </div>
   </div>
   <h1>御 見 積 書</h1>
@@ -310,7 +316,7 @@ export function renderQuoteHtml(
     .join("");
 
   const body = `
-  ${quoteHeader(quote, settings, subject, logo)}
+  ${quoteHeader(quote, settings, subject, logo, p.quoteNo)}
 
   <div class="lease-box">
     <span class="label">月額リース料金</span>
@@ -332,9 +338,12 @@ export function renderQuoteHtml(
       ${
         calc.debtSettlement.total > 0
           ? `<tr>
-        <td></td><td>旧リース残債精算</td><td colspan="3"></td>
+        <td></td><td>旧リース残債精算</td>
+        <td class="center">${calc.debtSettlement.totalMonths}</td>
+        <td class="center">カ月</td>
+        <td class="num">${n(calc.debtSettlement.monthlyLease)}</td>
         <td class="num">${n(calc.debtSettlement.total)}</td>
-        <td class="muted">残債 ${n(calc.debtSettlement.remainingDebt)}＋解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分）${n(calc.debtSettlement.cancellationFee)}</td>
+        <td class="muted">残債${calc.debtSettlement.remainingMonths}カ月＋解約事務手数料${calc.debtSettlement.months}カ月</td>
       </tr>`
           : ""
       }
@@ -439,7 +448,7 @@ export function renderCompareHtml(
     v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
 
   const body = `
-  ${brandBar(settings, logo, quote)}
+  ${brandBar(settings, logo, quote, calc.proposal.quoteNo)}
   <h2>比 較 表</h2>
   <div class="center" style="margin-bottom:8px">
     （ ${esc(c.makerText || "現行")} ➡ ${esc(makerJp(calc.proposal.maker))} ）

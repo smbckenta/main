@@ -270,8 +270,24 @@ export interface Settings {
   staff: string[];
   /** 案件の削除 */
   deletion: DeletionSettings;
+  /** 見積書番号の台帳（Googleスプレッドシート）連携 */
+  quoteRegister: QuoteRegisterSettings;
   /** AI（Claude）による書類の読み取り */
   ai: AiSettings;
+}
+
+/**
+ * 見積書番号の台帳。
+ * 番号は台帳の続きから採番し、発行した番号は 見積書番号／顧客名／内容 の3列で書き戻す。
+ */
+export interface QuoteRegisterSettings {
+  enabled: boolean;
+  /** スプレッドシートのID（URLの /d/ と /edit の間） */
+  spreadsheetId: string;
+  /** シート（タブ）名 */
+  sheetName: string;
+  /** 台帳を読めないときに使う開始番号 */
+  startNumber: number;
 }
 
 /** 案件を削除するときの取り決め */
@@ -401,6 +417,11 @@ export type PricingMode = "fromGp" | "fromLease" | "fromMargin" | "fromPrice";
 export interface Proposal {
   id: string;
   maker: Maker;
+  /**
+   * この提案の見積書番号。
+   * 台帳の運用に合わせ、機種（提案）1件につき1番号を割り当てる。
+   */
+  quoteNo?: string;
   priceBookId?: string;
   modelText: string;
   deviceId?: string;
@@ -496,6 +517,12 @@ export interface ProposalCalc {
     cancellationFee: number;
     months: number;
     total: number;
+    /** 現行リース料の単月額（見積書の単価欄に出す） */
+    monthlyLease: number;
+    /** 残債の月数（残債 ÷ 現行リース料） */
+    remainingMonths: number;
+    /** 見積書の数量欄に出す月数（残債の月数 ＋ 解約事務手数料の月数） */
+    totalMonths: number;
   };
   /** 販売額計 = 本体価格 + 上乗せ分 + 残債精算 */
   sellingTotal: number;

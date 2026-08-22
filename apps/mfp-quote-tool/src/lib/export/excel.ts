@@ -116,7 +116,7 @@ export function addQuoteSheet(
   putRow(sheet, r, [`${quote.customerName}　${quote.customerHonorific}`], { bold: true });
   sheet.getRow(r).getCell(8).value = jpDate(quote.quoteDate);
   r++;
-  sheet.getRow(r).getCell(8).value = `見積書番号：${quote.quoteNo}`;
+  sheet.getRow(r).getCell(8).value = `見積書番号：${calc.proposal.quoteNo ?? quote.quoteNo}`;
   r += 1;
 
   const title = putRow(sheet, r, ["御　見　積　書"]);
@@ -215,11 +215,11 @@ export function addQuoteSheet(
       [
         "",
         "旧リース残債精算",
-        "",
-        "",
-        "",
+        calc.debtSettlement.totalMonths,
+        "カ月",
+        calc.debtSettlement.monthlyLease,
         calc.debtSettlement.total,
-        `残債 ${calc.debtSettlement.remainingDebt.toLocaleString()} ＋ 解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分）`,
+        `残債${calc.debtSettlement.remainingMonths}カ月＋解約事務手数料${calc.debtSettlement.months}カ月`,
       ],
       { border: true, numFmt: YEN },
     );

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getQuote, saveQuote } from "@/lib/store";
+import { getQuote, getSettings, saveQuote } from "@/lib/store";
 import { buildProposal } from "@/lib/proposal-builder";
 import { calcQuoteAll } from "@/lib/calc-context";
+import { allocateQuoteNumbers, syncRegister } from "@/lib/quote-register";
 import type { LeaseTerm, Maker } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -37,7 +38,23 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   quote.proposals = body.replace ? built : [...quote.proposals, ...built];
+
+  // 見積書番号は「提案（機種）1件につき1つ」。台帳の続きから採番する
+  const settings = await getSettings();
+  const need = quote.proposals.filter((p) => !p.quoteNo);
+  if (need.length) {
+    const allocation = await allocateQuoteNumbers(need.length, settings.quoteRegister);
+    need.forEach((p, i) => (p.quoteNo = allocation.numbers[i]));
+    if (allocation.warning) messages.push(allocation.warning);
+  }
+
   const saved = await saveQuote(quote);
   const calc = await calcQuoteAll(saved);
-  return NextResponse.json({ quote: saved, ...calc, messages });
+
+  // 台帳（スプレッドシート）へ番号・顧客名・内容を書き戻す（失敗しても提案作成は成功扱い）
+  const sync = await syncRegister(saved, calc.proposals, settings.quoteRegister);
+  if (sync.written) messages.push(`見積書番号を台帳に${sync.written}件転記しました。`);
+  else if (sync.warning) messages.push(sync.warning);
+
+  return NextResponse.json({ quote: saved, ...calc, messages, register: sync });
 }

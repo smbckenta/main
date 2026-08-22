@@ -124,6 +124,14 @@ export const DEFAULT_SETTINGS: Settings = {
   // 案件の削除にはパスワードが要る。初期値は未設定＝削除できない
   deletion: { passwordHash: "" },
 
+  // 見積書番号の台帳（Googleスプレッドシート「見積書」シート）
+  quoteRegister: {
+    enabled: true,
+    spreadsheetId: "1EcnpradH2qyEqrH8hxQvTCbjTS6Q9HUDofabKZDLWPE",
+    sheetName: "見積書",
+    startNumber: 137_240,
+  },
+
   // 書類の読み取りはAI（Claude）が既定。APIキーは設定画面か環境変数 ANTHROPIC_API_KEY で渡す
   ai: {
     enabled: true,

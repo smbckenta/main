@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { listQuotes, newId, nextQuoteNo, saveQuote } from "@/lib/store";
+import { getSettings, listQuotes, newId, saveQuote } from "@/lib/store";
+import { allocateQuoteNumbers } from "@/lib/quote-register";
 import type { Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     title: body.title ?? "複合機入替のご提案",
     customerName: body.customerName ?? "",
     customerHonorific: body.customerHonorific ?? "御中",
-    quoteNo: body.quoteNo ?? (await nextQuoteNo()),
+    quoteNo: body.quoteNo ?? (await allocateQuoteNumbers(1, (await getSettings()).quoteRegister)).numbers[0],
     quoteDate: body.quoteDate ?? now.slice(0, 10),
     area: body.area ?? "福岡",
     serviceArea: body.serviceArea,
