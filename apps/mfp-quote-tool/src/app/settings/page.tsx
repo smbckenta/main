@@ -14,11 +14,33 @@ export default function SettingsPage() {
     file: null,
     dataUri: null,
   });
+  const [registerTest, setRegisterTest] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
     fetch("/api/logo").then((r) => r.json()).then(setLogo).catch(() => {});
   }, []);
+
+  /** 台帳につながるかを試す（保存前の入力内容で試せる） */
+  async function testRegister() {
+    if (!settings) return;
+    setRegisterTest("確認中…");
+    try {
+      const res = await fetch("/api/register/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings.quoteRegister),
+      });
+      const json = await res.json();
+      setRegisterTest(
+        json.ok
+          ? `つながりました。「${json.sheetName}」シート：番号 ${json.rows.toLocaleString()} 行／空き ${json.vacantCount.toLocaleString()} 件。次に使う番号は ${json.nextNumbers.join("、") || "（空きがありません）"} です。`
+          : `つながりませんでした：${json.error}`,
+      );
+    } catch (err) {
+      setRegisterTest(`つながりませんでした：${(err as Error).message}`);
+    }
+  }
 
   async function uploadLogo(file: File) {
     const form = new FormData();
@@ -782,6 +804,20 @@ export default function SettingsPage() {
               }
             />
           </Field>
+        </div>
+
+        <div className="row" style={{ marginTop: 6 }}>
+          <button className="secondary" onClick={testRegister}>
+            台帳につながるか確認
+          </button>
+          {registerTest && (
+            <span
+              className={registerTest.startsWith("つながりました") ? "badge" : "warn"}
+              style={{ alignSelf: "center" }}
+            >
+              {registerTest}
+            </span>
+          )}
         </div>
 
         {s.quoteRegister.mode === "appsScript" ? (
