@@ -234,3 +234,10 @@ Copy-Item "$HOME\.claude\backup-<日時>\*" $HOME\.claude\ -Recurse -Force
 - PowerShell スクリプトは UTF-8 BOM 付きで保存しています。Windows PowerShell 5.1 は
   BOM の無いファイルを ANSI として読むため、日本語が文字化けするのを防ぐためです。
   編集時は BOM を落とさないでください。
+
+---
+
+## このリポジトリの他のプロジェクト
+
+- **[`line-task-bot/`](line-task-bot/)** — グループ LINE の会話を読んでタスクを抽出・管理し、
+  カレンダー登録やメール送信まで実行する Cloud Run のボット。設定共有とは独立したアプリです。
