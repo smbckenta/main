@@ -52,7 +52,7 @@ npm run dev                       # http://localhost:3100
 ### 動作要件
 
 - Node.js 20 以上（22 推奨）
-- AIでの読み取りを使う場合は Anthropic の APIキー（[Anthropic Console](https://console.anthropic.com/settings/keys) で発行）
+- AIでの読み取りを使う場合は Anthropic の APIキー（[Claude Console](https://platform.claude.com/settings/keys) で発行）
 - OCR（AIを使わない場合の読み取り）は追加インストール不要（学習データを同梱）
 - PDF出力のみ Chromium が必要です。未インストールの場合、Excel は出力され、PDFは警告付きでスキップされます。
 - 日本語フォントは実行しているPCのフォントを使います（Windows の游ゴシック／メイリオで確認）。

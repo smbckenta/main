@@ -79,7 +79,7 @@ if (Test-Path $keyFile) {
 } elseif (-not $env:ANTHROPIC_API_KEY) {
     Show ""
     Show "PDF・写真の読み取りに使うAIのAPIキーが未登録です。" "Yellow"
-    Show "https://console.anthropic.com/settings/keys で発行したキー（sk-ant-… ）を貼り付けてください。"
+    Show "https://platform.claude.com/settings/keys で発行したキー（sk-ant-… ）を貼り付けてください。"
     Show "あとで設定画面から登録する場合は、何も入力せずに Enter を押してください。" "Gray"
     $secure = Read-Host "APIキー" -AsSecureString
     $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(

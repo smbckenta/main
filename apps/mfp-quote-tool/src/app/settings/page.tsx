@@ -495,7 +495,7 @@ export default function SettingsPage() {
         <p className="muted">
           アップロードしたPDF・写真をAI（Claude）がそのまま読み取ります。
           文字起こし（OCR）では崩れてしまうスキャン書類・スマホ写真でも、表の意味を踏まえて枚数・単価・リース料を拾えます。
-          APIキーは <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">Anthropic Console</a> で発行してください。
+          APIキーは <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noreferrer">Claude Console</a> で発行してください。
         </p>
         <div className="row">
           <Field label="AIで読み取る" width={160}>
