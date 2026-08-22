@@ -9,6 +9,7 @@ import {
   pickTier,
   recommendEntry,
   recommendGrade,
+  serviceWarningOf,
 } from "./pricing";
 import { DEFAULT_SETTINGS } from "./defaults";
 import type { PriceBookEntry, Proposal, Quote, Settings } from "./types";
@@ -190,31 +191,134 @@ describe("機種グレードの推奨", () => {
 });
 
 describe("PTF", () => {
-  it("粗利益に対する率で算出し、端数を丸める", () => {
+  const rule = (over: Partial<Parameters<typeof calcPtf>[0]> = {}) => ({
+    base: "bodyPrice" as const,
+    rate: 0.1,
+    fixed: 0,
+    counter: { enabled: false, rate: 0, months: 0 },
+    cap: 0,
+    roundUnit: 1,
+    ...over,
+  });
+
+  it("本体価格の10%（既定）", () => {
     expect(
-      calcPtf(
-        { base: "grossProfit", rate: 0.2, fixed: 0, counter: { enabled: false, rate: 0, months: 0 }, cap: 0, roundUnit: 1000 },
-        { grossProfit: 329_600, sellingTotal: 771_100, monthlyCounter: 19_100 },
-      ),
-    ).toBe(66_000);
+      calcPtf(rule(), { grossProfit: 300_000, sellingTotal: 900_000, sellingBase: 771_100, monthlyCounter: 19_100 }),
+    ).toBe(77_110);
+  });
+
+  it("オプション・追加PC設定の上乗せ分には料率を適用しない", () => {
+    const quote = makeQuote();
+    const withOptions = calcProposal(
+      quote,
+      makeProposal({
+        pricingMode: "fromMargin",
+        marginRate: 0.3,
+        items: [
+          { name: "本体", qty: 1, unit: "台", unitPrice: 1_424_000 },
+          { name: "4,000枚フィニッシャー", qty: 1, unit: "台", unitPrice: 330_000, ptfExempt: true },
+          { name: "ICカードリーダー", qty: 1, unit: "台", unitPrice: 30_000, ptfExempt: true },
+          { name: "PC設定追加（3台）", qty: 3, unit: "台", unitPrice: 5_000, ptfExempt: true },
+        ],
+      }),
+      settings,
+    );
+    const bodyOnly = Math.round(441_500 / 0.7 / 100) * 100;
+    expect(withOptions.sellingBase).toBe(bodyOnly);
+    expect(withOptions.addOnTotal).toBe(330_000 + 30_000 + 15_000);
+    expect(withOptions.sellingTotal).toBe(bodyOnly + 375_000);
+    // PTFは本体価格分のみ
+    expect(withOptions.ptf).toBe(Math.round(bodyOnly * 0.1));
+  });
+
+  it("目標月額から逆算する場合も、上乗せ分を除いた本体価格がPTFの対象になる", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({
+        pricingMode: "fromLease",
+        targetMonthlyLease: 12_800,
+        items: [
+          { name: "本体", qty: 1, unit: "台", unitPrice: 1_424_000 },
+          { name: "フィニッシャー", qty: 1, unit: "台", unitPrice: 330_000, ptfExempt: true },
+        ],
+      }),
+      settings,
+    );
+    expect(calc.sellingTotal).toBe(calc.sellingBase + 330_000);
+    expect(calc.ptf).toBe(Math.round(calc.sellingBase * 0.1));
   });
 
   it("上限額を超えないこと", () => {
     expect(
-      calcPtf(
-        { base: "sellingPrice", rate: 0.5, fixed: 0, counter: { enabled: false, rate: 0, months: 0 }, cap: 100_000, roundUnit: 1 },
-        { grossProfit: 0, sellingTotal: 1_000_000, monthlyCounter: 0 },
-      ),
+      calcPtf(rule({ base: "sellingPrice", rate: 0.5, cap: 100_000 }), {
+        grossProfit: 0,
+        sellingTotal: 1_000_000,
+        sellingBase: 1_000_000,
+        monthlyCounter: 0,
+      }),
     ).toBe(100_000);
   });
 
   it("カウンター報酬を加算できる", () => {
     expect(
-      calcPtf(
-        { base: "fixed", rate: 0, fixed: 10_000, counter: { enabled: true, rate: 0.1, months: 60 }, cap: 0, roundUnit: 1 },
-        { grossProfit: 0, sellingTotal: 0, monthlyCounter: 19_100 },
-      ),
+      calcPtf(rule({ base: "fixed", rate: 0, fixed: 10_000, counter: { enabled: true, rate: 0.1, months: 60 } }), {
+        grossProfit: 0,
+        sellingTotal: 0,
+        sellingBase: 0,
+        monthlyCounter: 19_100,
+      }),
     ).toBe(10_000 + 19_100 * 0.1 * 60);
+  });
+});
+
+describe("保守対応エリア", () => {
+  const kyocera = { counterMono: [0.4, 0.8] as [number, number], counterColor: [4.0, 8.0] as [number, number], minCharge: 2000 };
+
+  it("ランクS/Aは印刷枚数が少なくてもモノクロ0.7円・カラー7.0円までの単価を出せる", () => {
+    const quote = makeQuote({ monoPages: 200, colorPages: 100, twoColorPages: 0 });
+    // 枚数が少ないと単価表では 0.7 / 7.0。レンジ上限に振れずに基準単価に収まること
+    for (const rank of ["S", "A"] as const) {
+      const units = autoCounterUnits(settings, quote, "KYOCERA", kyocera, undefined, rank);
+      expect(units.mono).toBe(0.7);
+      expect(units.color).toBe(7.0);
+    }
+  });
+
+  it("ランクB/Cはメーカーレンジの上限側になる（提案が難しいエリア）", () => {
+    const quote = makeQuote({ monoPages: 200, colorPages: 100, twoColorPages: 0 });
+    for (const rank of ["B", "C"] as const) {
+      const units = autoCounterUnits(settings, quote, "KYOCERA", kyocera, undefined, rank);
+      expect(units.mono).toBe(0.8);
+      expect(units.color).toBe(8.0);
+    }
+  });
+
+  it("ランクB以下・離島は注意文を返す", () => {
+    expect(serviceWarningOf("S")).toBeUndefined();
+    expect(serviceWarningOf("B")).toContain("翌日対応");
+    expect(serviceWarningOf("C")).toContain("提案が難しい");
+    expect(serviceWarningOf("D")).toContain("対応不可");
+    expect(serviceWarningOf("A", "離島A")).toContain("離島A");
+  });
+
+  it("最低基本料金はメーカー設定を優先する（京セラ2,000円・東芝1,500円）", () => {
+    const quote = makeQuote();
+    expect(autoCounterUnits(settings, quote, "KYOCERA", kyocera).minCharge).toBe(2000);
+    expect(
+      autoCounterUnits(settings, quote, "TOSHIBA", {
+        counterMono: [0.8, 1.5],
+        counterColor: [7.0, 9.5],
+        minCharge: 1500,
+      }).minCharge,
+    ).toBe(1500);
+    // 指定のないメーカーは都度入力（既定0円）
+    expect(
+      autoCounterUnits(settings, quote, "SHARP", {
+        counterMono: [0.5, 1.2],
+        counterColor: [5.0, 12.0],
+        minCharge: null,
+      }).minCharge,
+    ).toBe(0);
   });
 });
 

@@ -465,20 +465,22 @@ export function addProfitSheet(wb: ExcelJS.Workbook, calcs: ProposalCalc[]): Exc
     { width: 26 },
     { width: 14 },
     { width: 14 },
+    { width: 18 },
     { width: 14 },
     { width: 14 },
     { width: 14 },
-    { width: 12 },
+    { width: 14 },
+    { width: 10 },
   ];
   let r = 1;
   putRow(sheet, r++, ["収益シミュレーション（社外提出不可）"], { bold: true });
   r++;
-  putRow(sheet, r++, ["メーカー", "機種", "仕切価格", "販売額計", "GP（粗利益）", "PTF", "NP（純利益）", "粗利率"], {
-    bold: true,
-    fill: HEADER_FILL,
-    border: true,
-    align: Array(8).fill("center"),
-  });
+  putRow(
+    sheet,
+    r++,
+    ["メーカー", "機種", "仕切価格", "本体価格", "上乗せ(PTF対象外)", "販売額計", "GP（粗利益）", "PTF", "NP（純利益）", "粗利率"],
+    { bold: true, fill: HEADER_FILL, border: true, align: Array(10).fill("center") },
+  );
   for (const c of calcs) {
     putRow(
       sheet,
@@ -487,6 +489,8 @@ export function addProfitSheet(wb: ExcelJS.Workbook, calcs: ProposalCalc[]): Exc
         MAKER_LABELS[c.proposal.maker],
         c.proposal.modelText,
         c.cost,
+        c.sellingBase,
+        c.addOnTotal,
         c.sellingTotal,
         c.grossProfit,
         c.ptf,
@@ -495,8 +499,10 @@ export function addProfitSheet(wb: ExcelJS.Workbook, calcs: ProposalCalc[]): Exc
       ],
       { border: true, numFmt: YEN },
     );
-    sheet.getRow(r - 1).getCell(9).numFmt = "0.0%";
+    sheet.getRow(r - 1).getCell(11).numFmt = "0.0%";
   }
+  r++;
+  putRow(sheet, r++, ["※PTFは本体価格に料率を適用します。オプション・追加PC設定の上乗せ分は対象外です。"]);
   return sheet;
 }
 

@@ -1,16 +1,24 @@
 import { calcCurrent, calcProposal } from "./pricing";
+import { findServiceArea } from "./service-area";
 import { deviceMap, findDeviceByModel, getPriceBook, getSettings } from "./store";
-import type { CurrentCalc, ProposalCalc, Quote, Settings } from "./types";
+import type { CurrentCalc, ProposalCalc, Quote, ServiceArea, Settings } from "./types";
 
 export interface QuoteCalcResult {
   settings: Settings;
   current: CurrentCalc;
   proposals: ProposalCalc[];
+  /** 選択された保守対応エリア（京セラ担当エリア表） */
+  serviceArea?: ServiceArea;
 }
 
 /** 保存済みマスタを読み込んで案件全体を計算する（サーバー側専用） */
 export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
-  const [settings, book, devices] = await Promise.all([getSettings(), getPriceBook(), deviceMap()]);
+  const [settings, book, devices, serviceArea] = await Promise.all([
+    getSettings(),
+    getPriceBook(),
+    deviceMap(),
+    findServiceArea(quote.serviceArea?.pref, quote.serviceArea?.city),
+  ]);
 
   const currentDevice = quote.current.deviceId
     ? devices[quote.current.deviceId]
@@ -27,6 +35,9 @@ export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
         currentDevice,
         priceBook,
         makerNote: book.makerNotes[p.maker],
+        // 収録しているのは京セラの担当エリア表のため、単価判定に反映するのは京セラのみ
+        serviceRank: p.maker === "KYOCERA" ? serviceArea?.rank : undefined,
+        island: p.maker === "KYOCERA" ? serviceArea?.island : undefined,
       });
     }),
   );
@@ -35,5 +46,6 @@ export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
     settings,
     current: calcCurrent(quote, settings.company.taxRate),
     proposals,
+    serviceArea,
   };
 }

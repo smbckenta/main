@@ -49,6 +49,12 @@ export interface QuoteItem {
   unit: string;
   /** 定価（円・税抜） */
   unitPrice: number;
+  /**
+   * PTFの対象外（フィニッシャー・ICカードリーダー等のオプション、
+   * 追加のPC設定作業など、本体価格に上乗せした分）。
+   * この分は値引き対象にせず、そのまま販売額計に加算する。
+   */
+  ptfExempt?: boolean;
 }
 
 /** 仕切表の1機種 */
@@ -81,6 +87,8 @@ export interface PriceBookEntry {
 export interface MakerNote {
   counterMono: [number, number];
   counterColor: [number, number];
+  /** 最低基本料金（円/月）。null は「都度メーカー条件を確認して手入力」 */
+  minCharge?: number | null;
   note?: string;
   pcSetupFree?: number;
   pcSetupFee?: number;
@@ -139,6 +147,28 @@ export interface CounterTier {
   color: number;
 }
 
+/** 保守対応ランク（メーカーの担当エリア表より） */
+export type ServiceRank = "S" | "A" | "B" | "C" | "D";
+
+/** 市区町村ごとの保守対応エリア */
+export interface ServiceArea {
+  pref: string;
+  city: string;
+  rank: ServiceRank;
+  /** 離島区分（空文字は離島でない） */
+  island: string;
+}
+
+export interface ServiceAreaBook {
+  source: string;
+  importedAt: string;
+  rankLabels: Record<string, string>;
+  islandLabels: Record<string, string>;
+  columns: string[];
+  /** [県名, 市町村名, ランク, 離島区分] */
+  areas: [string, string, string, string][];
+}
+
 export interface AreaSetting {
   name: string;
   /** 僻地・遠隔地。単価をメーカー上限側に寄せる */
@@ -150,8 +180,13 @@ export interface AreaSetting {
 
 /** PTF（代理店報酬）ルール */
 export interface PtfRule {
-  /** grossProfit: GPに対する率 / sellingPrice: 販売額計に対する率 / fixed: 固定額のみ */
-  base: "grossProfit" | "sellingPrice" | "fixed";
+  /**
+   * bodyPrice   : 本体価格（販売額計からオプション・追加PC設定の上乗せ分を除いた額）に対する率
+   * grossProfit : GPに対する率
+   * sellingPrice: 販売額計（上乗せ分を含む）に対する率
+   * fixed       : 固定額のみ
+   */
+  base: "bodyPrice" | "grossProfit" | "sellingPrice" | "fixed";
   rate: number;
   /** 固定加算額（円/件） */
   fixed: number;
@@ -190,8 +225,13 @@ export interface Settings {
   counterTiersByAmount: CounterTier[];
   /** 2色カラー単価（フルカラー単価に対する係数）。0.3 なら 7.0円 → 2.1円 */
   twoColorRatio: number;
-  /** 既定の最低基本料金（円/月） */
+  /** 既定の最低基本料金（円/月）。メーカー別の指定がない場合に使う */
   defaultMinCharge: number;
+  /**
+   * 当日対応エリア（保守ランク S / A）で提示できる基準単価。
+   * 印刷枚数が少なくてもこの単価までは出せる、という下限の保証。
+   */
+  sameDayBaseUnits: { mono: number; color: number };
   /** 機種グレードの推奨（月間総印刷枚数→〇〇枚機） */
   gradeTiers: { minPages: number; ppm: number }[];
   areas: AreaSetting[];
@@ -312,6 +352,8 @@ export interface Quote {
   quoteDate: string;
   /** エリア名（設定の areas から選択） */
   area: string;
+  /** 保守対応エリア（メーカー担当エリア表の市区町村） */
+  serviceArea?: { pref: string; city: string };
   current: CurrentMachine;
   proposals: Proposal[];
   ingest?: {
@@ -356,7 +398,11 @@ export interface ProposalCalc {
   priceBook?: PriceBookEntry;
   /** 定価合計 */
   listTotal: number;
-  /** 販売額計 */
+  /** 本体価格（PTFの対象。オプション・追加設定の上乗せを含まない） */
+  sellingBase: number;
+  /** オプション・追加設定の上乗せ合計（PTF対象外） */
+  addOnTotal: number;
+  /** 販売額計 = 本体価格 + 上乗せ分 */
   sellingTotal: number;
   /** 値引き（負値） */
   discount: number;
@@ -369,6 +415,12 @@ export interface ProposalCalc {
   monthlyLease: number;
   units: CounterUnits;
   counterAuto: boolean;
+  /** 保守対応ランク（判定できた場合） */
+  serviceRank?: ServiceRank;
+  /** 提案時の注意（保守ランクB以下・離島など） */
+  serviceWarning?: string;
+  /** 最低基本料金を都度確認する必要があるメーカーか */
+  minChargeNeedsInput: boolean;
   counter: CounterBreakdown;
   maintenanceMonthly: number;
   running: number;

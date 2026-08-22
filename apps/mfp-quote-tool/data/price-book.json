@@ -15,11 +15,36 @@
       "cost": 441500,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfaMZ2501ci　本体", "qty": 1, "unit": "台", "unitPrice": 1424000 },
-        { "name": "両画面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 130000 },
-        { "name": "ＦＡＸキット", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "600枚*2段ペーパーフィーダー", "qty": 1, "unit": "台", "unitPrice": 160000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfaMZ2501ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1424000
+        },
+        {
+          "name": "両画面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 130000
+        },
+        {
+          "name": "ＦＡＸキット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "600枚*2段ペーパーフィーダー",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 160000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -34,11 +59,36 @@
       "cost": 483900,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfaMZ3501ci　本体", "qty": 1, "unit": "台", "unitPrice": 1603000 },
-        { "name": "両画面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 130000 },
-        { "name": "ＦＡＸキット", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "600枚*2段ペーパーフィーダー", "qty": 1, "unit": "台", "unitPrice": 160000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfaMZ3501ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1603000
+        },
+        {
+          "name": "両画面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 130000
+        },
+        {
+          "name": "ＦＡＸキット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "600枚*2段ペーパーフィーダー",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 160000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -53,11 +103,36 @@
       "cost": 592100,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfaMZ4001ci　本体", "qty": 1, "unit": "台", "unitPrice": 1906000 },
-        { "name": "両画面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 190000 },
-        { "name": "ＦＡＸキット", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "600枚*2段ペーパーフィーダー", "qty": 1, "unit": "台", "unitPrice": 160000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfaMZ4001ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1906000
+        },
+        {
+          "name": "両画面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 190000
+        },
+        {
+          "name": "ＦＡＸキット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "600枚*2段ペーパーフィーダー",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 160000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -72,11 +147,36 @@
       "cost": 725000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfaMZ5001ci　本体", "qty": 1, "unit": "台", "unitPrice": 2259000 },
-        { "name": "両画面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 190000 },
-        { "name": "ＦＡＸキット", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "600枚*2段ペーパーフィーダー", "qty": 1, "unit": "台", "unitPrice": 160000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfaMZ5001ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2259000
+        },
+        {
+          "name": "両画面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 190000
+        },
+        {
+          "name": "ＦＡＸキット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "600枚*2段ペーパーフィーダー",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 160000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -91,11 +191,36 @@
       "cost": 894600,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfaMZ6001ci　本体", "qty": 1, "unit": "台", "unitPrice": 2751000 },
-        { "name": "両画面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 190000 },
-        { "name": "ＦＡＸキット", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "600枚*2段ペーパーフィーダー", "qty": 1, "unit": "台", "unitPrice": 160000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfaMZ6001ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2751000
+        },
+        {
+          "name": "両画面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 190000
+        },
+        {
+          "name": "ＦＡＸキット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "600枚*2段ペーパーフィーダー",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 160000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -110,11 +235,36 @@
       "cost": 925200,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfaMZ7001ci　本体", "qty": 1, "unit": "台", "unitPrice": 3093000 },
-        { "name": "両画面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 190000 },
-        { "name": "ＦＡＸキット", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "600枚*2段ペーパーフィーダー", "qty": 1, "unit": "台", "unitPrice": 160000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfaMZ7001ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 3093000
+        },
+        {
+          "name": "両画面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 190000
+        },
+        {
+          "name": "ＦＡＸキット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "600枚*2段ペーパーフィーダー",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 160000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -153,9 +303,24 @@
       "cost": 323000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "TASKalfa MA3500ci　本体", "qty": 1, "unit": "台", "unitPrice": 700000 },
-        { "name": "搬入費", "qty": 1, "unit": "台", "unitPrice": 30000 },
-        { "name": "設置工事費", "qty": 1, "unit": "式", "unitPrice": 53000 }
+        {
+          "name": "TASKalfa MA3500ci　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 700000
+        },
+        {
+          "name": "搬入費",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 30000
+        },
+        {
+          "name": "設置工事費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
       ]
     },
     {
@@ -206,7 +371,6 @@
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": []
     },
-
     {
       "id": "toshiba-2021ac-plus",
       "maker": "TOSHIBA",
@@ -219,13 +383,48 @@
       "cost": 534000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "e-STUDIO2021AC Plus　本体", "qty": 1, "unit": "台", "unitPrice": 983000 },
-        { "name": "自動両面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 251000 },
-        { "name": "ＦＡＸユニット", "qty": 1, "unit": "台", "unitPrice": 55000 },
-        { "name": "給紙ユニット", "qty": 1, "unit": "台", "unitPrice": 117000 },
-        { "name": "インナートレイ", "qty": 1, "unit": "台", "unitPrice": 21000 },
-        { "name": "多段給紙装置", "qty": 1, "unit": "台", "unitPrice": 173000 },
-        { "name": "搬入設置費", "qty": 1, "unit": "式", "unitPrice": 62800 }
+        {
+          "name": "e-STUDIO2021AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 983000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 55000
+        },
+        {
+          "name": "給紙ユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 21000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
       ]
     },
     {
@@ -240,12 +439,42 @@
       "cost": 542000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "e-STUDIO2525AC Plus　本体", "qty": 1, "unit": "台", "unitPrice": 1463000 },
-        { "name": "自動両面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 251000 },
-        { "name": "ＦＡＸユニット", "qty": 1, "unit": "台", "unitPrice": 117000 },
-        { "name": "インナートレイ", "qty": 1, "unit": "台", "unitPrice": 17000 },
-        { "name": "多段給紙装置", "qty": 1, "unit": "台", "unitPrice": 173000 },
-        { "name": "搬入設置費", "qty": 1, "unit": "式", "unitPrice": 62800 }
+        {
+          "name": "e-STUDIO2525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1463000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
       ]
     },
     {
@@ -260,12 +489,42 @@
       "cost": 637000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "e-STUDIO3525AC Plus　本体", "qty": 1, "unit": "台", "unitPrice": 1903000 },
-        { "name": "自動両面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 251000 },
-        { "name": "ＦＡＸユニット", "qty": 1, "unit": "台", "unitPrice": 117000 },
-        { "name": "インナートレイ", "qty": 1, "unit": "台", "unitPrice": 17000 },
-        { "name": "多段給紙装置", "qty": 1, "unit": "台", "unitPrice": 173000 },
-        { "name": "搬入設置費", "qty": 1, "unit": "式", "unitPrice": 62800 }
+        {
+          "name": "e-STUDIO3525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1903000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
       ]
     },
     {
@@ -280,12 +539,42 @@
       "cost": 962000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "e-STUDIO4525AC Plus　本体", "qty": 1, "unit": "台", "unitPrice": 2343000 },
-        { "name": "自動両面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 251000 },
-        { "name": "ＦＡＸユニット", "qty": 1, "unit": "台", "unitPrice": 117000 },
-        { "name": "インナートレイ", "qty": 1, "unit": "台", "unitPrice": 17000 },
-        { "name": "多段給紙装置", "qty": 1, "unit": "台", "unitPrice": 173000 },
-        { "name": "搬入設置費", "qty": 1, "unit": "式", "unitPrice": 62800 }
+        {
+          "name": "e-STUDIO4525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2343000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
       ]
     },
     {
@@ -300,15 +589,44 @@
       "cost": 1187000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "e-STUDIO5525AC Plus　本体", "qty": 1, "unit": "台", "unitPrice": 2833000 },
-        { "name": "自動両面原稿送り装置", "qty": 1, "unit": "台", "unitPrice": 251000 },
-        { "name": "ＦＡＸユニット", "qty": 1, "unit": "台", "unitPrice": 117000 },
-        { "name": "インナートレイ", "qty": 1, "unit": "台", "unitPrice": 17000 },
-        { "name": "多段給紙装置", "qty": 1, "unit": "台", "unitPrice": 173000 },
-        { "name": "搬入設置費", "qty": 1, "unit": "式", "unitPrice": 62800 }
+        {
+          "name": "e-STUDIO5525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2833000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
       ]
     },
-
     {
       "id": "fujifilm-c2571-pfs",
       "maker": "FUJIFILM",
@@ -452,7 +770,6 @@
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": []
     },
-
     {
       "id": "sharp-bp-60c26",
       "maker": "SHARP",
@@ -557,7 +874,6 @@
       "functions": "コピー・FAX・SPDL2プリンタ・スキャナ",
       "items": []
     },
-
     {
       "id": "ricoh-im-c2500f",
       "maker": "RICOH",
@@ -589,9 +905,24 @@
       "cost": 590000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
-        { "name": "カラーMFP RICOH IM C3000F", "qty": 1, "unit": "台", "unitPrice": 1650000 },
-        { "name": "給紙テーブル", "qty": 1, "unit": "台", "unitPrice": 170000 },
-        { "name": "搬入設置指導料", "qty": 1, "unit": "台", "unitPrice": 43900 }
+        {
+          "name": "カラーMFP RICOH IM C3000F",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1650000
+        },
+        {
+          "name": "給紙テーブル",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 170000
+        },
+        {
+          "name": "搬入設置指導料",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 43900
+        }
       ]
     },
     {
@@ -661,8 +992,15 @@
   ],
   "makerNotes": {
     "KYOCERA": {
-      "counterMono": [0.4, 0.8],
-      "counterColor": [4.0, 8.0],
+      "counterMono": [
+        0.4,
+        0.8
+      ],
+      "counterColor": [
+        4.0,
+        8.0
+      ],
+      "minCharge": 2000,
       "note": "余程僻地でない限り、0.7/7.0以下にて提案可能。印刷枚数によって交渉が可能。",
       "pcSetupFree": 5,
       "pcSetupFee": 5000,
@@ -670,8 +1008,15 @@
       "stairFee": "2Fまで3,500円/3F以上は+6,000円/1フロア"
     },
     "TOSHIBA": {
-      "counterMono": [0.8, 1.5],
-      "counterColor": [7.0, 9.5],
+      "counterMono": [
+        0.8,
+        1.5
+      ],
+      "counterColor": [
+        7.0,
+        9.5
+      ],
+      "minCharge": 1500,
       "note": "余程僻地でない限り、1.2/4.0/8.0/1,500にて提案可能。",
       "pcSetupFree": 5,
       "pcSetupFee": 5000,
@@ -679,27 +1024,48 @@
       "stairFee": "2Fまで3,500円/3F以上は+6,000円/1フロア"
     },
     "FUJIFILM": {
-      "counterMono": [0.5, 1.2],
-      "counterColor": [5.0, 12.0],
-      "note": "印刷枚数によって交渉可能だが、最低基本料金が高く設定されるケースが多い。",
+      "counterMono": [
+        0.5,
+        1.2
+      ],
+      "counterColor": [
+        5.0,
+        12.0
+      ],
+      "minCharge": null,
+      "note": "印刷枚数によって交渉可能だが、最低基本料金が高く設定されるケースが多い。 最低基本料金はメーカー条件が都度変わるため案件ごとに確認して入力する。",
       "pcSetupFree": 1,
       "pcSetupFee": 5000,
       "removalFee": 20000,
       "stairFee": "4階まで10,000円/5階以上+10,000円"
     },
     "SHARP": {
-      "counterMono": [0.5, 1.2],
-      "counterColor": [5.0, 12.0],
-      "note": "印刷枚数によって交渉可能だが、最低基本料金が高く設定されるケースが多い。",
+      "counterMono": [
+        0.5,
+        1.2
+      ],
+      "counterColor": [
+        5.0,
+        12.0
+      ],
+      "minCharge": null,
+      "note": "印刷枚数によって交渉可能だが、最低基本料金が高く設定されるケースが多い。 最低基本料金はメーカー条件が都度変わるため案件ごとに確認して入力する。",
       "pcSetupFree": 1,
       "pcSetupFee": 5000,
       "removalFee": 10000,
       "stairFee": "4階まで10,000円/5階以上+10,000円"
     },
     "RICOH": {
-      "counterMono": [0.4, 1.0],
-      "counterColor": [4.0, 10.0],
-      "note": "台数・時期により本体価格及びカウンター価格が大幅に変わる。カウンター安・本体高／カウンター高・本体安など交渉次第。",
+      "counterMono": [
+        0.4,
+        1.0
+      ],
+      "counterColor": [
+        4.0,
+        10.0
+      ],
+      "minCharge": null,
+      "note": "台数・時期により本体価格及びカウンター価格が大幅に変わる。カウンター安・本体高／カウンター高・本体安など交渉次第。 最低基本料金はメーカー条件が都度変わるため案件ごとに確認して入力する。",
       "pcSetupFree": 1,
       "pcSetupFee": 5000,
       "removalFee": 0,

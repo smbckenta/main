@@ -10,8 +10,17 @@ import type {
   Proposal,
   ProposalCalc,
   Quote,
+  ServiceArea,
   Settings,
 } from "@/lib/types";
+
+const RANK_TEXT: Record<string, string> = {
+  S: "S：管轄事務所から1時間以内で現地到着",
+  A: "A：当日対応可能",
+  B: "B：翌日対応",
+  C: "C：翌々日以降の対応",
+  D: "D：対応不可",
+};
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
 const sign = (n: number) =>
@@ -21,16 +30,19 @@ export default function QuoteEditor({
   initialQuote,
   initialCurrent,
   initialProposals,
+  initialServiceArea,
   settings,
 }: {
   initialQuote: Quote;
   initialCurrent: CurrentCalc;
   initialProposals: ProposalCalc[];
+  initialServiceArea?: ServiceArea;
   settings: Settings;
 }) {
   const [quote, setQuote] = useState<Quote>(initialQuote);
   const [current, setCurrent] = useState<CurrentCalc>(initialCurrent);
   const [calcs, setCalcs] = useState<ProposalCalc[]>(initialProposals);
+  const [serviceArea, setServiceArea] = useState<ServiceArea | undefined>(initialServiceArea);
   const [book, setBook] = useState<PriceBook | null>(null);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -83,6 +95,7 @@ export default function QuoteEditor({
       setQuote(json.quote);
       setCurrent(json.current);
       setCalcs(json.proposals);
+      setServiceArea(json.serviceArea ?? undefined);
       setMessage("保存しました。");
     } catch (err) {
       setError((err as Error).message);
@@ -115,6 +128,7 @@ export default function QuoteEditor({
       setQuote(json.quote);
       setCurrent(json.current);
       setCalcs(json.proposals);
+      setServiceArea(json.serviceArea ?? undefined);
       setMessage(json.messages?.length ? json.messages.join("\n") : "提案を作成しました。");
     } catch (err) {
       setError((err as Error).message);
@@ -231,6 +245,17 @@ export default function QuoteEditor({
             保存して再計算
           </button>
         </div>
+
+        <h3>保守対応エリア（京セラ 全国担当エリア表）</h3>
+        <ServiceAreaPicker
+          value={quote.serviceArea}
+          area={serviceArea}
+          onSelect={(a) => {
+            patchQuote({ serviceArea: { pref: a.pref, city: a.city } });
+            setServiceArea(a);
+          }}
+        />
+
         {busy && <p className="spinner">{busy}</p>}
         {message && <p className="warn" style={{ marginTop: 10 }}>{message}</p>}
         {error && <p className="error" style={{ marginTop: 10 }}>{error}</p>}
@@ -509,6 +534,114 @@ export default function QuoteEditor({
 
 /* ---------------- 部品 ---------------- */
 
+/** 保守対応エリアの検索と、ランクに応じた注意表示 */
+function ServiceAreaPicker({
+  value,
+  area,
+  onSelect,
+}: {
+  value?: { pref: string; city: string };
+  area?: ServiceArea;
+  onSelect: (area: ServiceArea) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<ServiceArea[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  async function search(q: string) {
+    setQuery(q);
+    if (q.trim().length < 2) {
+      setHits([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/service-areas?q=${encodeURIComponent(q)}`);
+      const json = await res.json();
+      setHits(json.areas ?? []);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  const sameDay = area?.rank === "S" || area?.rank === "A";
+  const hard = area && !sameDay;
+
+  return (
+    <>
+      <div className="row">
+        <Field label="市区町村で検索" width={260}>
+          <input value={query} onChange={(e) => search(e.target.value)} placeholder="久留米 / 福岡県 など" />
+        </Field>
+        <div className="field" style={{ minWidth: 260 }}>
+          <label>選択中</label>
+          <div>
+            {value ? (
+              <>
+                {value.pref}
+                {value.city}{" "}
+                {area && (
+                  <span
+                    className="badge"
+                    style={
+                      sameDay
+                        ? { background: "#e3f5e8", color: "#0a7d32" }
+                        : { background: "#fdecef", color: "#b00020" }
+                    }
+                  >
+                    ランク {area.rank}
+                    {area.island ? ` / ${area.island}` : ""}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="muted">未選択（エリア判定なし）</span>
+            )}
+          </div>
+        </div>
+        {searching && <span className="spinner">検索中…</span>}
+      </div>
+
+      {hits.length > 0 && (
+        <div className="checks" style={{ marginTop: 8 }}>
+          {hits.slice(0, 24).map((a) => (
+            <button
+              key={`${a.pref}-${a.city}`}
+              className="secondary"
+              onClick={() => {
+                onSelect(a);
+                setHits([]);
+                setQuery("");
+              }}
+            >
+              {a.pref}
+              {a.city}（{a.rank}
+              {a.island ? `・${a.island}` : ""}）
+            </button>
+          ))}
+        </div>
+      )}
+
+      {area && (
+        <p className={hard ? "error" : "warn"} style={{ marginTop: 10 }}>
+          {RANK_TEXT[area.rank]}
+          {area.island ? ` ／ ${area.island}` : ""}
+          {"\n"}
+          {sameDay
+            ? "当日保守が可能なエリアです。印刷枚数が少なくてもモノクロ0.7円／カラー7.0円までの単価が提示できます（京セラ）。"
+            : area.rank === "D"
+              ? "京セラの保守対応ができないエリアです。他メーカーでの提案をご検討ください。"
+              : "当日保守ができないエリアです。カウンター単価が高くなりやすく、提案が難しいエリアです（自動判定はメーカーレンジの上限側になります）。"}
+        </p>
+      )}
+      <p className="muted">
+        収録しているのは京セラの担当エリア表です。単価の自動判定に反映されるのは京セラの提案のみで、
+        他メーカーは参考情報としてご覧ください。
+      </p>
+    </>
+  );
+}
+
 function Field({ label, width, children }: { label: string; width?: number; children: React.ReactNode }) {
   return (
     <div className="field" style={{ width }}>
@@ -659,10 +792,19 @@ function ProposalPanel({
         {note && (
           <span className="muted" style={{ marginLeft: 12 }}>
             {MAKER_LABELS[proposal.maker]}のレンジ：モノクロ {note.counterMono[0]}〜{note.counterMono[1]}円 / カラー{" "}
-            {note.counterColor[0]}〜{note.counterColor[1]}円
+            {note.counterColor[0]}〜{note.counterColor[1]}円 ／ 最低基本料金{" "}
+            {note.minCharge === null || note.minCharge === undefined
+              ? "都度メーカー条件を確認して入力"
+              : `${note.minCharge.toLocaleString()}円`}
           </span>
         )}
       </h3>
+      {calc?.serviceWarning && <p className="error">{calc.serviceWarning}</p>}
+      {calc?.minChargeNeedsInput && (
+        <p className="warn">
+          {MAKER_LABELS[proposal.maker]}は最低基本料金の条件が案件ごとに変わります。メーカー提示額を確認して入力してください。
+        </p>
+      )}
       <div className="row">
         <Field label="モノクロ" width={110}>
           <NumberInput
@@ -694,6 +836,10 @@ function ProposalPanel({
       </div>
 
       <h3>見積明細（定価）</h3>
+      <p className="muted">
+        フィニッシャー・ICカードリーダー等のオプションや追加のPC設定作業は「PTF対象外」にチェックを入れてください。
+        その分は値引きせずに販売額へ上乗せし、PTFの計算対象から除きます。
+      </p>
       <table>
         <thead>
           <tr>
@@ -702,6 +848,7 @@ function ProposalPanel({
             <th style={{ width: 70 }}>単位</th>
             <th style={{ width: 130 }} className="num">単価</th>
             <th style={{ width: 130 }} className="num">金額</th>
+            <th style={{ width: 90 }}>PTF対象外</th>
             <th style={{ width: 60 }} />
           </tr>
         </thead>
@@ -725,6 +872,13 @@ function ProposalPanel({
                 <NumberInput value={item.unitPrice} onChange={(v) => updateItem(i, { unitPrice: v })} />
               </td>
               <td className="num">{yen(item.qty * item.unitPrice)}</td>
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={!!item.ptfExempt}
+                  onChange={(e) => updateItem(i, { ptfExempt: e.target.checked })}
+                />
+              </td>
               <td>
                 <button className="danger" onClick={() => onChange({ items: proposal.items.filter((_, x) => x !== i) })}>
                   ×
@@ -750,6 +904,13 @@ function ProposalPanel({
               <tbody>
                 <tr><th>本体合計（定価）</th><td className="num">{yen(calc.listTotal)}</td></tr>
                 <tr><th>お値引き</th><td className="num">{yen(calc.discount)}</td></tr>
+                <tr><th>本体価格（PTF対象）</th><td className="num">{yen(calc.sellingBase)}</td></tr>
+                {calc.addOnTotal > 0 && (
+                  <tr>
+                    <th>オプション等の上乗せ（PTF対象外）</th>
+                    <td className="num">{yen(calc.addOnTotal)}</td>
+                  </tr>
+                )}
                 <tr><th>販売額計（税抜）</th><td className="num">{yen(calc.sellingTotal)}</td></tr>
                 <tr><th>月額リース料（{calc.proposal.leaseTerm}回）</th><td className="num">{yen(calc.monthlyLease)}</td></tr>
                 <tr><th>カウンター請求（月）</th><td className="num">{yen(calc.counter.total)}</td></tr>
@@ -768,7 +929,10 @@ function ProposalPanel({
                 </tr>
                 <tr><th>仕切価格</th><td className="num">{yen(calc.cost)}</td></tr>
                 <tr><th>GP（粗利益）</th><td className="num">{yen(calc.grossProfit)}</td></tr>
-                <tr><th>PTF（代理店報酬）</th><td className="num">{yen(calc.ptf)}</td></tr>
+                <tr>
+                  <th>PTF（本体価格の{Math.round(settings.ptf.rate * 100)}%）</th>
+                  <td className="num">{yen(calc.ptf)}</td>
+                </tr>
                 <tr><th>NP（純利益）</th><td className="num">{yen(calc.netProfit)}</td></tr>
               </tbody>
             </table>

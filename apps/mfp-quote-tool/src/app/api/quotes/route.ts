@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     quoteNo: body.quoteNo ?? (await nextQuoteNo()),
     quoteDate: body.quoteDate ?? now.slice(0, 10),
     area: body.area ?? "福岡",
+    serviceArea: body.serviceArea,
     current: body.current ?? {
       makerText: "",
       modelText: "",

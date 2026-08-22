@@ -214,7 +214,7 @@ export default function SettingsPage() {
               onChange={(e) => set({ twoColorRatio: Number(e.target.value) })}
             />
           </Field>
-          <Field label="最低基本料金（円/月）" width={180}>
+          <Field label="最低基本料金の既定値（円/月）" width={220}>
             <input
               type="number"
               value={s.defaultMinCharge}
@@ -222,6 +222,36 @@ export default function SettingsPage() {
             />
           </Field>
         </div>
+        <p className="muted">
+          最低基本料金はメーカー別の設定（仕切表）が優先されます。現在：京セラ 2,000円／東芝 1,500円／
+          その他メーカーは都度メーカー条件を確認して案件ごとに入力。
+        </p>
+        <div className="row">
+          <Field label="当日対応エリアの基準単価（モノクロ）" width={230}>
+            <input
+              type="number"
+              step="0.01"
+              value={s.sameDayBaseUnits.mono}
+              onChange={(e) =>
+                set({ sameDayBaseUnits: { ...s.sameDayBaseUnits, mono: Number(e.target.value) } })
+              }
+            />
+          </Field>
+          <Field label="当日対応エリアの基準単価（カラー）" width={230}>
+            <input
+              type="number"
+              step="0.01"
+              value={s.sameDayBaseUnits.color}
+              onChange={(e) =>
+                set({ sameDayBaseUnits: { ...s.sameDayBaseUnits, color: Number(e.target.value) } })
+              }
+            />
+          </Field>
+        </div>
+        <p className="muted">
+          保守ランク S・A（当日対応可）のエリアでは、印刷枚数が少なくてもこの単価まで提示できるものとして自動判定します。
+          ランクB以下・離島は、メーカー交渉レンジの上限側の単価になります。
+        </p>
         {tierTable("counterTiersByColorVolume", "カラー印刷枚数による単価表", "枚")}
         {tierTable("counterTiersByAmount", "カウンター請求額による単価表", "円")}
         <p className="muted">
@@ -357,14 +387,16 @@ export default function SettingsPage() {
 
       <section className="panel">
         <h2>PTF（代理店報酬）の計算</h2>
-        <p className="warn">
-          初期値は「粗利益（GP）の20%」です。実際の取り決めに合わせて変更してください。
+        <p className="muted">
+          既定は「本体価格の10%」です。フィニッシャー・ICカードリーダー等のオプションや、
+          追加のPC設定作業として本体価格に上乗せした分（見積明細で「PTF対象外」にした行）には料率を適用しません。
         </p>
         <div className="row">
-          <Field label="計算のベース" width={220}>
+          <Field label="計算のベース" width={260}>
             <select value={s.ptf.base} onChange={(e) => set({ ptf: { ...s.ptf, base: e.target.value as Settings["ptf"]["base"] } })}>
+              <option value="bodyPrice">本体価格（上乗せ分を除く）に対する率</option>
               <option value="grossProfit">GP（粗利益）に対する率</option>
-              <option value="sellingPrice">販売額計に対する率</option>
+              <option value="sellingPrice">販売額計（上乗せ分を含む）に対する率</option>
               <option value="fixed">固定額のみ</option>
             </select>
           </Field>

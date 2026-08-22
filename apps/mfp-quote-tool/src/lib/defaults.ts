@@ -47,7 +47,10 @@ export const DEFAULT_SETTINGS: Settings = {
 
   // 2色カラーはフルカラー単価の約3割（京セラ提案例: フルカラー7.0円 → 2色2.0円）
   twoColorRatio: 0.3,
-  defaultMinCharge: 900,
+  // メーカー別の指定がない場合の最低基本料金（都度メーカー条件を確認して入力する）
+  defaultMinCharge: 0,
+  // 保守ランクS/A（当日対応可）のエリアで、印刷枚数が少なくても提示できる基準単価
+  sameDayBaseUnits: { mono: 0.7, color: 7.0 },
 
   // 研修資料「複合機のグレード（〇〇枚機）」
   gradeTiers: [
@@ -75,14 +78,14 @@ export const DEFAULT_SETTINGS: Settings = {
 
   defaultMarginRate: 0.3,
 
-  // ★PTFの計算式は運用に合わせて設定画面で調整すること（初期値は粗利の20%）
+  // PTFは本体価格の10%。オプション・追加PC設定として上乗せした分には料率を適用しない
   ptf: {
-    base: "grossProfit",
-    rate: 0.2,
+    base: "bodyPrice",
+    rate: 0.1,
     fixed: 0,
     counter: { enabled: false, rate: 0.1, months: 60 },
     cap: 0,
-    roundUnit: 1000,
+    roundUnit: 1,
   },
 
   roundUnit: 100,

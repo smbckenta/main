@@ -11,6 +11,7 @@ import type {
   ProposalCalc,
   PtfRule,
   Quote,
+  ServiceRank,
   Settings,
 } from "./types";
 
@@ -44,7 +45,8 @@ export function pickTier(tiers: CounterTier[], value: number): CounterTier | und
  * 提案カウンター単価の自動判定。
  *  1. 設定の基準（カラー枚数 or 現行カウンター額）で単価段を選ぶ
  *  2. メーカーごとの交渉レンジに収める
- *  3. 僻地エリアはレンジ上限側に寄せる
+ *  3. 保守対応ランク S/A（当日対応可）は印刷枚数が少なくても基準単価（0.7/7.0）まで出せる
+ *  4. ランク B 以下・離島・僻地エリアはレンジ上限側に寄せる
  */
 export function autoCounterUnits(
   settings: Settings,
@@ -52,6 +54,8 @@ export function autoCounterUnits(
   maker: Maker,
   makerNote?: MakerNote,
   currentCounterAmount?: number,
+  serviceRank?: ServiceRank,
+  isIsland = false,
 ): CounterUnits {
   const basisValue =
     settings.counterBasis === "counterAmount"
@@ -64,20 +68,28 @@ export function autoCounterUnits(
   const tier = pickTier(tiers, basisValue) ?? tiers[0];
 
   const area = settings.areas.find((a) => a.name === quote.area);
+  const sameDay = serviceRank === "S" || serviceRank === "A";
+  const hardArea = isIsland || serviceRank === "B" || serviceRank === "C" || serviceRank === "D";
   let mono = tier?.mono ?? 0;
   let color = tier?.color ?? 0;
 
   if (makerNote) {
     const [monoMin, monoMax] = makerNote.counterMono;
     const [colorMin, colorMax] = makerNote.counterColor;
-    if (area?.remote) {
-      // 僻地はメーカーレンジの上限側（＝交渉が通りにくい前提）
+    if ((area?.remote || hardArea) && !sameDay) {
+      // 翌日対応以降・離島・僻地はメーカーレンジの上限側（＝交渉が通りにくい前提）
       mono = Math.max(mono, monoMax);
       color = Math.max(color, colorMax);
     } else {
       mono = Math.min(Math.max(mono, monoMin), monoMax);
       color = Math.min(Math.max(color, colorMin), colorMax);
     }
+  }
+
+  // 当日対応エリアは枚数が少なくても基準単価まで出せる
+  if (sameDay) {
+    mono = Math.min(mono, settings.sameDayBaseUnits.mono);
+    color = Math.min(color, settings.sameDayBaseUnits.color);
   }
 
   mono = round2(mono + (area?.monoAdd ?? 0));
@@ -87,8 +99,18 @@ export function autoCounterUnits(
     mono,
     color,
     twoColor: round2(color * settings.twoColorRatio),
-    minCharge: settings.defaultMinCharge,
+    minCharge: makerNote?.minCharge ?? settings.defaultMinCharge,
   };
+}
+
+/** 保守対応ランク・離島区分から提案上の注意文を作る */
+export function serviceWarningOf(rank?: ServiceRank, island?: string): string | undefined {
+  const notes: string[] = [];
+  if (rank === "B") notes.push("保守はランクB（翌日対応）のエリアです。当日保守ができず、カウンター単価も高くなりやすいため提案が難しいエリアです。");
+  if (rank === "C") notes.push("保守はランクC（翌々日以降の対応）のエリアです。当日保守ができず、カウンター単価も高くなりやすいため提案が難しいエリアです。");
+  if (rank === "D") notes.push("保守はランクD（対応不可）のエリアです。このメーカーでの提案はできません。");
+  if (island) notes.push(`離島区分：${island}。保守訪問に追加費用・日数がかかる場合があります。`);
+  return notes.length ? notes.join("\n") : undefined;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -129,13 +151,18 @@ export function calcCurrent(quote: Quote, taxRate: number): CurrentCalc {
   };
 }
 
-/** PTF（代理店報酬） */
+/**
+ * PTF（代理店報酬）。
+ * 既定は「本体価格の10%」。オプション（フィニッシャー・ICカードリーダー等）や
+ * 追加のPC設定作業として本体価格に上乗せした分には料率を適用しない。
+ */
 export function calcPtf(
   rule: PtfRule,
-  args: { grossProfit: number; sellingTotal: number; monthlyCounter: number },
+  args: { grossProfit: number; sellingTotal: number; sellingBase: number; monthlyCounter: number },
 ): number {
   let base = 0;
-  if (rule.base === "grossProfit") base = Math.max(0, args.grossProfit) * rule.rate;
+  if (rule.base === "bodyPrice") base = Math.max(0, args.sellingBase) * rule.rate;
+  else if (rule.base === "grossProfit") base = Math.max(0, args.grossProfit) * rule.rate;
   else if (rule.base === "sellingPrice") base = Math.max(0, args.sellingTotal) * rule.rate;
 
   const counter = rule.counter.enabled
@@ -157,26 +184,34 @@ export function calcProposal(
     currentDevice?: DeviceSpec;
     priceBook?: PriceBookEntry;
     makerNote?: MakerNote;
+    serviceRank?: ServiceRank;
+    island?: string;
   } = {},
 ): ProposalCalc {
   const taxRate = settings.company.taxRate;
-  const listTotal = sumItems(proposal.items) * Math.max(1, proposal.qty);
-  const cost = (proposal.cost ?? ctx.priceBook?.cost ?? 0) * Math.max(1, proposal.qty);
+  const qty = Math.max(1, proposal.qty);
+  const listTotal = sumItems(proposal.items) * qty;
+  // オプション・追加PC設定の上乗せ分（PTF対象外。値引きせずそのまま加算する）
+  const addOnTotal = sumItems(proposal.items.filter((i) => i.ptfExempt)) * qty;
+  const cost = (proposal.cost ?? ctx.priceBook?.cost ?? 0) * qty;
 
-  // 販売額計の決定
-  let sellingTotal = 0;
+  // 本体価格（PTFの対象）の決定
+  let sellingBase = 0;
   const targetTerm = proposal.leaseTerm;
   const leaseRate = leaseRateOf(targetTerm, settings.leaseRates);
   if (proposal.pricingMode === "fromLease") {
-    sellingTotal = leaseRate > 0 ? (proposal.targetMonthlyLease ?? 0) / leaseRate : 0;
+    // 目標月額から逆算した総額から、上乗せ分を差し引いた残りが本体価格
+    const total = leaseRate > 0 ? (proposal.targetMonthlyLease ?? 0) / leaseRate : 0;
+    sellingBase = total - addOnTotal;
   } else if (proposal.pricingMode === "fromMargin") {
     const rate = Math.min(Math.max(proposal.marginRate ?? settings.defaultMarginRate, 0), 0.95);
-    sellingTotal = cost > 0 ? cost / (1 - rate) : 0;
+    sellingBase = cost > 0 ? cost / (1 - rate) : 0;
   } else {
-    sellingTotal = proposal.sellingTotal ?? 0;
+    sellingBase = proposal.sellingTotal ?? 0;
   }
-  sellingTotal = roundTo(sellingTotal, settings.roundUnit);
+  sellingBase = roundTo(Math.max(0, sellingBase), settings.roundUnit);
 
+  const sellingTotal = sellingBase + addOnTotal;
   const discount = sellingTotal - listTotal;
   const tax = Math.round(sellingTotal * taxRate);
 
@@ -189,9 +224,16 @@ export function calcProposal(
   // カウンター単価
   const currentCounterAmount = calcCounter(quote.current.units, quote.current).total;
   const counterAuto = !proposal.counterOverridden;
-  const units = counterAuto
-    ? autoCounterUnits(settings, quote, proposal.maker, ctx.makerNote, currentCounterAmount)
-    : (proposal.units ?? autoCounterUnits(settings, quote, proposal.maker, ctx.makerNote, currentCounterAmount));
+  const autoUnits = autoCounterUnits(
+    settings,
+    quote,
+    proposal.maker,
+    ctx.makerNote,
+    currentCounterAmount,
+    ctx.serviceRank,
+    !!ctx.island,
+  );
+  const units = counterAuto ? autoUnits : (proposal.units ?? autoUnits);
 
   // 提案後の印刷枚数は現行実績をそのまま使う（同じ枚数を刷る前提での比較）
   const counter = calcCounter(units, quote.current);
@@ -207,6 +249,7 @@ export function calcProposal(
   const ptf = calcPtf(settings.ptf, {
     grossProfit,
     sellingTotal,
+    sellingBase,
     monthlyCounter: counter.total,
   });
 
@@ -216,6 +259,8 @@ export function calcProposal(
     currentDevice: ctx.currentDevice,
     priceBook: ctx.priceBook,
     listTotal,
+    sellingBase,
+    addOnTotal,
     sellingTotal,
     discount,
     tax,
@@ -225,6 +270,9 @@ export function calcProposal(
     monthlyLease,
     units,
     counterAuto,
+    serviceRank: ctx.serviceRank,
+    serviceWarning: serviceWarningOf(ctx.serviceRank, ctx.island),
+    minChargeNeedsInput: ctx.makerNote?.minCharge === null || ctx.makerNote?.minCharge === undefined,
     counter,
     maintenanceMonthly: proposal.maintenanceMonthly,
     running: Math.round(running),

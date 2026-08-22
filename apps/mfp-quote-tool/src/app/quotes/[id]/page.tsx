@@ -10,12 +10,13 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   const quote = await getQuote(id);
   if (!quote) notFound();
 
-  const { settings, current, proposals } = await calcQuoteAll(quote);
+  const { settings, current, proposals, serviceArea } = await calcQuoteAll(quote);
   return (
     <QuoteEditor
       initialQuote={quote}
       initialCurrent={current}
       initialProposals={proposals}
+      initialServiceArea={serviceArea}
       settings={settings}
     />
   );
