@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { calcChargeLine, calcCurrent } from "./pricing";
-import type { CurrentChargeLine, Quote } from "./types";
+import { calcChargeLine, calcCurrent, calcProposal } from "./pricing";
+import { renderCompareHtml, renderMultiCompareHtml } from "./export/html";
+import { DEFAULT_SETTINGS } from "./defaults";
+import type { CurrentChargeLine, Proposal, Quote } from "./types";
 
 /**
  * 実物の明細（リコー MPC3003SP／2026年5月分／請求 9,937円）で検算する。
@@ -135,5 +137,82 @@ describe("現行機の月間経費（逓減単価の明細がある場合）", (
     const calc = calcCurrent(q, 0.1);
     expect(calc.chargeLines).toBeUndefined();
     expect(calc.counter.total).toBe(Math.round(1_389 * 1.2 + 435 * 12));
+  });
+});
+
+describe("比較表への出し方", () => {
+  const quote = (): Quote => ({
+    id: "q",
+    title: "複合機入替のご提案",
+    customerName: "ヤハタ木工有限会社",
+    customerHonorific: "様",
+    quoteNo: "137240",
+    quoteDate: "2026-08-22",
+    area: "福岡",
+    current: {
+      makerText: "リコー",
+      modelText: "MPC3003SP",
+      monthlyLease: 12_000,
+      monoPages: 1_389,
+      colorPages: 435,
+      twoColorPages: 0,
+      chargeLines: [mono, colorCopy, colorPrint],
+      units: { mono: 0, color: 0, twoColor: 0, minCharge: 0 },
+      maintenanceMonthly: 0,
+    },
+    proposals: [],
+    createdAt: "",
+    updatedAt: "",
+  });
+
+  const proposal: Proposal = {
+    id: "p1",
+    maker: "KYOCERA",
+    modelText: "TASKalfa 2554ci",
+    qty: 1,
+    items: [{ name: "本体", qty: 1, unit: "台", unitPrice: 1_180_000 }],
+    cost: 380_000,
+    pricingMode: "fromGp",
+    grossProfitAmount: 300_000,
+    leaseTerm: 72,
+    counterOverridden: false,
+    maintenanceMonthly: 0,
+  };
+  const makerNote = {
+    counterMono: [0.4, 0.8] as [number, number],
+    counterColor: [4, 8] as [number, number],
+    minCharge: 2000,
+  };
+
+  const render = () => {
+    const q = quote();
+    q.proposals = [proposal];
+    const current = calcCurrent(q, DEFAULT_SETTINGS.company.taxRate);
+    const calc = calcProposal(q, proposal, DEFAULT_SETTINGS, { makerNote });
+    return { q, current, calc };
+  };
+
+  it("区分ごとに行が増え、段の内訳も出る", () => {
+    const { q, current, calc } = render();
+    const html = renderCompareHtml(q, current, calc, DEFAULT_SETTINGS);
+    expect(html).toContain("モノカラー総出力");
+    expect(html).toContain("フルカラーコピー");
+    expect(html).toContain("フルカラープリント");
+    // 段の内訳（1〜1,000枚 3円 / 1,001〜2,000枚 2.6円）
+    expect(html).toContain("1〜1,000枚");
+    expect(html).toContain("1,001〜2,000枚");
+    // 控除と実効単価を併記する
+    expect(html).toContain("控除 28枚");
+    expect(html).toContain("実効 2.84円");
+  });
+
+  it("各社同時比較では、現状の単価は実効単価で並べる（名目や0円にしない）", () => {
+    const { q, current, calc } = render();
+    const html = renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS);
+    expect(html).toContain("モノクロ単価（現状は実効）");
+    expect(html).toContain("2.84円");
+    // フルカラーはコピーとプリントを合算した実効単価 (856+5,143)÷435
+    expect(html).toContain("13.79円");
+    expect(html).not.toContain("<td class=\"num\">0円</td>");
   });
 });

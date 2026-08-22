@@ -653,6 +653,17 @@ export function renderMultiCompareHtml(
   const diff = (v: number) =>
     v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
 
+  // 現状が段階単価の明細の場合、単価欄は実効単価（金額÷枚数）で並べる。
+  // 名目単価を並べると、控除のぶん現状が実際より高く見えてしまう。
+  const tiered = Boolean(current.chargeLines?.length);
+  const currentUnit = (kind: "mono" | "color"): number => {
+    const lines = current.chargeLines?.filter((l) => (kind === "mono" ? l.kind === "mono" : l.kind !== "mono")) ?? [];
+    if (!lines.length) return kind === "mono" ? c.units.mono : c.units.color;
+    const pages = lines.reduce((sum, l) => sum + l.pages, 0);
+    const amount = lines.reduce((sum, l) => sum + l.amount, 0);
+    return pages > 0 ? Math.round((amount / pages) * 100) / 100 : 0;
+  };
+
   const body = `
   ${brandBar(settings, logo, quote)}
   <h2>複合機 比較表（各社同時比較）</h2>
@@ -672,8 +683,16 @@ export function renderMultiCompareHtml(
       ${row("販売額計（税抜）", "－", calcs.map((x) => n(x.sellingTotal)))}
       ${row("リース回数", c.leaseTerm ? `${c.leaseTerm}回` : "－", calcs.map((x) => `${x.proposal.leaseTerm}回`))}
       ${row("月額リース料", n(current.monthlyLease), calcs.map((x) => n(x.monthlyLease)))}
-      ${row("モノクロ単価", unitYen(c.units.mono), calcs.map((x) => unitYen(x.units.mono)))}
-      ${row("フルカラー単価", unitYen(c.units.color), calcs.map((x) => unitYen(x.units.color)))}
+      ${row(
+        tiered ? "モノクロ単価（現状は実効）" : "モノクロ単価",
+        unitYen(currentUnit("mono")),
+        calcs.map((x) => unitYen(x.units.mono)),
+      )}
+      ${row(
+        tiered ? "フルカラー単価（現状は実効）" : "フルカラー単価",
+        unitYen(currentUnit("color")),
+        calcs.map((x) => unitYen(x.units.color)),
+      )}
       ${row("カウンター請求合計", n(current.counter.total), calcs.map((x) => n(x.counter.total)))}
       ${row("月間経費（税込）", n(current.monthlyTotal), calcs.map((x) => n(x.monthlyTotal)))}
       ${row("削減額（単月）", "－", calcs.map((x) => diff(x.diffMonthly)))}

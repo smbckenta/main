@@ -516,8 +516,17 @@ export function addMultiCompareSheet(
   row("販売額計（税抜）", "－", calcs.map((c) => c.sellingTotal), YEN);
   row("リース回数", quote.current.leaseTerm ? `${quote.current.leaseTerm}回` : "－", calcs.map((c) => `${c.proposal.leaseTerm}回`));
   row("月額リース料", current.monthlyLease, calcs.map((c) => c.monthlyLease), YEN);
-  row("モノクロ単価", quote.current.units.mono, calcs.map((c) => c.units.mono), UNIT);
-  row("フルカラー単価", quote.current.units.color, calcs.map((c) => c.units.color), UNIT);
+  // 現状が段階単価の明細の場合は実効単価（金額÷枚数）を並べる
+  const tiered = Boolean(current.chargeLines?.length);
+  const currentUnit = (kind: "mono" | "color"): number => {
+    const lines = current.chargeLines?.filter((l) => (kind === "mono" ? l.kind === "mono" : l.kind !== "mono")) ?? [];
+    if (!lines.length) return kind === "mono" ? quote.current.units.mono : quote.current.units.color;
+    const pages = lines.reduce((sum, l) => sum + l.pages, 0);
+    const amount = lines.reduce((sum, l) => sum + l.amount, 0);
+    return pages > 0 ? Math.round((amount / pages) * 100) / 100 : 0;
+  };
+  row(tiered ? "モノクロ単価（現状は実効）" : "モノクロ単価", currentUnit("mono"), calcs.map((c) => c.units.mono), UNIT);
+  row(tiered ? "フルカラー単価（現状は実効）" : "フルカラー単価", currentUnit("color"), calcs.map((c) => c.units.color), UNIT);
   row("カウンター請求合計", current.counter.total, calcs.map((c) => c.counter.total), YEN);
   row("月間経費（税込）", current.monthlyTotal, calcs.map((c) => c.monthlyTotal), YEN);
   row("削減額（単月）", "－", calcs.map((c) => c.diffMonthly), YEN);
