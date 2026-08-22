@@ -274,12 +274,14 @@ function toLines(text: string): string[] {
  * OCR特有の数字の崩れを直す。
  *  - 「452, 180」のように桁区切りの後に空白が入る
  *  - 桁区切りのカンマがピリオドとして読まれる（3.009 → 3,009）
- * 小数点（単価 1.50 など）は2桁以下なのでそのまま残す。
+ *  - 小数点がカンマとして読まれる（15,00 → 15.00）
+ * 桁区切りは必ず3桁ずつ、単価の小数は2桁までなので、続く桁数で判別できる。
  */
 export function normalizeOcrNumbers(line: string): string {
   return line
     .replace(/(\d),\s+(?=\d{3}\b)/g, "$1,")
-    .replace(/(\d)\.(?=\d{3}\b)/g, "$1,");
+    .replace(/(\d)\.(?=\d{3}\b)/g, "$1,")
+    .replace(/(\d),(\d{1,2})\b(?!\d)/g, "$1.$2");
 }
 
 /**
