@@ -28,6 +28,7 @@ const counter = (patch: Partial<AiDocument["counters"][number]>) => ({
   colorUnit: null,
   twoColorUnit: null,
   amount: null,
+  deductionPercent: null,
   chargeLines: [],
   evidence: [],
   ...patch,

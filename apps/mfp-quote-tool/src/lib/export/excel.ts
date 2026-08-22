@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import type { CurrentCalc, ProposalCalc, Quote, Settings } from "../types";
+import type { CurrentCalc, Fleet, FleetCalc, FleetSideCalc, ProposalCalc, Quote, Settings } from "../types";
 import { MAKER_LABELS } from "../types";
 import { pagesAverageNote } from "../labels";
 
@@ -617,4 +617,326 @@ export function newWorkbook(creator: string): ExcelJS.Workbook {
   wb.creator = creator;
   wb.created = new Date();
   return wb;
+}
+
+/* ---------------- A3ヨコ 複数台比較表 ---------------- */
+
+/** A3の用紙コード。ExcelJSの PaperSize 列挙にA3が無いので数値で持つ */
+const A3_PAPER_SIZE = 8 as unknown as ExcelJS.PaperSize;
+
+const FLEET_HEAD_CURRENT: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FF46586B" },
+};
+const FLEET_HEAD_PROPOSAL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FF1F4E79" },
+};
+const FLEET_UNIT_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FFF2F6FA" },
+};
+
+/** A列から順に値を並べる（複数台比較表は横に広いのでA列から使う） */
+function putFleetRow(
+  sheet: ExcelJS.Worksheet,
+  rowNo: number,
+  values: (string | number | null)[],
+  opts: RowOptions & { skipBorder?: number[] } = {},
+): ExcelJS.Row {
+  const row = sheet.getRow(rowNo);
+  values.forEach((v, i) => {
+    const cell = row.getCell(i + 1);
+    if (v !== null) cell.value = v;
+    if (opts.bold) cell.font = { bold: true };
+    if (opts.fill) cell.fill = opts.fill;
+    if (opts.border && !opts.skipBorder?.includes(i)) cell.border = THIN;
+    if (typeof v === "number" && opts.numFmt) cell.numFmt = opts.numFmt;
+    const align = opts.align?.[i];
+    if (align) cell.alignment = { horizontal: align, vertical: "middle" };
+  });
+  return row;
+}
+
+/** 見出し帯（- リ ー ス 料 金 詳 細 内 訳 - など） */
+function fleetBand(sheet: ExcelJS.Worksheet, rowNo: number, title: string): void {
+  const cell = sheet.getRow(rowNo).getCell(1);
+  cell.value = title;
+  cell.font = { bold: true, size: 11, color: { argb: "FF1F4E79" } };
+  sheet.mergeCells(rowNo, 1, rowNo, 8);
+}
+
+/**
+ * 複数台比較表（A3ヨコ）のシート。
+ * HTML版（renderFleetCompareHtml）と同じ並びにして、
+ * PDFで出してもExcelで直しても同じ資料になるようにしている。
+ */
+export function addFleetSheet(
+  wb: ExcelJS.Workbook,
+  quote: Quote,
+  fleet: Fleet,
+  calc: FleetCalc,
+  settings: Settings,
+): ExcelJS.Worksheet {
+  const sheet = wb.addWorksheet("複数台比較表");
+  sheet.columns = [
+    { width: 4 }, // A No
+    { width: 26 }, // B 設置場所
+    { width: 12 }, // C メーカー / 項目
+    { width: 20 }, // D 物件名 / チャージ枚数
+    { width: 9 }, // E 印刷速度 / 単価
+    { width: 18 }, // F 備考 / 印刷枚数
+    { width: 13 }, // G リース料金 / 金額
+    { width: 13 }, // H 請求金額
+    { width: 2 }, // I 仕切り
+    { width: 12 }, // J メーカー / 機種
+    { width: 20 }, // K 提案機種 / 項目
+    { width: 9 }, // L 印刷速度 / チャージ枚数
+    { width: 13 }, // M リース料金 / 単価
+    { width: 13 }, // N 印刷枚数
+    { width: 13 }, // O 金額
+    { width: 13 }, // P 請求金額
+  ];
+  sheet.pageSetup = {
+    // A3（用紙コード8）。ExcelJSの型定義にA3が無いため数値で指定する
+    paperSize: A3_PAPER_SIZE,
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 1,
+    margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+  };
+
+  const uniq = (v: string[]) => [...new Set(v.filter(Boolean))];
+  const from = uniq(calc.units.map((u) => u.unit.current.makerText)).join("・") || "現行";
+  const to = uniq(calc.units.map((u) => u.unit.proposal.makerText)).join("・") || "提案";
+
+  let r = 1;
+  putFleetRow(sheet, r++, [`複合機比較表　${from} 複合機　⇒　${to} 複合機（全${calc.units.length}台）`], {
+    bold: true,
+  });
+  putFleetRow(sheet, r, [`${quote.customerName}　${quote.customerHonorific}`], { bold: true });
+  sheet.getRow(r).getCell(10).value = settings.company.name;
+  r++;
+  sheet.getRow(r).getCell(10).value = `TEL ${settings.company.tel ?? ""}　FAX ${settings.company.fax ?? ""}`;
+  r++;
+  if (quote.staffName) {
+    sheet.getRow(r).getCell(10).value = `担当：${quote.staffName}`;
+  }
+  r += 2;
+
+  // ── リース料金 詳細内訳
+  fleetBand(sheet, r++, "- リ ー ス 料 金 詳 細 内 訳 -");
+  putFleetRow(sheet, r, ["現状利用状況"], { bold: true, fill: FLEET_HEAD_CURRENT });
+  sheet.getRow(r).getCell(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  sheet.mergeCells(r, 1, r, 7);
+  sheet.getRow(r).getCell(10).value = "導入提案予測";
+  sheet.getRow(r).getCell(10).fill = FLEET_HEAD_PROPOSAL;
+  sheet.getRow(r).getCell(10).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  sheet.mergeCells(r, 10, r, 13);
+  r++;
+
+  const leaseHead = [
+    "No", "設置場所", "メーカー", "物件名", "印刷速度", "備考", "リース料金",
+    null, "メーカー", "提案機種", "印刷速度", "リース料金",
+  ];
+  putFleetRow(sheet, r++, leaseHead, {
+    bold: true,
+    fill: HEADER_FILL,
+    border: true,
+    skipBorder: [7],
+    align: leaseHead.map(() => "center" as const),
+  });
+
+  for (const u of calc.units) {
+    putFleetRow(
+      sheet,
+      r++,
+      [
+        u.no,
+        u.unit.location,
+        u.unit.current.makerText,
+        u.unit.current.modelText,
+        u.unit.current.ppm ?? "",
+        u.unit.current.note ?? "",
+        u.current.monthlyLease,
+        null,
+        u.unit.proposal.makerText,
+        u.unit.proposal.modelText,
+        u.unit.proposal.ppm ?? "",
+        u.proposal.monthlyLease,
+      ],
+      { border: true, skipBorder: [7], numFmt: YEN },
+    );
+  }
+  putFleetRow(
+    sheet,
+    r++,
+    ["", "", "", "", "", "消費税（10％）", calc.current.leaseTax, null, "", "", "消費税（10％）", calc.proposal.leaseTax],
+    { border: true, skipBorder: [7], numFmt: YEN, fill: SUM_FILL },
+  );
+  putFleetRow(
+    sheet,
+    r++,
+    ["", "", "", "", "", "リース料金 合計", calc.current.leaseTotal, null, "", "", "リース料金 合計", calc.proposal.leaseTotal],
+    { border: true, skipBorder: [7], numFmt: YEN, bold: true, fill: SUM_FILL },
+  );
+  r++;
+
+  // ── カウンター料金 詳細内訳比較
+  fleetBand(
+    sheet,
+    r++,
+    `- カ ウ ン タ ー 料 金 詳 細 内 訳 比 較 -${fleet.pagesNote ? `　（${fleet.pagesNote}）` : ""}`,
+  );
+  const counterHead = [
+    "No", "設置場所・機種", "項目", "チャージ枚数", "単価", "印刷枚数", "金額", "請求金額",
+    null, "機種", "項目", "チャージ枚数", "単価", "印刷枚数", "金額", "請求金額",
+  ];
+  putFleetRow(sheet, r++, counterHead, {
+    bold: true,
+    fill: HEADER_FILL,
+    border: true,
+    skipBorder: [8],
+    align: counterHead.map(() => "center" as const),
+  });
+
+  for (const u of calc.units) {
+    const left = fleetSideCells(u.current);
+    const right = fleetSideCells(u.proposal);
+    const height = Math.max(left.length, right.length, 1);
+    const top = r;
+
+    for (let i = 0; i < height; i++) {
+      const l = left[i] ?? ["", "", "", "", ""];
+      const rt = right[i] ?? ["", "", "", "", ""];
+      putFleetRow(
+        sheet,
+        r++,
+        [
+          i === 0 ? u.no : "",
+          i === 0 ? `${u.unit.location}／${u.unit.current.modelText}` : "",
+          ...l,
+          i === 0 ? u.current.counterTotal : "",
+          null,
+          i === 0 ? `${u.unit.proposal.makerText} ${u.unit.proposal.modelText}` : "",
+          ...rt,
+          i === 0 ? u.proposal.counterTotal : "",
+        ],
+        { border: true, skipBorder: [8], numFmt: YEN },
+      );
+    }
+    if (height > 1) {
+      // 設置場所・機種・請求金額は台ごとに縦結合する
+      for (const col of [1, 2, 8, 10, 16]) sheet.mergeCells(top, col, top + height - 1, col);
+    }
+    for (const col of [1, 2, 8, 10, 16]) {
+      const cell = sheet.getRow(top).getCell(col);
+      cell.alignment = { vertical: "middle", wrapText: col === 2 || col === 10 };
+      if (col !== 8 && col !== 16) cell.fill = FLEET_UNIT_FILL;
+    }
+  }
+
+  putFleetRow(
+    sheet,
+    r++,
+    ["カウンター料金 小計", "", "", "", "", "", "", calc.current.counterSubtotal,
+     null, "カウンター料金 小計", "", "", "", "", "", calc.proposal.counterSubtotal],
+    { border: true, skipBorder: [8], numFmt: YEN, bold: true, fill: SUM_FILL },
+  );
+  r += 2;
+
+  // ── 合計
+  fleetBand(sheet, r++, "- 合 計 -");
+  putFleetRow(sheet, r++, ["", "現状利用状況", "導入提案予測", "削減額"], {
+    bold: true,
+    fill: HEADER_FILL,
+    border: true,
+    align: ["left", "center", "center", "center"],
+  });
+  const totalRow = (label: string, a: number, b: number) =>
+    putFleetRow(sheet, r++, [label, a, b, b - a], { border: true, numFmt: YEN });
+  totalRow("合計金額 （単月）", calc.current.monthly, calc.proposal.monthly);
+  totalRow("合計金額 （年間）", calc.current.yearly, calc.proposal.yearly);
+  totalRow(`合計金額 （${calc.totalYears}年間）`, calc.current.longTerm, calc.proposal.longTerm);
+  r++;
+
+  // ── トータル削減料金
+  fleetBand(sheet, r++, "- ト ー タ ル 削 減 料 金 -");
+  putFleetRow(sheet, r++, ["合計合算削減金額 （単月）", calc.diffMonthly], { border: true, numFmt: YEN });
+  putFleetRow(sheet, r++, ["合計合算削減金額 （年間）", calc.diffYearly], { border: true, numFmt: YEN });
+  putFleetRow(sheet, r++, [`合計合算削減金額 （${calc.effectYears}年間）`, calc.diffLongTerm], {
+    border: true,
+    numFmt: YEN,
+  });
+  putFleetRow(sheet, r, ["削減率", calc.reductionRate], { border: true, bold: true });
+  sheet.getRow(r).getCell(2).numFmt = "0.0%";
+  r += 2;
+
+  // ── 年間売上高に換算したコスト削減効果
+  const save = Math.max(0, -calc.diffYearly);
+  if (save > 0) {
+    fleetBand(sheet, r++, "- 年間売上高に換算したコスト削減効果 -");
+    putFleetRow(sheet, r++, ["利益率", "20%", "10%", "5%"], {
+      bold: true,
+      fill: HEADER_FILL,
+      border: true,
+      align: ["left", "center", "center", "center"],
+    });
+    putFleetRow(sheet, r++, ["年間売上高", save * 5, save * 10, save * 20], { border: true, numFmt: YEN });
+    putFleetRow(sheet, r++, ["上記程度の「売上高が増加した」ことと同等の効果が得られます。"]);
+  }
+
+  // ── 控除の注意書き
+  const deducted = calc.units.filter((u) => u.current.deductedPages > 0 && u.proposal.deductedPages === 0);
+  if (deducted.length) {
+    r++;
+    putFleetRow(sheet, r++, [
+      `※ 現行のカウンター明細には控除があり、現行側は控除後の枚数（合計 ▲${deducted
+        .reduce((s, u) => s + u.current.deductedPages, 0)
+        .toLocaleString()}枚）で計算しています。ご提案する複合機には控除がないため、提案側は実際の印刷枚数そのままで計算しております。`,
+    ]);
+  }
+
+  return sheet;
+}
+
+/** 1台の片側を [項目, チャージ枚数, 単価, 印刷枚数, 金額] の行に展開する */
+function fleetSideCells(side: FleetSideCalc): (string | number)[][] {
+  const rows: (string | number)[][] = [];
+  for (const line of side.lines) {
+    if (line.bands.length <= 1) {
+      const band = line.bands[0];
+      rows.push([
+        line.name,
+        band ? band.label.replace("枚", "") : "1〜",
+        band ? band.unit : 0,
+        line.deduction > 0 ? `${line.billablePages.toLocaleString()}（控除▲${line.deduction}）` : line.pages,
+        line.amount,
+      ]);
+      continue;
+    }
+    line.bands.forEach((band, i) => {
+      rows.push([
+        i === 0 ? line.name : "　〃",
+        band.label.replace("枚", ""),
+        band.unit,
+        i === 0 && line.deduction > 0
+          ? `${line.billablePages.toLocaleString()}（控除▲${line.deduction}）`
+          : band.pages,
+        band.amount,
+      ]);
+    });
+  }
+  if (side.minCharge > 0) {
+    rows.push(["最低基本料金", "", side.minCharge, "", side.minChargeApplied ? side.minCharge : "－"]);
+  }
+  if (side.maintenanceMonthly > 0) {
+    rows.push(["月額保守料金", "", side.maintenanceMonthly, "", side.maintenanceMonthly]);
+  }
+  rows.push(["消費税 （10％）", "", "", "", side.counterTax]);
+  return rows;
 }

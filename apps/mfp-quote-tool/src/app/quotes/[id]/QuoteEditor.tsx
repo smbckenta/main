@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
+import { hasFleet } from "@/lib/fleet";
+import FleetEditor from "./FleetEditor";
 import type {
   CurrentCalc,
   DeviceSpec,
@@ -545,6 +547,12 @@ export default function QuoteEditor({
         </table>
       </section>
 
+      <FleetEditor
+        quote={quote}
+        taxRate={settings.company.taxRate}
+        onChange={(fleet) => patchQuote({ fleet })}
+      />
+
       <section className="panel">
         <h2>提案の作成</h2>
         <p className="muted">
@@ -704,7 +712,7 @@ export default function QuoteEditor({
           </div>
         </div>
         <div className="row" style={{ marginTop: 10 }}>
-          <button onClick={exportFiles} disabled={!!busy || !quote.proposals.length}>
+          <button onClick={exportFiles} disabled={!!busy || (!quote.proposals.length && !hasFleet(quote.fleet))}>
             選択したメーカー分をまとめて出力
           </button>
           {quote.proposals.map((p) => (
@@ -739,8 +747,21 @@ export default function QuoteEditor({
               各社比較表プレビュー
             </a>
           )}
+          {hasFleet(quote.fleet) && (
+            <a
+              className="badge"
+              href={`/api/quotes/${quote.id}/preview?doc=fleet`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              複数台比較表プレビュー（A3ヨコ）
+            </a>
+          )}
         </div>
         <p className="muted">
+          {hasFleet(quote.fleet)
+            ? "複合機が複数台あるため、A3ヨコの複数台比較表も一緒に出力します。"
+            : ""}
           複数ファイルになる場合は ZIP でダウンロードされます。PDF出力には Chromium が必要です
           （初回のみ <code>npx playwright install chromium</code>）。
         </p>

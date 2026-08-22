@@ -3,9 +3,17 @@ import type { Quote } from "../types";
 import { MAKER_LABELS } from "../types";
 import { calcQuoteAll } from "../calc-context";
 import { loadLogo } from "../logo";
-import { renderCompareHtml, renderMultiCompareHtml, renderQuoteHtml } from "./html";
+import { renderCompareHtml, renderFleetCompareHtml, renderMultiCompareHtml, renderQuoteHtml } from "./html";
 import { htmlToPdf, PdfUnavailableError } from "./pdf";
-import { addMultiCompareSheet, addProfitSheet, addQuoteSheet, newWorkbook, putLogo, workbookToBuffer } from "./excel";
+import {
+  addFleetSheet,
+  addMultiCompareSheet,
+  addProfitSheet,
+  addQuoteSheet,
+  newWorkbook,
+  putLogo,
+  workbookToBuffer,
+} from "./excel";
 
 export type DocKind = "quote" | "compare";
 export type Format = "pdf" | "xlsx";
@@ -38,7 +46,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   files: ExportedFile[];
   warnings: string[];
 }> {
-  const { settings, current, proposals } = await calcQuoteAll(quote);
+  const { settings, current, proposals, fleet } = await calcQuoteAll(quote);
   const logo = await loadLogo();
   const targets = req.proposalIds?.length
     ? proposals.filter((p) => req.proposalIds!.includes(p.proposal.id))
@@ -47,15 +55,20 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   const files: ExportedFile[] = [];
   const warnings: string[] = [];
   const base = safe(`${quote.quoteDate}_${quote.customerName}`);
+  // 複合機が複数台ある案件は、A3ヨコ1枚の複数台比較表も出す
+  const withFleet = fleet && quote.fleet && req.docs.includes("compare") ? { fleet, input: quote.fleet } : undefined;
 
   // ── Excel（1ブックにメーカー別シート）
-  if (req.formats.includes("xlsx") && targets.length) {
+  if (req.formats.includes("xlsx") && (targets.length || withFleet)) {
     const wb = newWorkbook(settings.company.name);
     for (const calc of targets) {
       putLogo(wb, addQuoteSheet(wb, quote, current, calc, settings), logo);
     }
     if (targets.length > 1 && req.docs.includes("compare")) {
       putLogo(wb, addMultiCompareSheet(wb, quote, current, targets), logo);
+    }
+    if (withFleet) {
+      putLogo(wb, addFleetSheet(wb, quote, withFleet.input, withFleet.fleet, settings), logo);
     }
     if (req.includeProfit) addProfitSheet(wb, targets);
     files.push({
@@ -89,6 +102,16 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
         files.push({
           name: `${base}_比較表_各社.pdf`,
           buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings, logo?.dataUri)),
+          contentType: "application/pdf",
+        });
+      }
+      if (withFleet) {
+        files.push({
+          name: `${base}_複数台比較表.pdf`,
+          buffer: await htmlToPdf(
+            renderFleetCompareHtml(quote, withFleet.input, withFleet.fleet, settings, logo?.dataUri),
+            { format: "A3", landscape: true },
+          ),
           contentType: "application/pdf",
         });
       }

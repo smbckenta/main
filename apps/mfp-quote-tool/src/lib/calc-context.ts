@@ -1,12 +1,15 @@
+import { calcFleet, hasFleet } from "./fleet";
 import { calcCurrent, calcProposal } from "./pricing";
 import { findServiceArea } from "./service-area";
 import { deviceMap, findDeviceByModel, getPriceBook, getSettings } from "./store";
-import type { CurrentCalc, ProposalCalc, Quote, ServiceArea, Settings } from "./types";
+import type { CurrentCalc, FleetCalc, ProposalCalc, Quote, ServiceArea, Settings } from "./types";
 
 export interface QuoteCalcResult {
   settings: Settings;
   current: CurrentCalc;
   proposals: ProposalCalc[];
+  /** 複数台比較表の計算結果（複数台の案件のみ） */
+  fleet?: FleetCalc;
   /** 選択された保守対応エリア（京セラ担当エリア表） */
   serviceArea?: ServiceArea;
 }
@@ -46,6 +49,7 @@ export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
     settings,
     current: calcCurrent(quote, settings.company.taxRate),
     proposals,
+    fleet: hasFleet(quote.fleet) ? calcFleet(quote.fleet, settings.company.taxRate) : undefined,
     serviceArea,
   };
 }

@@ -1,4 +1,13 @@
-import type { ChargeLineCalc, CurrentCalc, ProposalCalc, Quote, Settings } from "../types";
+import type {
+  ChargeLineCalc,
+  CurrentCalc,
+  Fleet,
+  FleetCalc,
+  FleetSideCalc,
+  ProposalCalc,
+  Quote,
+  Settings,
+} from "../types";
 import { yen } from "../pricing";
 import { pagesAverageNote } from "../labels";
 
@@ -176,9 +185,9 @@ function jpDate(iso: string): string {
   return `${y}年${Number(m)}月${Number(d)}日`;
 }
 
-function page(title: string, body: string): string {
+function page(title: string, body: string, opts: { css?: string; bodyClass?: string } = {}): string {
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>${CSS}</style></head><body>${body}</body></html>`;
+<style>${CSS}${opts.css ?? ""}</style></head><body${opts.bodyClass ? ` class="${opts.bodyClass}"` : ""}>${body}</body></html>`;
 }
 
 /** 自社情報（ロゴ・社名・連絡先・拠点） */
@@ -514,6 +523,8 @@ export function renderCompareHtml(
       ${counterRow("フルカラー", c.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount)}
       ${counterRow("2色カラー", c.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount)}`;
 
+  const ded = current.counter.deduction;
+
   const body = `
   ${brandBar(settings, logo, quote, calc.proposal.quoteNo)}
   <h2>比 較 表</h2>
@@ -529,6 +540,18 @@ export function renderCompareHtml(
       <tr><td>2色カラー</td><td class="num">${n(c.twoColorPages)} 枚</td></tr>
     </tbody>
   </table>
+  ${
+    ded
+      ? `<div class="notes">※　現行のカウンター明細には控除（${
+          Math.round(ded.rate * 1000) / 10
+        }%）があり、現行側は控除後の枚数 ブラック ${n(ded.billable.mono)}枚 ／ フルカラー ${n(
+          ded.billable.color,
+        )}枚${ded.twoColor ? ` ／ 2色カラー ${n(ded.billable.twoColor)}枚` : ""} で計算しています（合計 ▲${n(
+          ded.total,
+        )}枚）。
+　　ご提案する複合機には控除がございませんので、提案側は上記の印刷枚数そのままで計算しております。</div>`
+      : ""
+  }
 
   <table class="grid">
     <thead><tr>
@@ -605,11 +628,11 @@ export function renderCompareHtml(
 }
 
 /** 削減額を「年間売上高に換算した効果」（利益率20%/10%/5% → 5倍/10倍/20倍） */
-function salesEffectTable(diffYearly: number): string {
+function salesEffectTable(diffYearly: number, width = "70%"): string {
   const save = Math.max(0, -diffYearly);
   if (save <= 0) return "";
   return `
-  <table class="grid effect" style="width:70%">
+  <table class="grid effect" style="width:${width}">
     <thead><tr><th colspan="4">年間売上高に換算したコスト削減効果</th></tr></thead>
     <tbody>
       <tr><th>利益率</th><th class="center">20%</th><th class="center">10%</th><th class="center">5%</th></tr>
@@ -673,6 +696,13 @@ export function renderMultiCompareHtml(
   </div>
   <div class="small" style="margin:6px 0">
     月間印刷枚数${esc(pagesAverageNote(c))}：ブラック ${n(c.monoPages)}枚 ／ フルカラー ${n(c.colorPages)}枚 ／ 2色カラー ${n(c.twoColorPages)}枚
+    ${
+      current.counter.deduction
+        ? `<br>※現行は控除（${
+            Math.round(current.counter.deduction.rate * 1000) / 10
+          }%・▲${n(current.counter.deduction.total)}枚）後の枚数で計算しています。各社の提案には控除がないため、提案側は上記の枚数そのままです。`
+        : ""
+    }
   </div>
   <table class="grid">
     <thead>${head}</thead>
@@ -707,3 +737,387 @@ export function renderMultiCompareHtml(
 
 const x2 = (v: number | undefined, unit: string): string => (v === undefined ? "－" : `${v}${unit}`);
 const currentSpec = (calcs: ProposalCalc[]) => calcs[0]?.currentDevice;
+
+/* ---------------- A3ヨコ 複数台比較表 ---------------- */
+
+/**
+ * 複合機が複数台ある案件で使う、A3ヨコ1枚の比較表。
+ *
+ * 左が現行、右が提案。上から
+ *   リース料金 詳細内訳 → カウンター料金 詳細内訳比較 → 合計 → 削減効果
+ * の順に、台数ぶんを1枚に収める（実際に運用している比較表と同じ並び）。
+ */
+const FLEET_CSS = `
+  @page { size: A3 landscape; margin: 8mm; }
+  /* 台数が多いときは字を小さくして高さだけ詰める（横幅はA3いっぱいのまま使う） */
+  body.fleet { font-size: calc(7.4pt * var(--fit)); line-height: 1.2; }
+  body.fleet .small { font-size: 0.86em; }
+  body.fleet h1 { font-size: 14pt; letter-spacing: 0.18em; margin: 0 0 2px; }
+  body.fleet h1::after { width: 200px; margin-top: 3px; }
+  /* 余白も字の大きさに合わせて詰める（そうしないと行が縮まない） */
+  body.fleet .grid th, body.fleet .grid td { padding: 0.14em 0.4em; }
+  body.fleet .company { max-width: 42%; font-size: 7pt; }
+  body.fleet .company .logo { width: 170px; max-height: 32px; }
+
+  .fleet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .fleet-head .customer { font-size: 12pt; min-width: 220px; }
+
+  .band {
+    margin: 0.7em 0 0.3em;
+    font-weight: 700;
+    font-size: 1.16em;
+    letter-spacing: 0.28em;
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 2px;
+  }
+  .band .band-note { float: right; font-size: 0.82em; letter-spacing: 0; font-weight: 400; color: #5b6b7c; }
+
+  /* 左（現状）と右（提案）を隔てる帯 */
+  .grid th.gap, .grid td.gap { border: 0; background: #fff !important; width: 1%; min-width: 6px; padding: 0; }
+  .grid thead th.side-current { background: #46586b; border-color: #46586b; }
+  .grid thead th.side-proposal { background: var(--accent); border-color: var(--accent); }
+  .grid tbody td.unit-head { background: #f2f6fa; font-weight: 600; }
+  .grid tbody tr.unit-first td { border-top: 1.4px solid var(--line); }
+  .grid tbody td.bill { background: #eef3f8; font-weight: 700; font-size: 1.05em; }
+
+  .fleet-bottom { display: flex; gap: 14px; align-items: flex-start; margin-top: 0.8em; }
+  .fleet-bottom > * { flex: 1; min-width: 0; }
+  .fleet-note { margin-top: 0.5em; font-size: 0.95em; color: #5b6b7c; line-height: 1.35; }
+  .fleet-note strong { color: #b3261e; }
+`;
+
+/** 台ごとのカウンター明細を、表の行に展開したもの */
+interface FleetRow {
+  item: string;
+  charge: string;
+  unit: string;
+  pages: string;
+  amount: string;
+  /** 消費税・小計など、区分ではない行 */
+  sub?: boolean;
+}
+
+const pagesCell = (line: ChargeLineCalc): string =>
+  line.deduction > 0
+    ? `${n(line.billablePages)}枚<br><span class="small muted">${n(line.pages)}枚−控除${n(line.deduction)}枚</span>`
+    : `${n(line.pages)}枚`;
+
+/** 片側（現行 or 提案）1台ぶんの明細行 */
+function fleetSideRows(side: FleetSideCalc): FleetRow[] {
+  const rows: FleetRow[] = [];
+
+  for (const line of side.lines) {
+    if (line.bands.length <= 1) {
+      const band = line.bands[0];
+      rows.push({
+        item: line.name,
+        charge: band ? band.label.replace("枚", "") : "1〜",
+        unit: band ? unitYen(band.unit) : "－",
+        pages: pagesCell(line),
+        amount: n(line.amount),
+      });
+      continue;
+    }
+    // 段が分かれている区分は、段ごとに行を立てる（チャージ枚数の帯がそのまま行になる）
+    line.bands.forEach((band, i) => {
+      rows.push({
+        item: i === 0 ? line.name : "　〃",
+        charge: band.label.replace("枚", ""),
+        unit: unitYen(band.unit),
+        pages: i === 0 ? pagesCell(line) : `${n(band.pages)}枚`,
+        amount: n(band.amount),
+      });
+    });
+  }
+
+  if (side.minCharge > 0) {
+    rows.push({
+      item: "最低基本料金",
+      charge: "",
+      unit: n(side.minCharge),
+      pages: "",
+      amount: side.minChargeApplied ? n(side.minCharge) : "－",
+      sub: true,
+    });
+  }
+  if (side.maintenanceMonthly > 0) {
+    rows.push({
+      item: "月額保守料金",
+      charge: "",
+      unit: n(side.maintenanceMonthly),
+      pages: "",
+      amount: n(side.maintenanceMonthly),
+      sub: true,
+    });
+  }
+  return rows;
+}
+
+/**
+ * 請求金額の欄。
+ * 台数が多いと消費税だけで行数が膨らむため、消費税は請求金額の欄に併記して
+ * 1台あたりの行数を減らす（A3ヨコ1枚に収めるため）。
+ */
+const billCell = (side: FleetSideCalc): string =>
+  `${n(side.counterTotal)}<br><span class="small muted">税抜 ${n(side.counterBeforeTax)}＋税 ${n(
+    side.counterTax,
+  )}</span>`;
+
+/** 機種名の欄（設置場所・メーカー・型番をまとめて出す） */
+const sideTitle = (maker: string, model: string): string =>
+  `${esc(maker || "－")}<br><span class="small">${esc(model || "－")}</span>`;
+
+export function renderFleetCompareHtml(
+  quote: Quote,
+  fleet: Fleet,
+  calc: FleetCalc,
+  settings: Settings,
+  logo?: string,
+): string {
+  const diff = (v: number) =>
+    v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
+
+  const uniq = (values: string[]) => [...new Set(values.filter(Boolean))];
+  const fromMakers = uniq(calc.units.map((u) => u.unit.current.makerText));
+  const toMakers = uniq(calc.units.map((u) => u.unit.proposal.makerText));
+
+  // ── リース料金 詳細内訳
+  const leaseRows = calc.units
+    .map(
+      (u) => `<tr>
+      <td class="center">${u.no}</td>
+      <td>${esc(u.unit.location || "－")}</td>
+      <td>${esc(u.unit.current.makerText || "－")}</td>
+      <td>${esc(u.unit.current.modelText || "－")}</td>
+      <td class="center">${u.unit.current.ppm ?? "－"}</td>
+      <td class="small">${esc(u.unit.current.note ?? "")}</td>
+      <td class="num">${u.current.monthlyLease ? n(u.current.monthlyLease) : "－"}</td>
+      <td class="gap"></td>
+      <td>${esc(u.unit.proposal.makerText || "－")}</td>
+      <td>${esc(u.unit.proposal.modelText || "－")}</td>
+      <td class="center">${u.unit.proposal.ppm ?? "－"}</td>
+      <td class="num">${u.proposal.monthlyLease ? n(u.proposal.monthlyLease) : "－"}</td>
+    </tr>`,
+    )
+    .join("");
+
+  // ── カウンター料金 詳細内訳比較（左右で行数が違うので、多いほうに合わせて空欄で埋める）
+  const counterRows = calc.units
+    .map((u) => {
+      const left = fleetSideRows(u.current);
+      const right = fleetSideRows(u.proposal);
+      const height = Math.max(left.length, right.length, 1);
+
+      return Array.from({ length: height }, (_, i) => {
+        const l = left[i];
+        const r = right[i];
+        const cells = (row: FleetRow | undefined) =>
+          row
+            ? `<td${row.sub ? ' class="muted"' : ""}>${esc(row.item)}</td>
+             <td class="center small">${esc(row.charge)}</td>
+             <td class="num">${esc(row.unit)}</td>
+             <td class="num">${row.pages}</td>
+             <td class="num">${esc(row.amount)}</td>`
+            : `<td></td><td></td><td></td><td></td><td></td>`;
+
+        const head =
+          i === 0
+            ? `<td class="center unit-head" rowspan="${height}">${u.no}</td>
+               <td class="unit-head" rowspan="${height}">${esc(u.unit.location || "－")}<br>
+                 <span class="small">${esc(u.unit.current.makerText)} ${esc(u.unit.current.modelText)}</span></td>`
+            : "";
+        const leftBill =
+          i === 0 ? `<td class="num bill" rowspan="${height}">${billCell(u.current)}</td>` : "";
+        const rightHead =
+          i === 0
+            ? `<td class="unit-head" rowspan="${height}">${sideTitle(u.unit.proposal.makerText, u.unit.proposal.modelText)}</td>`
+            : "";
+        const rightBill =
+          i === 0 ? `<td class="num bill" rowspan="${height}">${billCell(u.proposal)}</td>` : "";
+        const gap = i === 0 ? `<td class="gap" rowspan="${height}"></td>` : "";
+
+        return `<tr class="${i === 0 ? "unit-first" : ""}">${head}${cells(l)}${leftBill}${gap}${rightHead}${cells(r)}${rightBill}</tr>`;
+      }).join("");
+    })
+    .join("");
+
+  // ── 控除の注意書き（現行に控除があり、提案に無い台がある場合）
+  const deductedUnits = calc.units.filter((u) => u.current.deductedPages > 0 && u.proposal.deductedPages === 0);
+  const deductionNote = deductedUnits.length
+    ? `<div class="fleet-note"><strong>※ 控除について</strong>　現行のカウンター明細には
+        ミスプリント控除（印刷枚数を一律で差し引く控除）があり、現行側は控除後の枚数で計算しています
+        （${deductedUnits.map((u) => `No.${u.no} ▲${n(u.current.deductedPages)}枚`).join("、")}／合計 ▲${n(
+          deductedUnits.reduce((s, u) => s + u.current.deductedPages, 0),
+        )}枚）。
+        ご提案する複合機には控除がないため、提案側は実際の印刷枚数そのままで計算しております。</div>`
+    : "";
+
+  // Excelの「1ページに収める」と同じで、行数が多いときは全体を縮小して1枚に収める。
+  const rowCount =
+    calc.units.length +
+    calc.units.reduce((sum, u) => sum + Math.max(fleetSideRows(u.current).length, fleetSideRows(u.proposal).length, 1), 0);
+  const zoom = fitZoom(rowCount);
+
+  const body = `
+  <div class="fleet-head">
+    <div>
+      <h1>複合機比較表</h1>
+      <div class="small">${esc(fromMakers.join("・") || "現行")} 複合機　⇒　${esc(toMakers.join("・") || "提案")} 複合機（全${calc.units.length}台）</div>
+      <div style="margin-top:6px"><span class="customer">${esc(quote.customerName)}</span> <span style="font-size:10pt">${esc(quote.customerHonorific)}</span></div>
+    </div>
+    ${companyBlock(settings, logo)}
+  </div>
+
+  <div class="band">- リ ー ス 料 金 詳 細 内 訳 -</div>
+  <table class="grid">
+    <thead>
+      <tr>
+        <th class="side-current" colspan="7">現状利用状況</th>
+        <th class="gap"></th>
+        <th class="side-proposal" colspan="4">導入提案予測</th>
+      </tr>
+      <tr>
+        <th style="width:2.5%">No</th><th style="width:16%">設置場所</th><th style="width:7.5%">メーカー</th>
+        <th style="width:13%">物件名</th><th style="width:4%">印刷速度</th><th style="width:8%">備考</th>
+        <th style="width:9%">リース料金</th>
+        <th class="gap"></th>
+        <th style="width:7.5%">メーカー</th><th style="width:14%">提案機種</th>
+        <th style="width:4%">印刷速度</th><th style="width:13%">リース料金</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${leaseRows}
+      <tr class="sum-row">
+        <td colspan="5"></td><td class="center">消費税（10％）</td>
+        <td class="num">${n(calc.current.leaseTax)}</td>
+        <td class="gap"></td>
+        <td colspan="2"></td><td class="center">消費税（10％）</td>
+        <td class="num">${n(calc.proposal.leaseTax)}</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="5"></td><td class="center">リース料金 合計</td>
+        <td class="num">${n(calc.current.leaseTotal)}</td>
+        <td class="gap"></td>
+        <td colspan="2"></td><td class="center">リース料金 合計</td>
+        <td class="num">${n(calc.proposal.leaseTotal)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="band">- カ ウ ン タ ー 料 金 詳 細 内 訳 比 較 -
+    ${fleet.pagesNote ? `<span class="band-note">（${esc(fleet.pagesNote)}）</span>` : ""}
+  </div>
+  <table class="grid">
+    <thead>
+      <tr>
+        <th class="side-current" colspan="8">現状利用状況</th>
+        <th class="gap"></th>
+        <th class="side-proposal" colspan="7">導入提案予測</th>
+      </tr>
+      <tr>
+        <th style="width:2.5%">No</th><th style="width:12%">設置場所・機種</th>
+        <th style="width:8%">項目</th><th style="width:5%">チャージ枚数</th><th style="width:4.5%">単価</th>
+        <th style="width:7%">印刷枚数</th><th style="width:6%">金額</th><th style="width:7%">請求金額</th>
+        <th class="gap"></th>
+        <th style="width:10%">機種</th>
+        <th style="width:8%">項目</th><th style="width:5%">チャージ枚数</th><th style="width:4.5%">単価</th>
+        <th style="width:7%">印刷枚数</th><th style="width:6%">金額</th><th style="width:7%">請求金額</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${counterRows}
+      <tr class="total-row">
+        <td colspan="7">カウンター料金 小計</td>
+        <td class="num">${n(calc.current.counterSubtotal)}</td>
+        <td class="gap"></td>
+        <td colspan="6">カウンター料金 小計</td>
+        <td class="num">${n(calc.proposal.counterSubtotal)}</td>
+      </tr>
+    </tbody>
+  </table>
+  ${deductionNote}
+
+  <div class="fleet-bottom">
+    <div>
+      <div class="band">- 合 計 -</div>
+      <table class="grid">
+        <thead><tr>
+          <th></th><th class="side-current">現状利用状況</th>
+          <th class="side-proposal">導入提案予測</th><th>削減額</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <th style="text-align:left">合計金額 （単月）</th>
+            <td class="num">${n(calc.current.monthly)}</td>
+            <td class="num">${n(calc.proposal.monthly)}</td>
+            <td class="num">${diff(calc.diffMonthly)}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left">合計金額 （年間）</th>
+            <td class="num">${n(calc.current.yearly)}</td>
+            <td class="num">${n(calc.proposal.yearly)}</td>
+            <td class="num">${diff(calc.diffYearly)}</td>
+          </tr>
+          <tr class="total-row">
+            <th style="text-align:left">合計金額 （${calc.totalYears}年間）</th>
+            <td class="num">${n(calc.current.longTerm)}</td>
+            <td class="num">${n(calc.proposal.longTerm)}</td>
+            <td class="num">${diff(calc.diffMonthly * 12 * calc.totalYears)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="band">- ト ー タ ル 削 減 料 金 -</div>
+      <table class="grid">
+        <tbody>
+          <tr><th style="text-align:left">合計合算削減金額 （単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
+          <tr><th style="text-align:left">合計合算削減金額 （年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
+          <tr><th style="text-align:left">合計合算削減金額 （${calc.effectYears}年間）</th><td class="num">${diff(calc.diffLongTerm)}</td></tr>
+          <tr class="total-row"><th style="text-align:left">削減率</th><td class="num">${
+            calc.reductionRate === 0
+              ? "±0%"
+              : calc.reductionRate < 0
+                ? `<span class="save">▲${(Math.abs(calc.reductionRate) * 100).toFixed(1)}%</span>`
+                : `<span class="cut">+${(calc.reductionRate * 100).toFixed(1)}%</span>`
+          }</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>${salesEffectTable(calc.diffYearly, "100%")}</div>
+  </div>
+  `;
+  return page(`複数台比較表_${quote.customerName}`, body, {
+    css: `${FLEET_CSS}\n  body.fleet { --fit: ${zoom}; }`,
+    bodyClass: "fleet",
+  });
+}
+
+/**
+ * A3ヨコ1枚に収まるよう、字と行の高さを縮める割合（Excelの「1ページに収める」と同じ考え方）。
+ *
+ * 横幅はA3いっぱいのまま使いたいので、全体を拡大縮小（zoom）するのではなく
+ * 字の大きさだけを変える。表は幅100%なので、字が小さくなると高さだけが縮む。
+ *
+ * 台数が多いと字は小さくなるが、これは元のExcel（16台を1枚に収める運用）と同じ。
+ * ただし読めなくなる手前（0.45）で止め、それ以上は2枚に分ける。
+ */
+export function fitZoom(rowCount: number): number {
+  const scale = SHRINKABLE_BUDGET_PX / (BLOCK_HEIGHT_PX + ROW_HEIGHT_PX * rowCount);
+  // わずかな縮小は見た目に効かないので等倍のままにする
+  if (scale >= 0.98) return 1;
+  return Math.max(0.45, Math.round(scale * 1_000) / 1_000);
+}
+
+/**
+ * 以下の3つは Chromium で実測して求めた値。
+ * 高さは fit を f として 105 + (300 + 17.2 × 行数) × f でほぼ線形に効く。
+ *
+ *   印刷できる高さ  : A3ヨコ297mm − 余白16mm ≒ 1,060px（96dpi）→ 余裕を見て1,000px
+ *   縮まない部分    : 罫線と自社情報など約105px
+ *   縮む部分        : 見出し帯・合計欄で約300px ＋ 明細1行あたり約17.2px
+ */
+const SHRINKABLE_BUDGET_PX = 1_000 - 105;
+const BLOCK_HEIGHT_PX = 300;
+const ROW_HEIGHT_PX = 17.2;

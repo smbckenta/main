@@ -67,7 +67,14 @@ export class PdfUnavailableError extends Error {
   }
 }
 
-export async function htmlToPdf(html: string): Promise<Buffer> {
+export interface PdfPageOptions {
+  /** 用紙サイズ。複数台比較表はA3 */
+  format?: "A4" | "A3";
+  /** 横向き（A3の複数台比較表で使う） */
+  landscape?: boolean;
+}
+
+export async function htmlToPdf(html: string, opts: PdfPageOptions = {}): Promise<Buffer> {
   let browser: Browser;
   try {
     browser = await getBrowser();
@@ -75,14 +82,21 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     throw new PdfUnavailableError(err);
   }
 
+  const landscape = opts.landscape ?? false;
+  // A3ヨコは余白を詰めないと1枚に収まらない
+  const margin = landscape
+    ? { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" }
+    : { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" };
+
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
     await page.setContent(html, { waitUntil: "load" });
     const pdf = await page.pdf({
-      format: "A4",
+      format: opts.format ?? "A4",
+      landscape,
       printBackground: true,
-      margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" },
+      margin,
     });
     return Buffer.from(pdf);
   } finally {

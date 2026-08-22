@@ -125,14 +125,37 @@ export function serviceWarningOf(rank?: ServiceRank, island?: string): string | 
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** カウンター請求額の内訳 */
+/**
+ * 一律控除（ミスプリント控除など）を効かせた請求枚数。
+ * 控除カウントは明細の慣習に合わせて切り上げる。
+ */
+export function deductPages(pages: number, rate?: number): { billable: number; deduction: number } {
+  const p = Math.max(0, Math.round(pages || 0));
+  if (!rate || rate <= 0) return { billable: p, deduction: 0 };
+  const deduction = Math.ceil(p * rate);
+  return { billable: Math.max(0, p - deduction), deduction };
+}
+
+/**
+ * カウンター請求額の内訳。
+ *
+ * deductionRate は「ミスプリント1%控除」「2%控除」のように、
+ * 印刷枚数そのものが一律で差し引かれる現行契約の控除。
+ * 当社の提案にはこの控除が無いので、提案側では渡さない
+ * （＝実枚数のまま計算し、控除ありの現行と正しく比べる）。
+ */
 export function calcCounter(
   units: CounterUnits,
   volume: { monoPages: number; colorPages: number; twoColorPages: number },
+  deductionRate?: number,
 ): CounterBreakdown {
-  const monoAmount = volume.monoPages * units.mono;
-  const colorAmount = volume.colorPages * units.color;
-  const twoColorAmount = volume.twoColorPages * units.twoColor;
+  const mono = deductPages(volume.monoPages, deductionRate);
+  const color = deductPages(volume.colorPages, deductionRate);
+  const twoColor = deductPages(volume.twoColorPages, deductionRate);
+
+  const monoAmount = mono.billable * units.mono;
+  const colorAmount = color.billable * units.color;
+  const twoColorAmount = twoColor.billable * units.twoColor;
   const sum = monoAmount + colorAmount + twoColorAmount;
   const minChargeApplied = units.minCharge > 0 && sum < units.minCharge;
   return {
@@ -141,6 +164,17 @@ export function calcCounter(
     twoColorAmount: Math.round(twoColorAmount),
     minChargeApplied,
     total: Math.round(minChargeApplied ? units.minCharge : sum),
+    deduction:
+      deductionRate && deductionRate > 0
+        ? {
+            rate: deductionRate,
+            mono: mono.deduction,
+            color: color.deduction,
+            twoColor: twoColor.deduction,
+            total: mono.deduction + color.deduction + twoColor.deduction,
+            billable: { mono: mono.billable, color: color.billable, twoColor: twoColor.billable },
+          }
+        : undefined,
   };
 }
 
@@ -213,7 +247,11 @@ export function calcCurrent(quote: Quote, taxRate: number): CurrentCalc {
   const c = quote.current;
   // 逓減単価の明細を読み取っている場合は、そちらを正としてカウンター請求額を出す
   const chargeLines = c.chargeLines?.length ? calcChargeLines(c.chargeLines) : undefined;
-  const counter = chargeLines ? chargeBreakdown(chargeLines, c.units) : calcCounter(c.units, c);
+  // 明細の区分ごとに控除が入っている場合は chargeLines 側で控除済みなので、
+  // 一律控除（c.deductionRate）は単価×枚数で計算するときにだけ効かせる
+  const counter = chargeLines
+    ? chargeBreakdown(chargeLines, c.units)
+    : calcCounter(c.units, c, c.deductionRate);
   const running = c.monthlyLease + counter.total + c.maintenanceMonthly;
   const tax = Math.round(running * taxRate);
   return {
@@ -236,12 +274,35 @@ function chargeBreakdown(lines: ChargeLineCalc[], units: CounterUnits): CounterB
     lines.filter((l) => l.kind === kind).reduce((sum, l) => sum + l.amount, 0);
   const sum = lines.reduce((total, l) => total + l.amount, 0);
   const minChargeApplied = units.minCharge > 0 && sum < units.minCharge;
+
+  // 区分ごとの控除も、全体としてどれだけ引かれているかを見せられるようにまとめる
+  const deductedPages = (kind: ChargeLineCalc["kind"]) =>
+    lines.filter((l) => l.kind === kind).reduce((s, l) => s + l.deduction, 0);
+  const billableOf = (kind: ChargeLineCalc["kind"]) =>
+    lines.filter((l) => l.kind === kind).reduce((s, l) => s + l.billablePages, 0);
+  const totalPages = lines.reduce((s, l) => s + l.pages, 0);
+  const totalDeduction = lines.reduce((s, l) => s + l.deduction, 0);
+
   return {
     monoAmount: sumOf("mono"),
     colorAmount: sumOf("color") + sumOf("other"),
     twoColorAmount: sumOf("twoColor"),
     minChargeApplied,
     total: Math.round(minChargeApplied ? units.minCharge : sum),
+    deduction: totalDeduction
+      ? {
+          rate: totalPages > 0 ? Math.round((totalDeduction / totalPages) * 10_000) / 10_000 : 0,
+          mono: deductedPages("mono"),
+          color: deductedPages("color") + deductedPages("other"),
+          twoColor: deductedPages("twoColor"),
+          total: totalDeduction,
+          billable: {
+            mono: billableOf("mono"),
+            color: billableOf("color") + billableOf("other"),
+            twoColor: billableOf("twoColor"),
+          },
+        }
+      : undefined,
   };
 }
 
@@ -365,8 +426,9 @@ export function calcProposal(
   }
   const monthlyLease = leaseByTerm[targetTerm] ?? ceilTo(sellingTotal * leaseRate, leaseUnit);
 
-  // カウンター単価
-  const currentCounterAmount = calcCounter(quote.current.units, quote.current).total;
+  // カウンター単価。単価段の判定には、控除も反映した実際の請求額を使う
+  const current = calcCurrent(quote, taxRate);
+  const currentCounterAmount = current.counter.total;
   const counterAuto = !proposal.counterOverridden;
   const autoUnits = autoCounterUnits(
     settings,
@@ -379,14 +441,15 @@ export function calcProposal(
   );
   const units = counterAuto ? autoUnits : (proposal.units ?? autoUnits);
 
-  // 提案後の印刷枚数は現行実績をそのまま使う（同じ枚数を刷る前提での比較）
+  // 提案後の印刷枚数は現行実績をそのまま使う（同じ枚数を刷る前提での比較）。
+  // 現行契約にミスプリント控除が付いていても、当社の提案には控除が無いので
+  // ここでは控除率を渡さず、実枚数のまま計算する。
   const counter = calcCounter(units, quote.current);
 
   const running = monthlyLease + counter.total + proposal.maintenanceMonthly;
   const runningTax = Math.round(running * taxRate);
   const monthlyTotal = Math.round(running + runningTax);
 
-  const current = calcCurrent(quote, taxRate);
   const diffMonthly = monthlyTotal - current.monthlyTotal;
 
   // 残債精算はリース会社へ支払う立替分なので粗利には含めない

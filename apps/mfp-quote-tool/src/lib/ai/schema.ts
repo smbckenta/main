@@ -47,6 +47,9 @@ export const AiCounterSchema = z.object({
   colorUnit: num("フルカラーのカウンター単価（円・税抜）"),
   twoColorUnit: num("2色カラーのカウンター単価（円・税抜）"),
   amount: num("この期間のカウンター料金合計（円・税抜）"),
+  deductionPercent: num(
+    "印刷枚数そのものに一律でかかる控除の率（%）。「ミスプリント1%控除」「2%控除」なら 1 や 2。無ければ null。控除は必ず拾うこと",
+  ),
   chargeLines: z
     .array(AiChargeLineSchema)
     .describe("段階単価（パフォーマンスチャージ）の明細。段や控除が無い明細では空配列にする"),
@@ -181,6 +184,11 @@ export function toCounterReadings(doc: AiDocument): CounterReading[] {
       colorUnit: positive(c.colorUnit, 100),
       twoColorUnit: positive(c.twoColorUnit, 100),
       amount: positive(c.amount),
+      // 控除率は「2」（%）で来る。0〜20%の範囲だけ採用する
+      deductionRate:
+        c.deductionPercent !== null && c.deductionPercent > 0 && c.deductionPercent <= 20
+          ? c.deductionPercent / 100
+          : undefined,
       chargeLines: toChargeLines(c.chargeLines),
       confidence: 0.9,
       evidence: c.evidence.filter(Boolean).slice(0, 20),

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getQuote } from "@/lib/store";
 import { calcQuoteAll } from "@/lib/calc-context";
-import { renderCompareHtml, renderMultiCompareHtml, renderQuoteHtml } from "@/lib/export/html";
+import {
+  renderCompareHtml,
+  renderFleetCompareHtml,
+  renderMultiCompareHtml,
+  renderQuoteHtml,
+} from "@/lib/export/html";
 import { loadLogo } from "@/lib/logo";
 
 export const runtime = "nodejs";
@@ -18,7 +23,23 @@ export async function GET(req: Request, { params }: Ctx) {
   const doc = url.searchParams.get("doc") ?? "quote";
   const proposalId = url.searchParams.get("proposalId");
 
-  const [{ settings, current, proposals }, logo] = await Promise.all([calcQuoteAll(quote), loadLogo()]);
+  const [{ settings, current, proposals, fleet }, logo] = await Promise.all([
+    calcQuoteAll(quote),
+    loadLogo(),
+  ]);
+
+  // 複数台比較表は提案（メーカー別の見積）が無くても出せる
+  if (doc === "fleet") {
+    if (!fleet || !quote.fleet) {
+      return new NextResponse("<html><body>複数台の入力がありません。</body></html>", {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+    return new NextResponse(renderFleetCompareHtml(quote, quote.fleet, fleet, settings, logo?.dataUri), {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+
   if (!proposals.length) {
     return new NextResponse("<html><body>提案が登録されていません。</body></html>", {
       headers: { "Content-Type": "text/html; charset=utf-8" },

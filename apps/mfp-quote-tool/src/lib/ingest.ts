@@ -256,6 +256,9 @@ export async function ingestDocuments(
     leaseEnd: bestLease?.endDate,
     remainingDebt: bestLease?.remainingDebt,
     chargeLines: mergeChargeLines(counterReadings),
+    // 一律控除（ミスプリント控除など）は現行の請求額に効くので拾っておく。
+    // 提案側には控除が無いため、比較のときはここが効くかどうかで差が出る。
+    deductionRate: counterReadings.map((r) => r.deductionRate ?? 0).reduce((a, b) => Math.max(a, b), 0) || undefined,
     monoPages: monthly.monoPages,
     colorPages: monthly.colorPages,
     twoColorPages: monthly.twoColorPages,
@@ -280,6 +283,12 @@ export async function ingestDocuments(
     warnings.push("リース契約書・支払予定表から契約条件を読み取れませんでした。手入力してください。");
   if (!counterReadings.length)
     warnings.push("印刷明細から枚数を読み取れませんでした。手入力してください。");
+  if (current.deductionRate) {
+    warnings.push(
+      `印刷明細に一律控除（${Math.round(current.deductionRate * 1000) / 10}%）がありました。` +
+        "現行の請求枚数はこの控除後で計算します。当社の提案には控除がないため、提案側は実枚数のまま比較します。",
+    );
+  }
 
   return {
     files,

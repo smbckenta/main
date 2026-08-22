@@ -355,6 +355,12 @@ export interface CounterReading {
   /** 明細上の請求額（税抜） */
   amount?: number;
   /**
+   * 印刷枚数そのものに一律でかかる控除の率（0.02 = 2%）。
+   * 「ミスプリント1%控除」「2%控除」など。区分ごとの明細ではなく
+   * 枚数全体に効くタイプの控除をここで持つ。
+   */
+  deductionRate?: number;
+  /**
    * 段階単価（パフォーマンスチャージ）の内訳。
    * 「1-1000／月 3.0円」のように単価が逓減する明細で埋まる。
    */
@@ -453,10 +459,127 @@ export interface CurrentMachine {
    * 見積書・比較表には「（2025/03-2025/08平均印刷枚数）」と注記する。
    */
   pagesPeriod?: { from: string; to: string; months: number };
+  /**
+   * 印刷枚数そのものに一律でかかる控除の率（0.02 = 2%）。
+   * リコー・キヤノンの明細でよくある「ミスプリント1%控除」「2%控除」。
+   *
+   * これは現行機の契約にだけ付いているもので、当社の提案には控除が無い。
+   * 提案側は控除なしの実枚数で計算するため、ここは現行の計算にしか使わない。
+   */
+  deductionRate?: number;
   /** 現行のカウンター単価 */
   units: CounterUnits;
   /** 保守料金（別建ての場合） */
   maintenanceMonthly: number;
+}
+
+/* ---------------- 複数台（A3ヨコ 複数台比較表） ---------------- */
+
+/**
+ * 複数台比較表の1台ぶん。現行側・提案側とも同じ形で持つ。
+ *
+ * 1台ずつ「リース料金」と「カウンター料金」を並べ、
+ * 台数ぶんの合計で現行と提案を比べる、というA3ヨコの比較表の運用に合わせている。
+ */
+export interface FleetSide {
+  makerText: string;
+  /** 現行側は物件名、提案側は提案機種 */
+  modelText: string;
+  /** 印刷速度（枚/分） */
+  ppm?: number;
+  /** 備考（A3モノクロ複合機／レンタル など） */
+  note?: string;
+  /** 月額リース料（税抜） */
+  monthlyLease: number;
+  /**
+   * カウンターの区分（モノクロ／カラー…）。
+   * 「チャージ枚数」の帯（1-4000 など）も tiers で持つ。
+   */
+  lines: CurrentChargeLine[];
+  /** 最低基本料金（円/月）。カウンター計がこれを下回る月はこの額になる */
+  minCharge: number;
+  /** 月額保守料金（円/月）。カウンター計に加算する（理想科学など） */
+  maintenanceMonthly: number;
+}
+
+export interface FleetUnit {
+  id: string;
+  /** 設置場所 */
+  location: string;
+  current: FleetSide;
+  proposal: FleetSide;
+}
+
+/** 複数台の入替提案（A3ヨコの複数台比較表） */
+export interface Fleet {
+  /** この案件を複数台比較表で出すか */
+  enabled: boolean;
+  /** 印刷枚数の集計期間（見出しの括弧書き。例: 2023年-2024年印刷枚数） */
+  pagesNote?: string;
+  /** 合計金額を出す年数（既定6年） */
+  totalYears: number;
+  /** 削減効果を出す年数（既定7年） */
+  effectYears: number;
+  units: FleetUnit[];
+}
+
+/* ---------------- 複数台の計算結果 ---------------- */
+
+/** 1台の片側（現行 or 提案）の計算結果 */
+export interface FleetSideCalc {
+  monthlyLease: number;
+  lines: ChargeLineCalc[];
+  /** 控除された枚数の合計（現行側の一律控除。提案側は0） */
+  deductedPages: number;
+  /** カウンター区分の合計（税抜・最低基本料金の適用前） */
+  meteredSubtotal: number;
+  minCharge: number;
+  minChargeApplied: boolean;
+  maintenanceMonthly: number;
+  /** 請求金額（税抜） = max(カウンター計, 最低基本料金) + 月額保守料金 */
+  counterBeforeTax: number;
+  counterTax: number;
+  /** 請求金額（税込） */
+  counterTotal: number;
+}
+
+export interface FleetUnitCalc {
+  unit: FleetUnit;
+  /** 表に出す通し番号（1始まり） */
+  no: number;
+  current: FleetSideCalc;
+  proposal: FleetSideCalc;
+}
+
+/** 現行 or 提案の全台合計 */
+export interface FleetTotals {
+  /** 月額リース料の合計（税抜） */
+  leaseMonthly: number;
+  leaseTax: number;
+  /** リース料金 合計（税込） */
+  leaseTotal: number;
+  /** カウンター料金 小計（税込） */
+  counterSubtotal: number;
+  /** 合計金額（単月・税込） */
+  monthly: number;
+  yearly: number;
+  /** 合計金額（totalYears 年間） */
+  longTerm: number;
+}
+
+export interface FleetCalc {
+  units: FleetUnitCalc[];
+  current: FleetTotals;
+  proposal: FleetTotals;
+  /** 提案 − 現行（マイナスが削減） */
+  diffMonthly: number;
+  diffYearly: number;
+  /** effectYears 年間の削減額 */
+  diffLongTerm: number;
+  totalYears: number;
+  effectYears: number;
+  /** 削減率（マイナスが削減）。diffMonthly ÷ 現行の合計金額 */
+  reductionRate: number;
 }
 
 /**
@@ -518,6 +641,11 @@ export interface Quote {
   serviceArea?: { pref: string; city: string };
   current: CurrentMachine;
   proposals: Proposal[];
+  /**
+   * 複合機が複数台ある案件。
+   * enabled のときは、台数ぶんを1枚にまとめたA3ヨコの複数台比較表を出す。
+   */
+  fleet?: Fleet;
   ingest?: {
     counter: CounterReading[];
     lease: LeaseReading[];
@@ -537,6 +665,23 @@ export interface CounterBreakdown {
   /** 最低基本料金の適用有無 */
   minChargeApplied: boolean;
   total: number;
+  /**
+   * 一律控除（ミスプリント控除など）の内訳。
+   * 現行機にだけ付くもので、提案側では undefined になる。
+   */
+  deduction?: CounterDeduction;
+}
+
+/** 一律控除の内訳（控除された枚数と、控除後の請求枚数） */
+export interface CounterDeduction {
+  rate: number;
+  mono: number;
+  color: number;
+  twoColor: number;
+  /** 控除された枚数の合計 */
+  total: number;
+  /** 控除後の請求枚数 */
+  billable: { mono: number; color: number; twoColor: number };
 }
 
 /** 逓減単価の段ごとの計算結果（比較表の行になる） */
