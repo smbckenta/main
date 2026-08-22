@@ -1,18 +1,31 @@
 /**
- * 見積書番号の台帳（このスプレッドシート）を、複合機見積作成ツールから読み書きするための窓口。
+ * 見積書番号の台帳を、複合機見積作成ツールから読み書きするための窓口。
  *
- * 【設置手順】
- *  1. 台帳のスプレッドシートを開く
- *  2. 「拡張機能」→「Apps Script」
- *  3. 中身をすべて消して、このファイルの内容を貼り付ける
- *  4. 下の TOKEN を、推測されにくい合言葉に書き換えて保存
- *  5. 右上「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」
- *       次のユーザーとして実行： 自分
- *       アクセスできるユーザー： 全員
- *  6. 表示された「ウェブアプリのURL」と TOKEN を、ツールの設定画面に貼り付ける
+ * 置き方は2通り。どちらでも動きます。
+ *
+ * 【A. 単独のスクリプトとして置く（推奨）】
+ *   台帳が他の人の所有ファイルで、スクリプトをデプロイできない場合はこちら。
+ *   自分のドライブに作るので、台帳側の権限に左右されません。
+ *   （台帳への「編集者」権限は必要です）
+ *    1. https://script.google.com を開き「新しいプロジェクト」
+ *    2. 中身をすべて消して、このファイルの内容を貼り付ける
+ *    3. 下の SPREADSHEET_ID に台帳のIDを入れる（URLの /d/ と /edit の間）
+ *    4. 下の TOKEN を推測されにくい合言葉に書き換えて保存
+ *    5. 「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」
+ *         次のユーザーとして実行： 自分
+ *         アクセスできるユーザー： 全員
+ *    6. 表示された「ウェブアプリのURL」と TOKEN を、ツールの設定画面に貼り付ける
+ *
+ * 【B. 台帳に直接ぶら下げる】
+ *   台帳が自分の所有ファイルの場合はこちらでも構いません。
+ *   台帳を開いて「拡張機能」→「Apps Script」に貼り付け、
+ *   SPREADSHEET_ID は空のままにして、あとは同じ手順でデプロイします。
  *
  * ※「アクセスできるユーザー：全員」でも、TOKEN が合わない要求はすべて拒否します。
  */
+
+/** 台帳のスプレッドシートID。空のときは、このスクリプトが紐づいているシートを使う */
+var SPREADSHEET_ID = "";
 
 var TOKEN = "ここを合言葉に書き換える";
 
@@ -22,7 +35,10 @@ function doPost(e) {
     if (req.token !== TOKEN) {
       return json({ ok: false, error: "合言葉が違います" });
     }
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(req.sheetName);
+    var book = SPREADSHEET_ID
+      ? SpreadsheetApp.openById(SPREADSHEET_ID)
+      : SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = book.getSheetByName(req.sheetName);
     if (!sheet) {
       return json({ ok: false, error: "シートが見つかりません: " + req.sheetName });
     }
