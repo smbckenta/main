@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { DATA_DIR } from "./store";
+import { DATA_DIR, ensureDataDir } from "./store";
 import type { ServiceArea, ServiceAreaBook, ServiceRank } from "./types";
 
 /**
@@ -17,6 +17,7 @@ let cache: ServiceAreaBook | null = null;
 export async function getServiceAreaBook(): Promise<ServiceAreaBook | null> {
   if (cache) return cache;
   try {
+    await ensureDataDir();
     cache = JSON.parse(await fs.readFile(FILE, "utf8")) as ServiceAreaBook;
     return cache;
   } catch {

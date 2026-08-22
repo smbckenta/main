@@ -1,6 +1,6 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { DATA_DIR } from "../store";
+import { DATA_DIR, ensureDataDir } from "../store";
 
 /**
  * 写真・スキャンPDFの文字起こし（OCR）。
@@ -17,6 +17,8 @@ type TesseractWorker = Awaited<ReturnType<typeof createOcrWorker>>;
 let workerPromise: Promise<TesseractWorker> | null = null;
 
 async function createOcrWorker() {
+  // 保存先を切り替えている場合、学習データもそこへ配置してから読み込む
+  await ensureDataDir();
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker(["jpn", "eng"], 1, {
     langPath: TESSDATA_DIR,
@@ -66,6 +68,7 @@ export class OcrUnavailableError extends Error {
 /** 学習データが同梱されているか */
 export async function isOcrAvailable(): Promise<boolean> {
   try {
+    await ensureDataDir();
     await fs.access(path.join(TESSDATA_DIR, "jpn.traineddata"));
     return true;
   } catch {

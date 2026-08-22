@@ -24,8 +24,7 @@ if (-not $node) {
     Read-Host "Enter キーで閉じます"
     exit 1
 }
-$version = (& node -v)
-Show "Node.js $version を確認しました。" "Green"
+Show "Node.js $(& node -v) を確認しました。" "Green"
 
 # --- 必要な部品の取得（初回のみ・数分かかります） ---
 if (-not (Test-Path (Join-Path $app "node_modules"))) {
@@ -52,6 +51,23 @@ if (-not (Test-Path $flag)) {
         Show "PDFが必要な場合は、帳票プレビュー画面から Ctrl+P →「PDFとして保存」をご利用ください。" "Yellow"
     }
 }
+
+# --- データの保存先を決める ---
+# 既定は Googleドライブの共有フォルダ。保存先を変えたいときは
+# このフォルダに data-dir.txt を置き、1行目にフォルダのパスを書く。
+$driveRoot = "G:\共有ドライブ\★Kevin\▲0Claude\複合機見積作成ツール"
+$override = Join-Path $app "data-dir.txt"
+if (Test-Path $override) {
+    $dataDir = (Get-Content $override -Raw -Encoding UTF8).Trim()
+} elseif (Test-Path "G:\共有ドライブ") {
+    $dataDir = Join-Path $driveRoot "data"
+} else {
+    $dataDir = Join-Path $app "data"
+    Show "Googleドライブ（G:）が見つからないため、データはこのPC内に保存します。" "Yellow"
+}
+if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null }
+$env:MFP_DATA_DIR = $dataDir
+Show "データの保存先: $dataDir" "Green"
 
 # --- 使用中のポートを避ける ---
 $port = 3100

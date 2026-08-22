@@ -9,9 +9,40 @@ import { DEFAULT_SETTINGS } from "./defaults";
  * 外部DBを立てずに済み、機種DB・仕切表をGitで共有できることを優先している。
  */
 
+/** アプリに同梱しているマスタ（仕切表・機種DB・保守エリア・OCR辞書） */
+const BUNDLED_DATA_DIR = path.join(process.cwd(), "data");
+
+/**
+ * データの保存先。
+ * MFP_DATA_DIR を指定すると、案件・設定に加えてマスタもそこへ置く。
+ * Googleドライブの共有フォルダを指定すれば、複数のPCで同じデータを使える。
+ */
 export const DATA_DIR = process.env.MFP_DATA_DIR
   ? path.resolve(process.env.MFP_DATA_DIR)
-  : path.join(process.cwd(), "data");
+  : BUNDLED_DATA_DIR;
+
+/** 保存先に無いマスタを同梱データから配置する（初回のみ） */
+const SEED_ENTRIES = ["price-book.json", "devices.json", "service-areas.json", "tessdata"];
+let seedPromise: Promise<void> | null = null;
+
+export function ensureDataDir(): Promise<void> {
+  if (DATA_DIR === BUNDLED_DATA_DIR) return Promise.resolve();
+  seedPromise ??= (async () => {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    for (const entry of SEED_ENTRIES) {
+      const target = path.join(DATA_DIR, entry);
+      try {
+        await fs.access(target);
+      } catch {
+        const source = path.join(BUNDLED_DATA_DIR, entry);
+        await fs.cp(source, target, { recursive: true }).catch(() => {
+          /* 同梱データが無い場合は何もしない */
+        });
+      }
+    }
+  })();
+  return seedPromise;
+}
 
 const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
 const DEVICES_FILE = path.join(DATA_DIR, "devices.json");
@@ -19,6 +50,7 @@ const PRICEBOOK_FILE = path.join(DATA_DIR, "price-book.json");
 const QUOTES_DIR = path.join(DATA_DIR, "quotes");
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
+  await ensureDataDir();
   try {
     return JSON.parse(await fs.readFile(file, "utf8")) as T;
   } catch (err) {
@@ -29,6 +61,7 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
 
 /** 書き込み途中で壊れないよう一時ファイル経由で置き換える */
 async function writeJson(file: string, data: unknown): Promise<void> {
+  await ensureDataDir();
   await fs.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
@@ -150,6 +183,7 @@ export async function deleteDevice(id: string): Promise<void> {
 /* ---------------- 案件 ---------------- */
 
 export async function listQuotes(): Promise<Quote[]> {
+  await ensureDataDir();
   await fs.mkdir(QUOTES_DIR, { recursive: true });
   const files = (await fs.readdir(QUOTES_DIR)).filter((f) => f.endsWith(".json"));
   const quotes = await Promise.all(
