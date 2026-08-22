@@ -354,6 +354,11 @@ export interface CounterReading {
   twoColorUnit?: number;
   /** 明細上の請求額（税抜） */
   amount?: number;
+  /**
+   * 段階単価（パフォーマンスチャージ）の内訳。
+   * 「1-1000／月 3.0円」のように単価が逓減する明細で埋まる。
+   */
+  chargeLines?: CurrentChargeLine[];
   confidence: number;
   evidence?: string[];
 }
@@ -387,6 +392,40 @@ export interface CounterUnits {
   minCharge: number;
 }
 
+/**
+ * 逓減単価（パフォーマンスチャージ）の1段。
+ * 「1-1000／月 3.0円」「1001-2000／月 2.6円」のように、
+ * 1ヶ月あたりの枚数の帯ごとに単価が決まる。
+ */
+export interface ChargeTier {
+  /** 帯の下限（枚・以上） */
+  from: number;
+  /** 帯の上限（枚・以下）。null は上限なし */
+  to: number | null;
+  /** 単価（円/枚） */
+  unit: number;
+}
+
+/**
+ * 現行機のカウンター区分1行。
+ * 明細の区分（モノクロ／フルカラーコピー／フルカラープリント…）をそのまま持ち、
+ * 比較表ではこの行数ぶんだけ行を増やして内訳を見せる。
+ */
+export interface CurrentChargeLine {
+  /** 明細に書かれている区分名 */
+  name: string;
+  /** 提案側のどの単価と比べる区分か */
+  kind: "mono" | "color" | "twoColor" | "other";
+  /** 月間カウント（控除前） */
+  pages: number;
+  /** 控除率（0.02 = 2%）。控除カウントは切り上げる */
+  deductionRate?: number;
+  /** 段階単価。1段だけなら一律単価 */
+  tiers: ChargeTier[];
+  /** 明細に書かれている金額（税抜）。検算に使う */
+  amount?: number;
+}
+
 /** 現行機の状況 */
 export interface CurrentMachine {
   makerText: string;
@@ -403,6 +442,11 @@ export interface CurrentMachine {
   monoPages: number;
   colorPages: number;
   twoColorPages: number;
+  /**
+   * カウンター料金の内訳（逓減単価の明細を読み取った場合）。
+   * これがある場合は、こちらを正としてカウンター請求額を計算する。
+   */
+  chargeLines?: CurrentChargeLine[];
   /**
    * 枚数の集計期間。
    * カウンター明細を複数月分読み込んだ場合、月間枚数はこの期間の平均になる。
@@ -495,10 +539,38 @@ export interface CounterBreakdown {
   total: number;
 }
 
+/** 逓減単価の段ごとの計算結果（比較表の行になる） */
+export interface ChargeBandCalc {
+  label: string;
+  pages: number;
+  unit: number;
+  amount: number;
+}
+
+/** カウンター区分1行の計算結果 */
+export interface ChargeLineCalc {
+  name: string;
+  kind: CurrentChargeLine["kind"];
+  /** 控除前のカウント */
+  pages: number;
+  /** 控除カウント（切り上げ） */
+  deduction: number;
+  /** 請求カウント */
+  billablePages: number;
+  bands: ChargeBandCalc[];
+  amount: number;
+  /** 実効単価 = 金額 ÷ 控除前カウント（提案の一律単価と比べる用） */
+  effectiveUnit: number;
+  /** 明細の金額と計算が合わない場合の差額（円）。0なら一致 */
+  amountDiff?: number;
+}
+
 export interface CurrentCalc {
   monthlyLease: number;
   counter: CounterBreakdown;
   maintenanceMonthly: number;
+  /** カウンター料金の内訳（逓減単価の明細を読み取った場合） */
+  chargeLines?: ChargeLineCalc[];
   /** ランニングコスト（税抜） */
   running: number;
   tax: number;

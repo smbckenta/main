@@ -9,6 +9,31 @@ Set-Location $app
 
 function Show($text, $color = "White") { Write-Host $text -ForegroundColor $color }
 
+# 何が起きたか後から追えるよう、画面の内容をファイルにも残す
+$log = Join-Path $app "start-log.txt"
+try { Start-Transcript -Path $log -Force | Out-Null } catch { }
+
+# 途中で失敗しても、原因が読めるように画面を閉じない
+function Fail($text) {
+    Show ""
+    Show $text "Red"
+    Show "この画面の内容（と start-log.txt）を担当者にお送りください。" "Yellow"
+    try { Stop-Transcript | Out-Null } catch { }
+    Read-Host "Enter キーで閉じます"
+    exit 1
+}
+
+# 想定外のエラーで画面が一瞬で閉じないよう、ここで受け止める
+trap {
+    Show ""
+    Show "予期しないエラーが発生しました。" "Red"
+    Show $_.Exception.Message "Red"
+    Show "この画面の内容（と start-log.txt）を担当者にお送りください。" "Yellow"
+    try { Stop-Transcript | Out-Null } catch { }
+    Read-Host "Enter キーで閉じます"
+    exit 1
+}
+
 Show "=== 複合機 見積・比較表作成ツール ===" "Cyan"
 Show ""
 
@@ -26,16 +51,32 @@ if (-not $node) {
 }
 Show "Node.js $(& node -v) を確認しました。" "Green"
 
-# --- 必要な部品の取得（初回のみ・数分かかります） ---
-if (-not (Test-Path (Join-Path $app "node_modules"))) {
+# --- 必要な部品の取得 ---
+# 新しい版に入れ替えると必要な部品が増えることがある。
+# node_modules があるだけでは足りないので、package-lock.json より
+# 取得記録（スタンプ）が古い場合は入れ直す。
+$modules = Join-Path $app "node_modules"
+$lock    = Join-Path $app "package-lock.json"
+$stamp   = Join-Path $modules ".mfp-install-stamp"
+
+$needInstall = $false
+if (-not (Test-Path $modules)) {
+    $needInstall = $true
+} elseif (-not (Test-Path $stamp)) {
+    $needInstall = $true
+} elseif ((Test-Path $lock) -and ((Get-Item $lock).LastWriteTime -gt (Get-Item $stamp).LastWriteTime)) {
+    $needInstall = $true
+}
+
+if ($needInstall) {
     Show ""
-    Show "初回セットアップ中です。数分かかります…（npm install）" "Yellow"
+    Show "必要な部品を取得しています。数分かかります…（npm install）" "Yellow"
     & npm install --no-audit --no-fund
     if ($LASTEXITCODE -ne 0) {
-        Show "セットアップに失敗しました。この画面のメッセージを担当者にお送りください。" "Red"
-        Read-Host "Enter キーで閉じます"
-        exit 1
+        Fail "部品の取得（npm install）に失敗しました。"
     }
+    Set-Content -Path $stamp -Value (Get-Date -Format o) -Encoding UTF8
+    Show "部品の取得が終わりました。" "Green"
 }
 
 # --- PDF出力に使う Chromium（初回のみ・失敗しても続行） ---
@@ -95,8 +136,21 @@ if (Test-Path $keyFile) {
 }
 
 # --- 使用中のポートを避ける ---
+# Test-NetConnection は1回に数秒かかるため、TCP接続を直接試して素早く判定する
+function Test-PortBusy($p) {
+    $client = New-Object Net.Sockets.TcpClient
+    try {
+        $client.Connect("127.0.0.1", $p)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
+
 $port = 3100
-while ((Test-NetConnection -ComputerName "localhost" -Port $port -InformationLevel Quiet -WarningAction SilentlyContinue) -and $port -lt 3110) {
+while ((Test-PortBusy $port) -and $port -lt 3110) {
     $port++
 }
 
@@ -117,4 +171,12 @@ Start-Job -ScriptBlock {
     }
 } -ArgumentList $port | Out-Null
 
+$startedAt = Get-Date
 & npx next dev -p $port
+
+# すぐに終了した場合は起動失敗とみなす（Ctrl+C で止めた場合と区別する）
+$ranSeconds = ((Get-Date) - $startedAt).TotalSeconds
+if ($LASTEXITCODE -ne 0 -and $ranSeconds -lt 20) {
+    Fail "起動に失敗しました（終了コード $LASTEXITCODE）。"
+}
+try { Stop-Transcript | Out-Null } catch { }

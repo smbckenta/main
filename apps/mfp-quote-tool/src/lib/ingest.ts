@@ -12,7 +12,7 @@ import { looksLikeSchedule, parseSchedule } from "./parse/schedule";
 import { detectMaker, extractModelCandidates } from "./parse/normalize";
 import { getSettings } from "./store";
 import type { DocRole } from "./doc-roles";
-import type { CounterReading, CurrentMachine, LeaseReading, Maker } from "./types";
+import type { CounterReading, CurrentChargeLine, CurrentMachine, LeaseReading, Maker } from "./types";
 import { MAKER_LABELS } from "./types";
 
 export type { DocRole } from "./doc-roles";
@@ -111,6 +111,32 @@ function parseWithRules(
       out.warnings.push(`${doc.name}: カウンター明細として読み取れる行が見つかりませんでした。`);
     }
   }
+}
+
+/**
+ * 段階単価（パフォーマンスチャージ）の内訳をまとめる。
+ *
+ * 1ヶ月分だけなら明細どおりに使う（金額も残して検算できるようにする）。
+ * 複数月ぶんある場合は、区分ごとに枚数を平均して代表的な1ヶ月分に直す。
+ * 単価の帯と控除率は最新の明細のものを使い、金額は平均後の枚数と合わなくなるので落とす。
+ */
+export function mergeChargeLines(readings: CounterReading[]): CurrentChargeLine[] | undefined {
+  const withLines = readings.filter((r) => r.chargeLines?.length);
+  if (!withLines.length) return undefined;
+
+  const sorted = [...withLines].sort((a, b) =>
+    (a.periodTo ?? a.periodFrom ?? "").localeCompare(b.periodTo ?? b.periodFrom ?? ""),
+  );
+  const latest = sorted[sorted.length - 1].chargeLines!;
+  if (sorted.length === 1) return latest;
+
+  return latest.map((line) => {
+    const samples = sorted
+      .map((r) => r.chargeLines?.find((l) => l.name === line.name))
+      .filter((l): l is CurrentChargeLine => Boolean(l));
+    const pages = Math.round(samples.reduce((sum, l) => sum + l.pages, 0) / samples.length);
+    return { ...line, pages, amount: undefined };
+  });
 }
 
 /** アップロードされた資料をまとめて解析し、現行機情報を組み立てる */
@@ -229,6 +255,7 @@ export async function ingestDocuments(
     leaseStart: bestLease?.startDate,
     leaseEnd: bestLease?.endDate,
     remainingDebt: bestLease?.remainingDebt,
+    chargeLines: mergeChargeLines(counterReadings),
     monoPages: monthly.monoPages,
     colorPages: monthly.colorPages,
     twoColorPages: monthly.twoColorPages,

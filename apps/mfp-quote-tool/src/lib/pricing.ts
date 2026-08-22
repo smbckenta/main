@@ -1,8 +1,10 @@
 import type {
+  ChargeLineCalc,
   CounterBreakdown,
   CounterTier,
   CounterUnits,
   CurrentCalc,
+  CurrentChargeLine,
   DeviceSpec,
   Maker,
   MakerNote,
@@ -142,20 +144,104 @@ export function calcCounter(
   };
 }
 
+/**
+ * 逓減単価（パフォーマンスチャージ）の1区分を計算する。
+ *
+ * 明細と1円まで合わせるため、次の順番と丸め方に従う。
+ *   1. 控除カウント = カウント × 控除率（切り上げ）
+ *   2. 請求カウント = カウント − 控除カウント
+ *   3. 段は上の帯から順に埋め、帯ごとに金額を出して小数を切り捨てる
+ * 先に合計してから丸めると、明細と1円ずれる。
+ */
+export function calcChargeLine(line: CurrentChargeLine): ChargeLineCalc {
+  const pages = Math.max(0, Math.round(line.pages));
+  const deduction = line.deductionRate ? Math.ceil(pages * line.deductionRate) : 0;
+  const billablePages = Math.max(0, pages - deduction);
+
+  const tiers = [...line.tiers].sort((a, b) => a.from - b.from);
+  const bands: ChargeLineCalc["bands"] = [];
+  let remaining = billablePages;
+  let amount = 0;
+
+  for (const tier of tiers) {
+    if (remaining <= 0) break;
+    // 帯の幅（上限なしの帯は残り全部）
+    const width = tier.to === null ? remaining : Math.max(0, tier.to - tier.from + 1);
+    const take = Math.min(remaining, width);
+    if (take <= 0) continue;
+    const bandAmount = Math.floor(take * tier.unit);
+    bands.push({
+      label: tier.to === null ? `${tier.from.toLocaleString()}枚〜` : `${tier.from.toLocaleString()}〜${tier.to.toLocaleString()}枚`,
+      pages: take,
+      unit: tier.unit,
+      amount: bandAmount,
+    });
+    amount += bandAmount;
+    remaining -= take;
+  }
+
+  // 帯を使い切ってもまだ残る場合は、最後の帯の単価で計算する
+  if (remaining > 0 && tiers.length) {
+    const last = tiers[tiers.length - 1];
+    const bandAmount = Math.floor(remaining * last.unit);
+    bands.push({ label: `${last.from.toLocaleString()}枚〜`, pages: remaining, unit: last.unit, amount: bandAmount });
+    amount += bandAmount;
+  }
+
+  const effectiveUnit = pages > 0 ? Math.round((amount / pages) * 100) / 100 : 0;
+  const amountDiff = line.amount !== undefined ? amount - line.amount : undefined;
+
+  return {
+    name: line.name,
+    kind: line.kind,
+    pages,
+    deduction,
+    billablePages,
+    bands,
+    amount,
+    effectiveUnit,
+    amountDiff,
+  };
+}
+
+export function calcChargeLines(lines: CurrentChargeLine[]): ChargeLineCalc[] {
+  return lines.map(calcChargeLine);
+}
+
 /** 現行機の月間経費 */
 export function calcCurrent(quote: Quote, taxRate: number): CurrentCalc {
   const c = quote.current;
-  const counter = calcCounter(c.units, c);
+  // 逓減単価の明細を読み取っている場合は、そちらを正としてカウンター請求額を出す
+  const chargeLines = c.chargeLines?.length ? calcChargeLines(c.chargeLines) : undefined;
+  const counter = chargeLines ? chargeBreakdown(chargeLines, c.units) : calcCounter(c.units, c);
   const running = c.monthlyLease + counter.total + c.maintenanceMonthly;
   const tax = Math.round(running * taxRate);
   return {
     monthlyLease: c.monthlyLease,
     counter,
+    chargeLines,
     maintenanceMonthly: c.maintenanceMonthly,
     running: Math.round(running),
     tax,
     monthlyTotal: Math.round(running + tax),
-    totalPages: c.monoPages + c.colorPages + c.twoColorPages,
+    totalPages: chargeLines
+      ? chargeLines.reduce((sum, l) => sum + l.pages, 0)
+      : c.monoPages + c.colorPages + c.twoColorPages,
+  };
+}
+
+/** 逓減単価の行から、従来どおりの3区分の内訳にまとめ直す */
+function chargeBreakdown(lines: ChargeLineCalc[], units: CounterUnits): CounterBreakdown {
+  const sumOf = (kind: ChargeLineCalc["kind"]) =>
+    lines.filter((l) => l.kind === kind).reduce((sum, l) => sum + l.amount, 0);
+  const sum = lines.reduce((total, l) => total + l.amount, 0);
+  const minChargeApplied = units.minCharge > 0 && sum < units.minCharge;
+  return {
+    monoAmount: sumOf("mono"),
+    colorAmount: sumOf("color") + sumOf("other"),
+    twoColorAmount: sumOf("twoColor"),
+    minChargeApplied,
+    total: Math.round(minChargeApplied ? units.minCharge : sum),
   };
 }
 

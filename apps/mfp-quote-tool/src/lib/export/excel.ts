@@ -385,9 +385,49 @@ function addCompareBlock(
       { border: true, numFmt: YEN, align: [undefined, "right", "right", "right"] },
     );
   };
-  counterRow("　　ブラック", cm.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount);
-  counterRow("　　フルカラー", cm.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount);
-  counterRow("　　2色カラー", cm.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount);
+  if (current.chargeLines?.length) {
+    // 逓減単価（段階単価）の明細は、区分ごと・段ごとに行を増やして内訳を見せる
+    const shown = new Set<string>();
+    for (const line of current.chargeLines) {
+      const first = !shown.has(line.kind);
+      shown.add(line.kind);
+      const rightUnit =
+        line.kind === "mono" ? calc.units.mono : line.kind === "twoColor" ? calc.units.twoColor : calc.units.color;
+      const rightAmount =
+        line.kind === "mono"
+          ? calc.counter.monoAmount
+          : line.kind === "twoColor"
+            ? calc.counter.twoColorAmount
+            : calc.counter.colorAmount;
+      putRow(
+        sheet,
+        r++,
+        [
+          `　　${line.name}（${line.pages.toLocaleString("ja-JP")}枚${
+            line.deduction > 0 ? ` 控除${line.deduction.toLocaleString("ja-JP")}枚` : ""
+          } 実効${line.effectiveUnit}円）`,
+          line.amount,
+          first ? `単価：${rightUnit}円　${rightAmount.toLocaleString("ja-JP")}` : "",
+          "",
+        ],
+        { border: true, numFmt: YEN, align: [undefined, "right", "right", "right"] },
+      );
+      if (line.bands.length > 1) {
+        for (const band of line.bands) {
+          putRow(
+            sheet,
+            r++,
+            [`　　　${band.label}　${band.unit}円`, `${band.pages.toLocaleString("ja-JP")}枚　${band.amount.toLocaleString("ja-JP")}`, "", ""],
+            { border: true, align: [undefined, "right"] },
+          );
+        }
+      }
+    }
+  } else {
+    counterRow("　　ブラック", cm.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount);
+    counterRow("　　フルカラー", cm.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount);
+    counterRow("　　2色カラー", cm.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount);
+  }
 
   putRow(sheet, r++, ["　　最低基本料金", cm.units.minCharge, calc.units.minCharge, ""], {
     border: true,

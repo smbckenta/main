@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CounterReading, LeaseReading } from "../types";
+import type { CounterReading, CurrentChargeLine, LeaseReading } from "../types";
 
 /**
  * AI（Claude）に書類を読み取らせるときの出力形式と、その結果を
@@ -16,6 +16,25 @@ const text = (description: string) => z.string().nullable().describe(description
 const num = (description: string) => z.number().nullable().describe(description);
 const lines = (description: string) => z.array(z.string()).describe(description);
 
+/** 逓減単価（パフォーマンスチャージ）の1段 */
+const AiChargeTierSchema = z.object({
+  from: z.number().describe("この帯の下限枚数（1ヶ月あたり）"),
+  to: num("この帯の上限枚数。上限なしは null"),
+  unit: z.number().describe("この帯の単価（円/枚）"),
+});
+
+/** 明細の区分1行（モノクロ／フルカラーコピー／フルカラープリント など） */
+const AiChargeLineSchema = z.object({
+  name: z.string().describe("明細に書かれている区分名（例: モノカラー総出力、フルカラープリント）"),
+  kind: z
+    .enum(["mono", "color", "twoColor", "other"])
+    .describe("モノクロ=mono / フルカラー=color / 2色カラー=twoColor / それ以外=other"),
+  pages: z.number().describe("この区分の月間カウント（控除前）"),
+  deductionPercent: num("控除率（%）。「控除 3%の控除カウント」なら 3。無ければ null"),
+  tiers: z.array(AiChargeTierSchema).describe("段階単価。一律単価なら1段だけ入れる"),
+  amount: num("明細に書かれているこの区分の金額（円・税抜）"),
+});
+
 export const AiCounterSchema = z.object({
   periodFrom: text("この明細の対象期間の開始日（YYYY-MM-DD）"),
   periodTo: text("この明細の対象期間の終了日（YYYY-MM-DD）"),
@@ -28,6 +47,9 @@ export const AiCounterSchema = z.object({
   colorUnit: num("フルカラーのカウンター単価（円・税抜）"),
   twoColorUnit: num("2色カラーのカウンター単価（円・税抜）"),
   amount: num("この期間のカウンター料金合計（円・税抜）"),
+  chargeLines: z
+    .array(AiChargeLineSchema)
+    .describe("段階単価（パフォーマンスチャージ）の明細。段や控除が無い明細では空配列にする"),
   evidence: lines("根拠になった書類上の行"),
 });
 
@@ -116,6 +138,34 @@ export function toLeaseReading(doc: AiDocument): LeaseReading | undefined {
   return hasValue ? reading : undefined;
 }
 
+/** AIが読んだ段階単価の明細を、計算に使える形に直す */
+function toChargeLines(
+  input: AiDocument["counters"][number]["chargeLines"],
+): CurrentChargeLine[] | undefined {
+  const out: CurrentChargeLine[] = [];
+  for (const line of input ?? []) {
+    const pages = pages_(line.pages);
+    const tiers = (line.tiers ?? [])
+      .filter((t) => t.unit > 0 && t.from >= 0)
+      .map((t) => ({ from: Math.round(t.from), to: t.to === null ? null : Math.round(t.to), unit: t.unit }))
+      .sort((a, b) => a.from - b.from);
+    if (pages === undefined || !tiers.length || !line.name?.trim()) continue;
+    const percent = line.deductionPercent;
+    out.push({
+      name: line.name.trim(),
+      kind: line.kind,
+      pages,
+      // 控除率は「3」（%）で来る。0〜20%の範囲だけ採用する
+      deductionRate: percent !== null && percent > 0 && percent <= 20 ? percent / 100 : undefined,
+      tiers,
+      amount: positive(line.amount),
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+const pages_ = pages;
+
 export function toCounterReadings(doc: AiDocument): CounterReading[] {
   const out: CounterReading[] = [];
   for (const c of doc.counters) {
@@ -131,6 +181,7 @@ export function toCounterReadings(doc: AiDocument): CounterReading[] {
       colorUnit: positive(c.colorUnit, 100),
       twoColorUnit: positive(c.twoColorUnit, 100),
       amount: positive(c.amount),
+      chargeLines: toChargeLines(c.chargeLines),
       confidence: 0.9,
       evidence: c.evidence.filter(Boolean).slice(0, 20),
     };
@@ -139,7 +190,8 @@ export function toCounterReadings(doc: AiDocument): CounterReading[] {
       reading.monoPages === undefined &&
       reading.colorPages === undefined &&
       reading.twoColorPages === undefined &&
-      reading.amount === undefined
+      reading.amount === undefined &&
+      !reading.chargeLines
     ) {
       continue;
     }

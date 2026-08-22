@@ -480,6 +480,62 @@ export default function QuoteEditor({
           </Field>
         </div>
 
+        {current.chargeLines?.length && (
+          <>
+            <h3>カウンター料金の内訳（段階単価の明細）</h3>
+            <p className="muted">
+              印刷枚数に応じて単価が下がる明細（パフォーマンスチャージ）を読み取りました。
+              上の「単価」欄ではなく、この内訳で現行のカウンター請求額を計算します。
+              比較表にもこの区分ごとに行を出します。
+            </p>
+            <table style={{ maxWidth: 760 }}>
+              <thead>
+                <tr>
+                  <th>区分</th>
+                  <th className="num">枚数</th>
+                  <th className="num">控除</th>
+                  <th>段階単価</th>
+                  <th className="num">金額</th>
+                  <th className="num">実効単価</th>
+                </tr>
+              </thead>
+              <tbody>
+                {current.chargeLines.map((line) => (
+                  <tr key={line.name}>
+                    <td>{line.name}</td>
+                    <td className="num">{line.pages.toLocaleString()}</td>
+                    <td className="num">{line.deduction ? `▲${line.deduction}` : "－"}</td>
+                    <td className="muted">
+                      {line.bands
+                        .map((b) => `${b.label} ${b.unit}円 × ${b.pages.toLocaleString()}枚 = ${b.amount.toLocaleString()}円`)
+                        .join(" ／ ")}
+                    </td>
+                    <td className="num">{yen(line.amount)}</td>
+                    <td className="num">{line.effectiveUnit}円</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {current.chargeLines.some((l) => l.amountDiff) && (
+              <p className="warn">
+                明細に書かれた金額と計算が一致しない区分があります（
+                {current.chargeLines
+                  .filter((l) => l.amountDiff)
+                  .map((l) => `${l.name}：${l.amountDiff! > 0 ? "+" : ""}${l.amountDiff}円`)
+                  .join("、")}
+                ）。単価の段や控除率を原本と照合してください。
+              </p>
+            )}
+            <button
+              className="secondary"
+              style={{ marginTop: 8 }}
+              onClick={() => patchCurrent({ chargeLines: undefined })}
+            >
+              この内訳を使わない（上の単価×枚数で計算する）
+            </button>
+          </>
+        )}
+
         <table style={{ marginTop: 12, maxWidth: 560 }}>
           <tbody>
             <tr><th>月間総印刷枚数</th><td className="num">{totalPages.toLocaleString()} 枚</td></tr>

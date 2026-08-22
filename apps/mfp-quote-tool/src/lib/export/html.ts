@@ -1,4 +1,4 @@
-import type { CurrentCalc, ProposalCalc, Quote, Settings } from "../types";
+import type { ChargeLineCalc, CurrentCalc, ProposalCalc, Quote, Settings } from "../types";
 import { yen } from "../pricing";
 import { pagesAverageNote } from "../labels";
 
@@ -406,6 +406,61 @@ function makerJp(maker: string): string {
   return map[maker] ?? maker;
 }
 
+/**
+ * 逓減単価の明細を、比較表の行に展開する。
+ *
+ * 現状側は「区分 → 段」の順に行を立て、提案側は一律単価なので
+ * その区分の先頭行にだけ金額を出す。左右で行数が揃わなくてよい。
+ */
+function tieredCounterRows(lines: ChargeLineCalc[], calc: ProposalCalc): string {
+  const unitOf = (kind: ChargeLineCalc["kind"]): number =>
+    kind === "mono" ? calc.units.mono : kind === "twoColor" ? calc.units.twoColor : calc.units.color;
+  const amountOf = (kind: ChargeLineCalc["kind"]): number =>
+    kind === "mono"
+      ? calc.counter.monoAmount
+      : kind === "twoColor"
+        ? calc.counter.twoColorAmount
+        : calc.counter.colorAmount;
+
+  // 提案側の金額は区分ごとに1回だけ出す（フルカラーが2区分に分かれていても二重に出さない）
+  const shown = new Set<string>();
+
+  return lines
+    .map((line) => {
+      const first = !shown.has(line.kind);
+      shown.add(line.kind);
+      const right = first
+        ? `<td class="num">単価：${unitYen(unitOf(line.kind))}　${n(amountOf(line.kind))}</td>`
+        : `<td></td>`;
+
+      const head = `<tr>
+        <th style="text-align:left">${esc(line.name)}<br><span class="small muted">${n(line.pages)}枚${
+          line.deduction > 0 ? `（控除 ${n(line.deduction)}枚）` : ""
+        }　実効 ${unitYen(line.effectiveUnit)}</span></th>
+        <td class="num">${n(line.amount)}</td>
+        ${right}
+        <td></td>
+      </tr>`;
+
+      // 段が2つ以上ある区分だけ、内訳の行を足す
+      const bands =
+        line.bands.length > 1
+          ? line.bands
+              .map(
+                (b) => `<tr>
+        <th style="text-align:left;font-weight:400">　${esc(b.label)}　${unitYen(b.unit)}</th>
+        <td class="num muted">${n(b.pages)}枚　${n(b.amount)}</td>
+        <td></td><td></td>
+      </tr>`,
+              )
+              .join("")
+          : "";
+
+      return head + bands;
+    })
+    .join("");
+}
+
 /** 比較表（現状 vs 1提案）— 既存Excelの比較表と同じ並び */
 export function renderCompareHtml(
   quote: Quote,
@@ -447,6 +502,18 @@ export function renderCompareHtml(
   const diff = (v: number) =>
     v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
 
+  /**
+   * カウンターの行。
+   * 逓減単価（段階単価）の明細を読み取っている場合は、
+   * 区分ごと・段ごとに行を増やして内訳をそのまま見せる。
+   * 一律単価に均してしまうと「なぜこの金額か」を説明できなくなるため。
+   */
+  const counterRows = current.chargeLines?.length
+    ? tieredCounterRows(current.chargeLines, calc)
+    : `${counterRow("ブラック", c.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount)}
+      ${counterRow("フルカラー", c.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount)}
+      ${counterRow("2色カラー", c.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount)}`;
+
   const body = `
   ${brandBar(settings, logo, quote, calc.proposal.quoteNo)}
   <h2>比 較 表</h2>
@@ -484,9 +551,7 @@ export function renderCompareHtml(
         <td class="num">${n(calc.monthlyLease)}</td>
         <td class="num">${diff(calc.monthlyLease - current.monthlyLease)}</td>
       </tr>
-      ${counterRow("ブラック", c.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount)}
-      ${counterRow("フルカラー", c.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount)}
-      ${counterRow("2色カラー", c.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount)}
+      ${counterRows}
       <tr>
         <th style="text-align:left">最低基本料金</th>
         <td class="num">${n(c.units.minCharge)}</td>
