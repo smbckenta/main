@@ -1,0 +1,13 @@
+node_modules/
+dist/
+
+# 認証情報。絶対にコミットしない
+.env
+.env.*
+!.env.example
+sa-key.json
+*-key.json
+*.pem
+
+*.log
+.DS_Store
