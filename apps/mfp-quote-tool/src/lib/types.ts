@@ -275,6 +275,8 @@ export interface LeaseReading {
   modelText?: string;
   /** 残回数 */
   remainingTerm?: number;
+  /** 残債（未経過リース料）。支払予定表から読み取る */
+  remainingDebt?: number;
   confidence: number;
   evidence?: string[];
 }
@@ -299,6 +301,8 @@ export interface CurrentMachine {
   leaseTerm?: number;
   leaseStart?: string;
   leaseEnd?: string;
+  /** 残債（未経過リース料）。支払予定表から読み取る */
+  remainingDebt?: number;
   /** 月間印刷枚数 */
   monoPages: number;
   colorPages: number;
@@ -311,11 +315,12 @@ export interface CurrentMachine {
 
 /**
  * 販売額の決め方
+ *  fromGp     : 仕切価格に粗利額（GP）を加える（本体価格 = 仕切 + GP）
  *  fromLease  : 目標の月額リース料から販売額を逆算（既存Excelと同じ運用）
  *  fromMargin : 仕切価格に粗利率を乗せる
  *  fromPrice  : 販売額計を直接入力
  */
-export type PricingMode = "fromLease" | "fromMargin" | "fromPrice";
+export type PricingMode = "fromGp" | "fromLease" | "fromMargin" | "fromPrice";
 
 export interface Proposal {
   id: string;
@@ -329,6 +334,8 @@ export interface Proposal {
   /** 仕切価格合計（未指定なら仕切表から） */
   cost?: number;
   pricingMode: PricingMode;
+  /** fromGp: 上乗せする粗利額（GP・円） */
+  grossProfitAmount?: number;
   /** fromLease: 目標月額リース料 */
   targetMonthlyLease?: number;
   /** fromMargin: 粗利率 */

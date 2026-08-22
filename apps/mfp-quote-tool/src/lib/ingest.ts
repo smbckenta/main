@@ -1,16 +1,22 @@
 import { extractDocument } from "./parse/extract";
 import { parseCounter, toMonthlyAverage } from "./parse/counter";
 import { parseLease } from "./parse/lease";
+import { looksLikeSchedule, parseSchedule } from "./parse/schedule";
 import { detectMaker, extractModelCandidates } from "./parse/normalize";
+import type { DocRole } from "./doc-roles";
 import type { CounterReading, CurrentMachine, LeaseReading, Maker } from "./types";
 import { MAKER_LABELS } from "./types";
 
-export type DocRole = "lease" | "counter" | "unknown";
+export type { DocRole } from "./doc-roles";
 
 export interface IngestedFile {
   name: string;
   kind: string;
   role: DocRole;
+  /** 写真・スキャンPDFをOCRで読み取ったか */
+  ocrUsed?: boolean;
+  /** 読み取れたテキスト行数（確認用） */
+  lineCount: number;
   parsedAt: string;
 }
 
@@ -30,12 +36,34 @@ const LEASE_HINTS = /(リース|賃貸借|物件|月額リース料|支払回数
 const COUNTER_HINTS = /(カウンター|検針|印刷枚数|使用枚数|モノクロ|フルカラー|指針|明細)/;
 
 /** 書類の種類を推定する */
-function classify(text: string, fileName: string): DocRole {
-  const target = `${fileName}\n${text}`;
+function classify(doc: { text: string }, fileName: string): DocRole {
+  const target = `${fileName}\n${doc.text}`;
+  if (/(支払予定表|返済予定表|償還予定表|支払明細表)/.test(target)) return "schedule";
   const leaseScore = (target.match(new RegExp(LEASE_HINTS, "g")) ?? []).length;
   const counterScore = (target.match(new RegExp(COUNTER_HINTS, "g")) ?? []).length;
   if (leaseScore === 0 && counterScore === 0) return "unknown";
   return leaseScore > counterScore ? "lease" : "counter";
+}
+
+/**
+ * 契約書と支払予定表など、複数の書類から読めた項目を1つにまとめる。
+ * 同じ項目は確度の高い書類の値を優先し、片方にしか無い項目は補い合う。
+ */
+function mergeLeaseReadings(readings: LeaseReading[]): LeaseReading | undefined {
+  if (!readings.length) return undefined;
+  const sorted = [...readings].sort((a, b) => b.confidence - a.confidence);
+  const merged: LeaseReading = { ...sorted[0] };
+  for (const r of sorted.slice(1)) {
+    for (const key of Object.keys(r) as (keyof LeaseReading)[]) {
+      if (key === "confidence" || key === "evidence") continue;
+      if (merged[key] === undefined || merged[key] === "") {
+        (merged as unknown as Record<string, unknown>)[key] = r[key];
+      }
+    }
+    merged.evidence = [...(merged.evidence ?? []), ...(r.evidence ?? [])];
+  }
+  merged.confidence = Math.max(...readings.map((r) => r.confidence));
+  return merged;
 }
 
 /** アップロードされた資料をまとめて解析し、現行機情報を組み立てる */
@@ -53,8 +81,15 @@ export async function ingestDocuments(
     const doc = await extractDocument(input.name, input.buffer, input.mime);
     warnings.push(...doc.warnings);
 
-    const role = input.role && input.role !== "unknown" ? input.role : classify(doc.text, input.name);
-    files.push({ name: doc.name, kind: doc.kind, role, parsedAt: new Date().toISOString() });
+    const role = input.role && input.role !== "unknown" ? input.role : classify(doc, input.name);
+    files.push({
+      name: doc.name,
+      kind: doc.kind,
+      role,
+      ocrUsed: doc.ocrUsed,
+      lineCount: doc.lines.length,
+      parsedAt: new Date().toISOString(),
+    });
 
     if (!doc.lines.length) continue;
 
@@ -63,6 +98,13 @@ export async function ingestDocuments(
     }
     makerGuess ??= detectMaker(doc.text);
 
+    if (role === "schedule" || ((role === "lease" || role === "unknown") && looksLikeSchedule(doc))) {
+      const schedule = parseSchedule(doc);
+      if (schedule) leaseReadings.push(schedule);
+      else if (role === "schedule") {
+        warnings.push(`${doc.name}: 支払予定表として読み取れる表が見つかりませんでした。`);
+      }
+    }
     if (role === "lease" || role === "unknown") {
       const lease = parseLease(doc);
       if (lease) leaseReadings.push(lease);
@@ -77,7 +119,7 @@ export async function ingestDocuments(
   }
 
   const monthly = toMonthlyAverage(counterReadings);
-  const bestLease = leaseReadings.sort((a, b) => b.confidence - a.confidence)[0];
+  const bestLease = mergeLeaseReadings(leaseReadings);
 
   const modelText =
     counterReadings.find((r) => r.modelText)?.modelText ??
@@ -92,6 +134,7 @@ export async function ingestDocuments(
     leaseTerm: bestLease?.term,
     leaseStart: bestLease?.startDate,
     leaseEnd: bestLease?.endDate,
+    remainingDebt: bestLease?.remainingDebt,
     monoPages: monthly.monoPages,
     colorPages: monthly.colorPages,
     twoColorPages: monthly.twoColorPages,
@@ -104,7 +147,8 @@ export async function ingestDocuments(
     maintenanceMonthly: 0,
   };
 
-  if (!bestLease) warnings.push("リース契約書から契約条件を読み取れませんでした。手入力してください。");
+  if (!bestLease)
+    warnings.push("リース契約書・支払予定表から契約条件を読み取れませんでした。手入力してください。");
   if (!counterReadings.length)
     warnings.push("印刷明細から枚数を読み取れませんでした。手入力してください。");
 

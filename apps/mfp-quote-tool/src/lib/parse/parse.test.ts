@@ -139,3 +139,24 @@ describe("リース契約書の読み取り", () => {
     expect(parseLease(doc(["納品書", "商品 コピー用紙 A4 10箱"]))).toBeNull();
   });
 });
+
+describe("重複した明細の扱い", () => {
+  it("同じ明細を写真とPDFの両方で渡しても枚数を二重計上しない", () => {
+    const one = {
+      periodFrom: "2026-07-01", periodTo: "2026-07-31",
+      monoPages: 3000, colorPages: 2000, twoColorPages: 1500, confidence: 1,
+    };
+    const monthly = toMonthlyAverage([one, { ...one, serialNo: "A0P0011002345" }]);
+    expect(monthly.monoPages).toBe(3000);
+    expect(monthly.colorPages).toBe(2000);
+  });
+
+  it("別々の機械の明細は合算する", () => {
+    const monthly = toMonthlyAverage([
+      { periodFrom: "2026-07-01", periodTo: "2026-07-31", monoPages: 3000, colorPages: 2000, twoColorPages: 0, serialNo: "A1", confidence: 1 },
+      { periodFrom: "2026-07-01", periodTo: "2026-07-31", monoPages: 1200, colorPages: 500, twoColorPages: 0, serialNo: "B2", confidence: 1 },
+    ]);
+    expect(monthly.monoPages).toBe(4200);
+    expect(monthly.colorPages).toBe(2500);
+  });
+});

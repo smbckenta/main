@@ -23,6 +23,25 @@ export function parseNumber(input: string | number | undefined | null): number |
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * 濁点・半濁点を落としたカタカナのキー。
+ * OCRは「プ」と「ブ」のような濁点の違いを取り違えやすいため、
+ * 会社名などの照合はこのキーで行う（アプラス／アブラス → アフラス）。
+ */
+export function kanaKey(s: string): string {
+  const DAKUTEN: Record<string, string> = {
+    ガ: "カ", ギ: "キ", グ: "ク", ゲ: "ケ", ゴ: "コ",
+    ザ: "サ", ジ: "シ", ズ: "ス", ゼ: "セ", ゾ: "ソ",
+    ダ: "タ", ヂ: "チ", ヅ: "ツ", デ: "テ", ド: "ト",
+    バ: "ハ", ビ: "ヒ", ブ: "フ", ベ: "ヘ", ボ: "ホ",
+    パ: "ハ", ピ: "ヒ", プ: "フ", ペ: "ヘ", ポ: "ホ",
+    ヴ: "ウ",
+  };
+  return toHalfWidth(s)
+    .replace(/[ァ-ヴ]/g, (c) => DAKUTEN[c] ?? c)
+    .replace(/[\s・]/g, "");
+}
+
 const ERA_OFFSET: Record<string, number> = { 令和: 2018, 平成: 1988, 昭和: 1925, R: 2018, H: 1988, S: 1925 };
 
 /** 和暦・西暦の混在した日付表記を YYYY-MM-DD に正規化する */

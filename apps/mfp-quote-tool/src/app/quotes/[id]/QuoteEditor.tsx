@@ -292,7 +292,19 @@ export default function QuoteEditor({
               onChange={(v) => patchCurrent({ maintenanceMonthly: v })}
             />
           </Field>
+          <Field label="残債" width={130}>
+            <NumberInput
+              value={quote.current.remainingDebt ?? 0}
+              onChange={(v) => patchCurrent({ remainingDebt: v })}
+            />
+          </Field>
         </div>
+        {!!quote.current.remainingDebt && (
+          <p className="warn">
+            現行リースの残債が {quote.current.remainingDebt.toLocaleString()} 円あります。
+            残債の処理方法（新リースへの上乗せ／一括精算）を提案条件に織り込んでください。
+          </p>
+        )}
 
         <h3>月間印刷枚数と現行カウンター単価</h3>
         <div className="row">
@@ -721,16 +733,25 @@ function ProposalPanel({
         <Field label="仕切価格" width={130}>
           <NumberInput value={proposal.cost ?? 0} onChange={(v) => onChange({ cost: v })} />
         </Field>
-        <Field label="価格の決め方" width={210}>
+        <Field label="価格の決め方" width={230}>
           <select
             value={proposal.pricingMode}
             onChange={(e) => onChange({ pricingMode: e.target.value as Proposal["pricingMode"] })}
           >
+            <option value="fromGp">仕切＋GP（粗利額）から算出</option>
             <option value="fromMargin">仕切＋粗利率から算出</option>
             <option value="fromLease">目標の月額リース料から逆算</option>
             <option value="fromPrice">販売額計を直接入力</option>
           </select>
         </Field>
+        {proposal.pricingMode === "fromGp" && (
+          <Field label="GP（粗利額・円）" width={150}>
+            <NumberInput
+              value={proposal.grossProfitAmount ?? 0}
+              onChange={(v) => onChange({ grossProfitAmount: v })}
+            />
+          </Field>
+        )}
         {proposal.pricingMode === "fromMargin" && (
           <Field label="粗利率(%)" width={110}>
             <NumberInput

@@ -59,11 +59,13 @@ function interpretLine(nums: number[]): LineFacts | null {
   for (let i = 0; i + 2 < nums.length; i++) {
     const [a, b, c] = [nums[i], nums[i + 1], nums[i + 2]];
     // 指針は3桁以上が普通。小さい値の並びは区分番号などの誤検出になりやすい
-    if (a >= 100 && b >= a && c > 0 && Math.abs(b - a - c) <= 1) {
+    // 使用枚数はOCRで1桁崩れることがあるため、指針の差を正として採用する
+    if (a >= 100 && b >= a && c > 0 && Math.abs(b - a - c) <= Math.max(1, c * 0.02)) {
+      const pages = b - a;
       const rest = nums.slice(i + 3);
       const unit = rest.find(isUnitLike);
-      const amount = unit !== undefined ? rest.find((n) => close(n, c * unit)) : undefined;
-      return { pages: c, unit, amount, confidence: 0.9 };
+      const amount = unit !== undefined ? rest.find((n) => close(n, pages * unit)) : undefined;
+      return { pages, unit, amount, confidence: pages === c ? 0.9 : 0.7 };
     }
   }
 
@@ -165,7 +167,8 @@ function parseBlock(lines: string[], serialNo?: string): CounterReading | null {
     if (!modelText) {
       const m = line.match(/(?:機種|品名|物件|型式|機種名|商品名)\s*[:：]?\s*(.{3,40})/);
       if (m) {
-        modelText = m[1].trim();
+        // 同じ行に機番が続く様式があるため、そこで切る
+        modelText = m[1].split(/\s*(?:機番|機械番号|製造番号|シリアル|Serial|S\/N)/i)[0].trim();
         evidence.push(line);
         score += 0.5;
       }
@@ -220,7 +223,23 @@ function parseBlock(lines: string[], serialNo?: string): CounterReading | null {
 }
 
 /** 複数枚・複数月の明細から月間平均を求める */
-export function toMonthlyAverage(readings: CounterReading[]): {
+/**
+ * 同じ明細を2回読み込んだ場合（写真とPDFの両方を渡した等）に枚数が二重計上されるのを防ぐ。
+ * 期間と枚数がすべて一致する読み取りは同一の明細とみなす。
+ */
+export function dedupeReadings(readings: CounterReading[]): CounterReading[] {
+  const seen = new Set<string>();
+  const out: CounterReading[] = [];
+  for (const r of readings) {
+    const key = [r.periodFrom, r.periodTo, r.monoPages, r.colorPages, r.twoColorPages].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
+export function toMonthlyAverage(input: CounterReading[]): {
   monoPages: number;
   colorPages: number;
   twoColorPages: number;
@@ -228,6 +247,7 @@ export function toMonthlyAverage(readings: CounterReading[]): {
   colorUnit?: number;
   twoColorUnit?: number;
 } {
+  const readings = dedupeReadings(input);
   if (!readings.length) return { monoPages: 0, colorPages: 0, twoColorPages: 0 };
 
   // 同一機番は期間で割り、複数機番は合算する

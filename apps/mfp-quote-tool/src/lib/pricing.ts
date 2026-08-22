@@ -199,7 +199,10 @@ export function calcProposal(
   let sellingBase = 0;
   const targetTerm = proposal.leaseTerm;
   const leaseRate = leaseRateOf(targetTerm, settings.leaseRates);
-  if (proposal.pricingMode === "fromLease") {
+  if (proposal.pricingMode === "fromGp") {
+    // 仕切価格に粗利額をそのまま加える
+    sellingBase = cost + (proposal.grossProfitAmount ?? 0);
+  } else if (proposal.pricingMode === "fromLease") {
     // 目標月額から逆算した総額から、上乗せ分を差し引いた残りが本体価格
     const total = leaseRate > 0 ? (proposal.targetMonthlyLease ?? 0) / leaseRate : 0;
     sellingBase = total - addOnTotal;
@@ -209,7 +212,11 @@ export function calcProposal(
   } else {
     sellingBase = proposal.sellingTotal ?? 0;
   }
-  sellingBase = roundTo(Math.max(0, sellingBase), settings.roundUnit);
+  // GP指定は「仕切＋GP」がそのまま金額になるべきなので端数処理しない
+  sellingBase =
+    proposal.pricingMode === "fromGp"
+      ? Math.max(0, Math.round(sellingBase))
+      : roundTo(Math.max(0, sellingBase), settings.roundUnit);
 
   const sellingTotal = sellingBase + addOnTotal;
   const discount = sellingTotal - listTotal;

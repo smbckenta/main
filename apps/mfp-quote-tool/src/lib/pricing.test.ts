@@ -93,6 +93,35 @@ describe("販売額の逆算", () => {
     expect(calc.leaseByTerm[84]).toBe(Math.round(771_100 * 0.0145));
   });
 
+  it("仕切＋GPモードでは 本体価格 = 仕切価格 + GP（端数処理なし）", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({ pricingMode: "fromGp", grossProfitAmount: 250_000 }),
+      settings,
+    );
+    expect(calc.sellingBase).toBe(441_500 + 250_000);
+    expect(calc.grossProfit).toBe(250_000);
+    expect(calc.ptf).toBe(Math.round((441_500 + 250_000) * 0.1));
+  });
+
+  it("仕切＋GPモードでも、オプションの上乗せ分は販売額計にだけ加わる", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({
+        pricingMode: "fromGp",
+        grossProfitAmount: 200_000,
+        items: [
+          { name: "本体", qty: 1, unit: "台", unitPrice: 1_424_000 },
+          { name: "フィニッシャー", qty: 1, unit: "台", unitPrice: 330_000, ptfExempt: true },
+        ],
+      }),
+      settings,
+    );
+    expect(calc.sellingBase).toBe(641_500);
+    expect(calc.sellingTotal).toBe(641_500 + 330_000);
+    expect(calc.ptf).toBe(64_150);
+  });
+
   it("仕切＋粗利率モードでは 仕切 ÷ (1 - 率) になる", () => {
     const calc = calcProposal(
       makeQuote(),

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { ingestDocuments, type DocRole } from "@/lib/ingest";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// 写真・スキャンPDFのOCRは1ページ数秒かかるため長めに取る
+export const maxDuration = 600;
 
 /** リース契約書・印刷明細をアップロードして解析する */
 export async function POST(req: Request) {

@@ -61,8 +61,11 @@ export async function buildProposal(
     qty: 1,
     items,
     cost: entry.cost,
-    // 既存運用に合わせ、既定は「目標月額リース料から販売額を逆算」
-    pricingMode: "fromMargin",
+    // 既定は「仕切＋GP」。GPの初期値は既定の粗利率から逆算した額を入れておく
+    pricingMode: "fromGp",
+    grossProfitAmount: Math.round(
+      (entry.cost / (1 - Math.min(Math.max(settings.defaultMarginRate, 0), 0.95)) - entry.cost) / 1000,
+    ) * 1000,
     marginRate: settings.defaultMarginRate,
     leaseTerm: options.leaseTerm ?? 72,
     units,
