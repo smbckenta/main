@@ -44,9 +44,23 @@
 　　 （data は Googleドライブ側なので、案件データ・設定は消えません）
 　2. start.bat をダブルクリック。
 　　 部品が増えた版に入れ替えたときは、起動に数分かかります。
-　3. 初回だけ Node.js が必要です。入っていない場合は PowerShell で
-　　 　winget install OpenJS.NodeJS.LTS
-　　 を実行し、PCを再起動してください。
+
+■ Node.js のインストール（PCごとに1回だけ）
+
+　「Node.js が見つかりません」と出たPCでは、Node.js を入れてください。
+　PCを買い替えたときや、別のPCで初めて使うときに必要になります。
+
+　　方法1: スタートメニューから「ターミナル」または「コマンドプロンプト」を開き、
+　　　　　 次を実行する（PowerShell でなくても構いません）
+
+　　　　　　winget install OpenJS.NodeJS.LTS
+
+　　方法2: https://nodejs.org を開き、LTS版の Windows Installer (.msi) を
+　　　　　 ダウンロードして実行する
+　　　　　 （社内の制限で winget が使えない場合はこちら）
+
+　どちらの場合も、入れ終わったらPCを再起動してから
+　もう一度 start.bat をダブルクリックしてください。
 
 
 ■ できること
@@ -102,3 +116,5 @@
 
 　　PCによっては PowerShell が止められていて、画面すら出ないことが
 　　あったため、cmd だけで完結する作りに変えました。
+　　Node.js が PATH に入っていないだけの場合は、既定のインストール先
+　　（C:\Program Files\nodejs など）を探しにいって、そのまま起動します。

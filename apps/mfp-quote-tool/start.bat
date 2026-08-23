@@ -36,8 +36,17 @@ if not exist "%APP%package.json" goto no_files
 if not exist "%APP%src" goto no_files
 
 rem --- Node.js があるか ---
+rem インストール直後は PATH が反映されていないことがあるので、
+rem 見つからない場合は既定のインストール先も探しにいく。
+where node >nul 2>&1
+if not errorlevel 1 goto node_ok
+if exist "%ProgramFiles%\nodejs\node.exe" set "PATH=%ProgramFiles%\nodejs;%PATH%"
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" set "PATH=%ProgramFiles(x86)%\nodejs;%PATH%"
+if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "PATH=%LOCALAPPDATA%\Programs\nodejs;%PATH%"
 where node >nul 2>&1
 if errorlevel 1 goto no_node
+echo Node.js を既定のインストール先で見つけました。
+:node_ok
 set "NODEV="
 for /f "tokens=*" %%V in ('node -v') do set "NODEV=%%V"
 echo Node.js !NODEV! を確認しました。
@@ -141,9 +150,19 @@ set "MSG2=ZIPを展開し直して、フォルダごと上書きしてください。"
 goto fail
 
 :no_node
-set "MSG1=Node.js が見つかりません。"
-set "MSG2=PowerShell で  winget install OpenJS.NodeJS.LTS  を実行し、PCを再起動してからもう一度お試しください。"
-goto fail
+echo.
+echo Node.js が見つかりません。このPCにインストールしてください。
+echo.
+echo  方法1: コマンドプロンプト（またはターミナル）で次を実行する
+echo           winget install OpenJS.NodeJS.LTS
+echo.
+echo  方法2: https://nodejs.org から LTS版の Windows Installer をダウンロードして実行する
+echo.
+echo  入れ終わったらPCを再起動して、もう一度この start.bat をダブルクリックしてください。
+echo.
+>>"%LOG%" echo エラー   : Node.js が見つかりません
+pause
+exit /b 1
 
 :npm_failed
 set "MSG1=部品の取得（npm install）に失敗しました。"

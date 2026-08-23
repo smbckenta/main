@@ -29,7 +29,9 @@
 
 ## 起動方法（Windows・コマンド不要）
 
-1. Node.js を入れる（初回のみ）。PowerShell で `winget install OpenJS.NodeJS.LTS` を実行し、PCを再起動
+1. Node.js を入れる（PCごとに1回だけ）。コマンドプロンプトで `winget install OpenJS.NodeJS.LTS`、
+   または https://nodejs.org の LTS版インストーラを実行し、PCを再起動
+   - `start.bat` は PATH に無くても `C:\Program Files\nodejs` などの既定の場所を探します
 2. ZIPで受け取った場合は、**必ず先に展開する**（右クリック →「すべて展開」）
    - ZIPを開いたまま中の `start.bat` を実行しても動きません。`start.bat` はそれを検知して理由を表示します
 3. 展開したフォルダの **`start.bat` をダブルクリック**
@@ -48,7 +50,7 @@
 | --- | --- |
 | 黒い画面が一瞬も出ない | ZIPの中から実行している／SmartScreenに止められている。ZIPを展開し、ZIPのプロパティで「許可する」にチェックしてから展開し直す |
 | 「ZIPファイルの中から実行しています」 | 右クリック →「すべて展開」で展開してから、出てきたフォルダの `start.bat` を実行する |
-| 「Node.js が見つかりません」 | `winget install OpenJS.NodeJS.LTS` を実行し、PCを再起動 |
+| 「Node.js が見つかりません」 | そのPCに Node.js が入っていない。コマンドプロンプトで `winget install OpenJS.NodeJS.LTS`、または https://nodejs.org の LTS版インストーラを実行し、PCを再起動 |
 | 「部品の取得（npm install）に失敗しました」 | 社内ネットワークの制限。画面の内容と `start-log.txt` を送る |
 
 ### コマンドで起動する場合
