@@ -252,16 +252,23 @@ export function calcCurrent(quote: Quote, taxRate: number): CurrentCalc {
   const counter = chargeLines
     ? chargeBreakdown(chargeLines, c.units)
     : calcCounter(c.units, c, c.deductionRate);
-  const running = c.monthlyLease + counter.total + c.maintenanceMonthly;
+  // リース料金が分からない案件は、リース料を0円として扱わずに比較から外す。
+  // 0円として扱うと、削減額を実際より大きく見せてしまう。
+  const leaseUnknown = Boolean(c.leaseUnknown);
+  const monthlyLease = leaseUnknown ? 0 : c.monthlyLease;
+  const running = monthlyLease + counter.total + c.maintenanceMonthly;
   const tax = Math.round(running * taxRate);
+  const comparableRunning = leaseUnknown ? counter.total + c.maintenanceMonthly : running;
   return {
-    monthlyLease: c.monthlyLease,
+    monthlyLease,
+    leaseUnknown,
     counter,
     chargeLines,
     maintenanceMonthly: c.maintenanceMonthly,
     running: Math.round(running),
     tax,
     monthlyTotal: Math.round(running + tax),
+    comparable: Math.round(comparableRunning * (1 + taxRate)),
     totalPages: chargeLines
       ? chargeLines.reduce((sum, l) => sum + l.pages, 0)
       : c.monoPages + c.colorPages + c.twoColorPages,
@@ -405,13 +412,15 @@ export function calcProposal(
     const rate = Math.min(Math.max(proposal.marginRate ?? settings.defaultMarginRate, 0), 0.95);
     sellingBase = cost > 0 ? cost / (1 - rate) : 0;
   } else {
-    sellingBase = proposal.sellingTotal ?? 0;
+    // 本体価格を直接入力する方式。オプションと残債精算はこのあと加算する
+    sellingBase = proposal.bodyPrice ?? proposal.sellingTotal ?? 0;
   }
-  // GP指定は「仕切＋GP」がそのまま金額になるべきなので端数処理しない
-  sellingBase =
-    proposal.pricingMode === "fromGp"
-      ? Math.max(0, Math.round(sellingBase))
-      : roundTo(Math.max(0, sellingBase), settings.roundUnit);
+  // 「仕切＋GP」と「本体価格を直接入力」は、入れた額がそのまま金額になるべきなので
+  // 端数処理しない。逆算した額（目標リース料・粗利率）だけ端数を丸める。
+  const asEntered = proposal.pricingMode === "fromGp" || proposal.pricingMode === "fromPrice";
+  sellingBase = asEntered
+    ? Math.max(0, Math.round(sellingBase))
+    : roundTo(Math.max(0, sellingBase), settings.roundUnit);
 
   const sellingTotal = sellingBase + addOnTotal + debtSettlement.total;
   // 値引きは機器の見積明細に対する調整。残債精算は値引きの対象にしない
@@ -450,7 +459,12 @@ export function calcProposal(
   const runningTax = Math.round(running * taxRate);
   const monthlyTotal = Math.round(running + runningTax);
 
-  const diffMonthly = monthlyTotal - current.monthlyTotal;
+  // 現行のリース料金が分からない案件は、両側ともリース料を除いて
+  // カウンター料金だけで比べる（片側だけ含めると比較にならない）
+  const counterOnly = current.leaseUnknown;
+  const comparableRunning = counterOnly ? counter.total + proposal.maintenanceMonthly : running;
+  const comparable = Math.round(comparableRunning * (1 + taxRate));
+  const diffMonthly = comparable - current.comparable;
 
   // 残債精算はリース会社へ支払う立替分なので粗利には含めない
   const grossProfit = sellingBase + addOnTotal - cost;
@@ -488,6 +502,8 @@ export function calcProposal(
     running: Math.round(running),
     runningTax,
     monthlyTotal,
+    counterOnly,
+    comparable,
     diffMonthly,
     diffYearly: diffMonthly * 12,
     // 削減額の最後の1行は、提案するリース年数に合わせる（6年リースなら6年間）

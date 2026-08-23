@@ -490,3 +490,57 @@ describe("残債精算とGPの関係", () => {
     expect(calc.netProfit).toBe(200_000 - calc.ptf);
   });
 });
+
+describe("本体価格を直接入力する", () => {
+  it("入れた額がそのまま本体価格になる（端数処理しない）", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({ pricingMode: "fromPrice", bodyPrice: 1_234_567 }),
+      settings,
+    );
+    expect(calc.sellingBase).toBe(1_234_567);
+    expect(calc.sellingTotal).toBe(1_234_567);
+  });
+
+  it("オプション（PTF対象外）は本体価格に加算して販売額計になる", () => {
+    const proposal = makeProposal({
+      pricingMode: "fromPrice",
+      bodyPrice: 1_000_000,
+      items: [
+        { name: "本体", qty: 1, unit: "台", unitPrice: 1_500_000 },
+        { name: "フィニッシャー", qty: 1, unit: "台", unitPrice: 200_000, ptfExempt: true },
+      ],
+    });
+    const calc = calcProposal(makeQuote(), proposal, settings);
+    expect(calc.sellingBase).toBe(1_000_000);
+    expect(calc.addOnTotal).toBe(200_000);
+    expect(calc.sellingTotal).toBe(1_200_000);
+    // PTFは本体価格にだけ掛かる（オプションぶんには掛からない）
+    expect(calc.ptf).toBe(100_000); // 1,000,000 × 10%
+  });
+
+  it("GPは 本体価格 ＋ オプション − 仕切価格 になる", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({ pricingMode: "fromPrice", bodyPrice: 900_000, cost: 400_000 }),
+      settings,
+    );
+    expect(calc.grossProfit).toBe(500_000);
+  });
+
+  it("月額リース料は入れた本体価格から計算する", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({ pricingMode: "fromPrice", bodyPrice: 1_000_000 }),
+      settings,
+    );
+    expect(calc.monthlyLease).toBe(
+      ceilTo(1_000_000 * settings.leaseRates["72"], settings.leaseRoundUnit),
+    );
+  });
+
+  it("古い案件（sellingTotal に入っている）もそのまま読める", () => {
+    const proposal = { ...makeProposal({ pricingMode: "fromPrice" }), sellingTotal: 800_000 };
+    expect(calcProposal(makeQuote(), proposal, settings).sellingBase).toBe(800_000);
+  });
+});

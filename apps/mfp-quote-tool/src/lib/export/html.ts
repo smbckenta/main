@@ -570,9 +570,9 @@ export function renderCompareHtml(
       ${specRow("連続コピー速度（カラー）", cd?.ppmColor, "枚/分", d?.ppmColor, "枚/分")}
       <tr>
         <th style="text-align:left">リース料　①</th>
-        <td class="num">${n(current.monthlyLease)}</td>
-        <td class="num">${n(calc.monthlyLease)}</td>
-        <td class="num">${diff(calc.monthlyLease - current.monthlyLease)}</td>
+        <td class="num">${current.leaseUnknown ? "－（不明）" : n(current.monthlyLease)}</td>
+        <td class="num">${n(calc.monthlyLease)}${calc.counterOnly ? '<span class="small muted">（参考）</span>' : ""}</td>
+        <td class="num">${calc.counterOnly ? "－" : diff(calc.monthlyLease - current.monthlyLease)}</td>
       </tr>
       ${counterRows}
       <tr>
@@ -587,12 +587,16 @@ export function renderCompareHtml(
         <td class="num">${n(calc.counter.total)}</td>
         <td class="num">${diff(calc.counter.total - current.counter.total)}</td>
       </tr>
-      <tr class="sum-row">
+      ${
+        calc.counterOnly
+          ? ""
+          : `<tr class="sum-row">
         <th style="text-align:left">ランニングコスト ①+②</th>
         <td class="num">${n(current.monthlyLease + current.counter.total)}</td>
         <td class="num">${n(calc.monthlyLease + calc.counter.total)}</td>
         <td class="num">${diff(calc.monthlyLease + calc.counter.total - current.monthlyLease - current.counter.total)}</td>
-      </tr>
+      </tr>`
+      }
       <tr>
         <th style="text-align:left">保守料金</th>
         <td class="num">${n(current.maintenanceMonthly)}</td>
@@ -602,13 +606,13 @@ export function renderCompareHtml(
       <tr>
         <th style="text-align:left">消費税</th>
         <td class="num">${n(current.tax)}</td>
-        <td class="num">${n(calc.runningTax)}</td>
+        <td class="num">${n(calc.counterOnly ? Math.round(calc.comparable - calc.counter.total - calc.maintenanceMonthly) : calc.runningTax)}</td>
         <td></td>
       </tr>
       <tr class="total-row">
-        <th style="text-align:left">　月間経費</th>
-        <td class="num">${n(current.monthlyTotal)}</td>
-        <td class="num">${n(calc.monthlyTotal)}</td>
+        <th style="text-align:left">　${calc.counterOnly ? "カウンター月間経費" : "月間経費"}</th>
+        <td class="num">${n(current.comparable)}</td>
+        <td class="num">${n(calc.comparable)}</td>
         <td class="num">${diff(calc.diffMonthly)}</td>
       </tr>
     </tbody>
@@ -622,9 +626,21 @@ export function renderCompareHtml(
     </tbody>
   </table>
 
+  ${counterOnlyNote(calc)}
   ${salesEffectTable(calc.diffYearly)}
   `;
   return page(`比較表_${quote.customerName}_${makerJp(calc.proposal.maker)}`, body);
+}
+
+/**
+ * リース料金が分からない案件に付ける注記。
+ * リース料を含めずに比べていることを、必ず帳票にも残す。
+ */
+function counterOnlyNote(calc?: ProposalCalc): string {
+  if (!calc?.counterOnly) return "";
+  return `<div class="notes">※　現在ご利用中の複合機のリース料金をお伺いできていないため、
+　　この比較表は<b>カウンター料金のみ</b>で比較しております（リース料金は現状・提案とも含んでおりません）。
+　　リース料金をお知らせいただければ、リース料を含めた比較表をあらためてご用意いたします。</div>`;
 }
 
 /** 削減額を「年間売上高に換算した効果」（利益率20%/10%/5% → 5倍/10倍/20倍） */
@@ -656,7 +672,7 @@ export function renderMultiCompareHtml(
   logo?: string,
 ): string {
   const c = quote.current;
-  const best = calcs.reduce((b, x, i) => (x.monthlyTotal < calcs[b].monthlyTotal ? i : b), 0);
+  const best = calcs.reduce((b, x, i) => (x.comparable < calcs[b].comparable ? i : b), 0);
   const head = `<tr>
       <th style="width:20%"></th>
       <th>現状利用状況</th>
@@ -712,7 +728,11 @@ export function renderMultiCompareHtml(
       ${row("ファーストコピー（カラー）", x2(currentSpec(calcs)?.firstCopyColorSec, "秒"), calcs.map((x) => x2(x.device?.firstCopyColorSec, "秒")))}
       ${row("販売額計（税抜）", "－", calcs.map((x) => n(x.sellingTotal)))}
       ${row("リース回数", c.leaseTerm ? `${c.leaseTerm}回` : "－", calcs.map((x) => `${x.proposal.leaseTerm}回`))}
-      ${row("月額リース料", n(current.monthlyLease), calcs.map((x) => n(x.monthlyLease)))}
+      ${row(
+        current.leaseUnknown ? "月額リース料（参考）" : "月額リース料",
+        current.leaseUnknown ? "－（不明）" : n(current.monthlyLease),
+        calcs.map((x) => n(x.monthlyLease)),
+      )}
       ${row(
         tiered ? "モノクロ単価（現状は実効）" : "モノクロ単価",
         unitYen(currentUnit("mono")),
@@ -724,13 +744,18 @@ export function renderMultiCompareHtml(
         calcs.map((x) => unitYen(x.units.color)),
       )}
       ${row("カウンター請求合計", n(current.counter.total), calcs.map((x) => n(x.counter.total)))}
-      ${row("月間経費（税込）", n(current.monthlyTotal), calcs.map((x) => n(x.monthlyTotal)))}
+      ${row(
+        current.leaseUnknown ? "カウンター月間経費（税込）" : "月間経費（税込）",
+        n(current.comparable),
+        calcs.map((x) => n(x.comparable)),
+      )}
       ${row("削減額（単月）", "－", calcs.map((x) => diff(x.diffMonthly)))}
       ${row("削減額（年間）", "－", calcs.map((x) => diff(x.diffYearly)))}
       ${row(leaseYearsLabel(calcs), "－", calcs.map((x) => diff(x.diffLeaseTerm)))}
     </tbody>
   </table>
   <div class="small" style="margin-top:6px">※黄色の列が月間経費の最も安い提案です。</div>
+  ${counterOnlyNote(calcs[0])}
   `;
   return page(`比較表_${quote.customerName}_各社`, body);
 }
@@ -964,7 +989,7 @@ export function renderFleetCompareHtml(
 
   // Excelの「1ページに収める」と同じで、行数が多いときは全体を縮小して1枚に収める。
   const rowCount =
-    calc.units.length +
+    (calc.leaseUnknown ? 0 : calc.units.length) +
     calc.units.reduce((sum, u) => sum + Math.max(fleetSideRows(u.current).length, fleetSideRows(u.proposal).length, 1), 0);
   const zoom = fitZoom(rowCount);
 
@@ -978,7 +1003,7 @@ export function renderFleetCompareHtml(
     ${companyBlock(settings, logo)}
   </div>
 
-  <div class="band">- リ ー ス 料 金 詳 細 内 訳 -</div>
+  ${calc.leaseUnknown ? "" : `<div class="band">- リ ー ス 料 金 詳 細 内 訳 -</div>
   <table class="grid">
     <thead>
       <tr>
@@ -1012,7 +1037,7 @@ export function renderFleetCompareHtml(
         <td class="num">${n(calc.proposal.leaseTotal)}</td>
       </tr>
     </tbody>
-  </table>
+  </table>`}
 
   <div class="band">- カ ウ ン タ ー 料 金 詳 細 内 訳 比 較 -
     ${fleet.pagesNote ? `<span class="band-note">（${esc(fleet.pagesNote)}）</span>` : ""}
@@ -1046,6 +1071,14 @@ export function renderFleetCompareHtml(
     </tbody>
   </table>
   ${deductionNote}
+  ${
+    calc.leaseUnknown
+      ? `<div class="fleet-note"><strong>※ リース料金について</strong>　現在ご利用中の複合機のリース料金を
+        お伺いできていないため、この比較表は<b>カウンター料金のみ</b>で比較しております
+        （リース料金は現状・提案とも含んでおりません）。
+        リース料金をお知らせいただければ、リース料を含めた比較表をあらためてご用意いたします。</div>`
+      : ""
+  }
 
   <div class="fleet-bottom">
     <div>
@@ -1057,19 +1090,19 @@ export function renderFleetCompareHtml(
         </tr></thead>
         <tbody>
           <tr>
-            <th style="text-align:left">合計金額 （単月）</th>
+            <th style="text-align:left">${calc.leaseUnknown ? "カウンター料金 （単月）" : "合計金額 （単月）"}</th>
             <td class="num">${n(calc.current.monthly)}</td>
             <td class="num">${n(calc.proposal.monthly)}</td>
             <td class="num">${diff(calc.diffMonthly)}</td>
           </tr>
           <tr>
-            <th style="text-align:left">合計金額 （年間）</th>
+            <th style="text-align:left">${calc.leaseUnknown ? "カウンター料金 （年間）" : "合計金額 （年間）"}</th>
             <td class="num">${n(calc.current.yearly)}</td>
             <td class="num">${n(calc.proposal.yearly)}</td>
             <td class="num">${diff(calc.diffYearly)}</td>
           </tr>
           <tr class="total-row">
-            <th style="text-align:left">合計金額 （${calc.leaseYears}年間）</th>
+            <th style="text-align:left">${calc.leaseUnknown ? "カウンター料金" : "合計金額"} （${calc.leaseYears}年間）</th>
             <td class="num">${n(calc.current.longTerm)}</td>
             <td class="num">${n(calc.proposal.longTerm)}</td>
             <td class="num">${diff(calc.diffLeaseTerm)}</td>

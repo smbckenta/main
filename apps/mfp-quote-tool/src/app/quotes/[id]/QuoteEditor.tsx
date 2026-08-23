@@ -428,6 +428,17 @@ export default function QuoteEditor({
               onChange={(e) => patchCurrent({ leaseEnd: e.target.value })}
             />
           </Field>
+          <div className="field" style={{ width: 260 }}>
+            <label>リース料金</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(quote.current.leaseUnknown)}
+                onChange={(e) => patchCurrent({ leaseUnknown: e.target.checked })}
+              />
+              不明（カウンター料金のみで比較する）
+            </label>
+          </div>
           <Field label="保守料金/月" width={120}>
             <NumberInput
               value={quote.current.maintenanceMonthly}
@@ -441,6 +452,13 @@ export default function QuoteEditor({
             />
           </Field>
         </div>
+        {quote.current.leaseUnknown && (
+          <p className="warn">
+            現行のリース料金が不明なため、<b>カウンター料金だけで比較</b>します。
+            リース料は現状・提案とも比較に含めません（分からない額を0円として扱うと、削減額を実際より大きく見せてしまうためです）。
+            見積書の月額リース料はこれまでどおり計算します。
+          </p>
+        )}
         {!!quote.current.remainingDebt && (
           <p className="warn">
             現行リースの残債 {quote.current.remainingDebt.toLocaleString()} 円と、解約事務手数料（現行リース料の
@@ -620,7 +638,7 @@ export default function QuoteEditor({
                 <th className="num">販売額計</th>
                 <th className="num">月額リース</th>
                 <th className="num">カウンター</th>
-                <th className="num">月間経費(税込)</th>
+                <th className="num">{current.leaseUnknown ? "カウンター月間経費(税込)" : "月間経費(税込)"}</th>
                 <th className="num">削減（単月）</th>
                 <th className="num">削減（年間）</th>
                 <th className="num">削減（リース期間）</th>
@@ -634,9 +652,9 @@ export default function QuoteEditor({
                 <td>現行</td>
                 <td>{quote.current.modelText || "－"}</td>
                 <td className="num">－</td>
-                <td className="num">{yen(current.monthlyLease)}</td>
+                <td className="num">{current.leaseUnknown ? "－（不明）" : yen(current.monthlyLease)}</td>
                 <td className="num">{yen(current.counter.total)}</td>
-                <td className="num">{yen(current.monthlyTotal)}</td>
+                <td className="num">{yen(current.comparable)}</td>
                 <td className="num">－</td>
                 <td className="num">－</td>
                 <td className="num">－</td>
@@ -651,7 +669,7 @@ export default function QuoteEditor({
                   <td className="num">{yen(c.sellingTotal)}</td>
                   <td className="num">{yen(c.monthlyLease)}</td>
                   <td className="num">{yen(c.counter.total)}</td>
-                  <td className="num">{yen(c.monthlyTotal)}</td>
+                  <td className="num">{yen(c.comparable)}</td>
                   <td className={`num ${c.diffMonthly < 0 ? "save" : "cut"}`}>{sign(c.diffMonthly)}</td>
                   <td className={`num ${c.diffYearly < 0 ? "save" : "cut"}`}>{sign(c.diffYearly)}</td>
                   <td className={`num ${c.diffLeaseTerm < 0 ? "save" : "cut"}`}>
@@ -1027,7 +1045,7 @@ function ProposalPanel({
             <option value="fromGp">仕切＋GPから算出</option>
             <option value="fromMargin">仕切＋粗利率から算出</option>
             <option value="fromLease">目標の月額リース料から逆算</option>
-            <option value="fromPrice">販売額計を直接入力</option>
+            <option value="fromPrice">本体価格を直接入力</option>
           </select>
         </Field>
         <div className="field" style={{ width: 200 }}>
@@ -1067,8 +1085,11 @@ function ProposalPanel({
           </Field>
         )}
         {proposal.pricingMode === "fromPrice" && (
-          <Field label="販売額計" width={150}>
-            <NumberInput value={proposal.sellingTotal ?? 0} onChange={(v) => onChange({ sellingTotal: v })} />
+          <Field label="本体価格（税抜）" width={170}>
+            <NumberInput
+              value={proposal.bodyPrice ?? proposal.sellingTotal ?? 0}
+              onChange={(v) => onChange({ bodyPrice: v, sellingTotal: undefined })}
+            />
           </Field>
         )}
         <Field label="リース年数" width={130}>

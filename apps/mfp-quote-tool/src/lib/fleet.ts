@@ -109,13 +109,23 @@ export function calcFleetSide(side: FleetSide, taxRate: number): FleetSideCalc {
   };
 }
 
-/** 片側の全台合計 */
-function totalsOf(sides: FleetSideCalc[], taxRate: number, leaseYears: number): FleetTotals {
+/**
+ * 片側の全台合計。
+ * リース料金が分からない案件（leaseUnknown）は、合計にリース料を入れず
+ * カウンター料金だけで比べる。分からない額を0円として扱うと、
+ * 削減額を実際より大きく見せてしまうため。
+ */
+function totalsOf(
+  sides: FleetSideCalc[],
+  taxRate: number,
+  leaseYears: number,
+  leaseUnknown: boolean,
+): FleetTotals {
   const leaseMonthly = sides.reduce((sum, s) => sum + s.monthlyLease, 0);
   const leaseTax = Math.round(leaseMonthly * taxRate);
   const leaseTotal = leaseMonthly + leaseTax;
   const counterSubtotal = sides.reduce((sum, s) => sum + s.counterTotal, 0);
-  const monthly = leaseTotal + counterSubtotal;
+  const monthly = leaseUnknown ? counterSubtotal : leaseTotal + counterSubtotal;
   return {
     leaseMonthly,
     leaseTax,
@@ -140,8 +150,9 @@ export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
     proposal: calcFleetSide(unit.proposal, taxRate),
   }));
 
-  const current = totalsOf(units.map((u) => u.current), taxRate, leaseYears);
-  const proposal = totalsOf(units.map((u) => u.proposal), taxRate, leaseYears);
+  const leaseUnknown = Boolean(fleet.leaseUnknown);
+  const current = totalsOf(units.map((u) => u.current), taxRate, leaseYears, leaseUnknown);
+  const proposal = totalsOf(units.map((u) => u.proposal), taxRate, leaseYears, leaseUnknown);
 
   const diffMonthly = proposal.monthly - current.monthly;
 
@@ -149,6 +160,7 @@ export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
     units,
     current,
     proposal,
+    leaseUnknown,
     diffMonthly,
     diffYearly: diffMonthly * 12,
     diffLeaseTerm: diffMonthly * leaseTerm,

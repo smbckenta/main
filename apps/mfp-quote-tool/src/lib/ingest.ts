@@ -251,6 +251,9 @@ export async function ingestDocuments(
     makerText: bestLease?.makerText ?? (makerGuess ? MAKER_LABELS[makerGuess] : ""),
     modelText,
     monthlyLease: bestLease?.monthlyFee ?? 0,
+    // リース明細をお預かりできていない／金額が読めない場合は、
+    // リース料を0円として扱わず、カウンター料金だけで比べる
+    leaseUnknown: !bestLease?.monthlyFee,
     leaseTerm: bestLease?.term,
     leaseStart: bestLease?.startDate,
     leaseEnd: bestLease?.endDate,
@@ -280,7 +283,10 @@ export async function ingestDocuments(
     );
   }
   if (!bestLease)
-    warnings.push("リース契約書・支払予定表から契約条件を読み取れませんでした。手入力してください。");
+    warnings.push(
+      "リース契約書・支払予定表から契約条件を読み取れませんでした。" +
+        "リース料金が分からないままの場合は、カウンター料金のみで比較します（画面で切り替えられます）。",
+    );
   if (!counterReadings.length)
     warnings.push("印刷明細から枚数を読み取れませんでした。手入力してください。");
   if (current.deductionRate) {

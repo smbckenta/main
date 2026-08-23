@@ -361,10 +361,17 @@ function addCompareBlock(
   specRow("　　連続コピー速度（モノクロ）", cd?.ppmMono, d?.ppmMono, "枚/分");
   specRow("　　連続コピー速度（カラー）", cd?.ppmColor, d?.ppmColor, "枚/分");
 
-  putRow(sheet, r++, ["　　リース料　①", current.monthlyLease, calc.monthlyLease, calc.monthlyLease - current.monthlyLease], {
-    border: true,
-    numFmt: YEN,
-  });
+  putRow(
+    sheet,
+    r++,
+    [
+      "　　リース料　①",
+      current.leaseUnknown ? "－（不明）" : current.monthlyLease,
+      calc.monthlyLease,
+      calc.counterOnly ? "－" : calc.monthlyLease - current.monthlyLease,
+    ],
+    { border: true, numFmt: YEN },
+  );
 
   const counterRow = (
     label: string,
@@ -439,28 +446,41 @@ function addCompareBlock(
     ["　　カウンター請求合計　②", current.counter.total, calc.counter.total, calc.counter.total - current.counter.total],
     { border: true, numFmt: YEN, bold: true },
   );
-  putRow(
-    sheet,
-    r++,
-    [
-      "　　ランニングコスト ①+②",
-      current.monthlyLease + current.counter.total,
-      calc.monthlyLease + calc.counter.total,
-      calc.monthlyLease + calc.counter.total - current.monthlyLease - current.counter.total,
-    ],
-    { border: true, numFmt: YEN },
-  );
+  // リース料金が分からない案件は、リース込みの行を出さない（比較にならないため）
+  if (!calc.counterOnly) {
+    putRow(
+      sheet,
+      r++,
+      [
+        "　　ランニングコスト ①+②",
+        current.monthlyLease + current.counter.total,
+        calc.monthlyLease + calc.counter.total,
+        calc.monthlyLease + calc.counter.total - current.monthlyLease - current.counter.total,
+      ],
+      { border: true, numFmt: YEN },
+    );
+  }
   putRow(sheet, r++, ["　　保守料金", current.maintenanceMonthly, calc.maintenanceMonthly, ""], {
     border: true,
     numFmt: YEN,
   });
   putRow(sheet, r++, ["　　消費税", current.tax, calc.runningTax, ""], { border: true, numFmt: YEN });
-  putRow(sheet, r++, ["　　　月間経費", current.monthlyTotal, calc.monthlyTotal, calc.diffMonthly], {
-    border: true,
-    numFmt: YEN,
-    bold: true,
-    fill: SUM_FILL,
-  });
+  putRow(
+    sheet,
+    r++,
+    [
+      calc.counterOnly ? "　　　カウンター月間経費" : "　　　月間経費",
+      current.comparable,
+      calc.comparable,
+      calc.diffMonthly,
+    ],
+    { border: true, numFmt: YEN, bold: true, fill: SUM_FILL },
+  );
+  if (calc.counterOnly) {
+    putRow(sheet, r++, [
+      "※ 現行のリース料金をお伺いできていないため、カウンター料金のみで比較しています。",
+    ]);
+  }
   r++;
 
   putRow(sheet, r++, ["合計合算削減金額　（単月）", "", calc.diffMonthly], { numFmt: YEN, bold: true });
@@ -515,7 +535,12 @@ export function addMultiCompareSheet(
   row("ファーストコピー（カラー）", val(calcs[0]?.currentDevice?.firstCopyColorSec, "秒"), calcs.map((c) => val(c.device?.firstCopyColorSec, "秒")));
   row("販売額計（税抜）", "－", calcs.map((c) => c.sellingTotal), YEN);
   row("リース回数", quote.current.leaseTerm ? `${quote.current.leaseTerm}回` : "－", calcs.map((c) => `${c.proposal.leaseTerm}回`));
-  row("月額リース料", current.monthlyLease, calcs.map((c) => c.monthlyLease), YEN);
+  row(
+    current.leaseUnknown ? "月額リース料（参考）" : "月額リース料",
+    current.leaseUnknown ? "－（不明）" : current.monthlyLease,
+    calcs.map((c) => c.monthlyLease),
+    YEN,
+  );
   // 現状が段階単価の明細の場合は実効単価（金額÷枚数）を並べる
   const tiered = Boolean(current.chargeLines?.length);
   const currentUnit = (kind: "mono" | "color"): number => {
@@ -528,7 +553,12 @@ export function addMultiCompareSheet(
   row(tiered ? "モノクロ単価（現状は実効）" : "モノクロ単価", currentUnit("mono"), calcs.map((c) => c.units.mono), UNIT);
   row(tiered ? "フルカラー単価（現状は実効）" : "フルカラー単価", currentUnit("color"), calcs.map((c) => c.units.color), UNIT);
   row("カウンター請求合計", current.counter.total, calcs.map((c) => c.counter.total), YEN);
-  row("月間経費（税込）", current.monthlyTotal, calcs.map((c) => c.monthlyTotal), YEN);
+  row(
+    current.leaseUnknown ? "カウンター月間経費（税込）" : "月間経費（税込）",
+    current.comparable,
+    calcs.map((c) => c.comparable),
+    YEN,
+  );
   row("削減額（単月）", "－", calcs.map((c) => c.diffMonthly), YEN);
   row("削減額（年間）", "－", calcs.map((c) => c.diffYearly), YEN);
   const years = [...new Set(calcs.map((c) => c.leaseYears))].join("・");
@@ -729,7 +759,14 @@ export function addFleetSheet(
   }
   r += 2;
 
-  // ── リース料金 詳細内訳
+  // ── リース料金 詳細内訳（リース料金が分からない案件では出さない）
+  if (calc.leaseUnknown) {
+    putFleetRow(sheet, r++, [
+      "※ 現行のリース料金をお伺いできていないため、カウンター料金のみで比較しています。",
+    ]);
+    r++;
+  }
+  if (!calc.leaseUnknown) {
   fleetBand(sheet, r++, "- リ ー ス 料 金 詳 細 内 訳 -");
   putFleetRow(sheet, r, ["現状利用状況"], { bold: true, fill: FLEET_HEAD_CURRENT });
   sheet.getRow(r).getCell(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -786,6 +823,7 @@ export function addFleetSheet(
     { border: true, skipBorder: [7], numFmt: YEN, bold: true, fill: SUM_FILL },
   );
   r++;
+  }
 
   // ── カウンター料金 詳細内訳比較
   fleetBand(
@@ -860,9 +898,10 @@ export function addFleetSheet(
   });
   const totalRow = (label: string, a: number, b: number) =>
     putFleetRow(sheet, r++, [label, a, b, b - a], { border: true, numFmt: YEN });
-  totalRow("合計金額 （単月）", calc.current.monthly, calc.proposal.monthly);
-  totalRow("合計金額 （年間）", calc.current.yearly, calc.proposal.yearly);
-  totalRow(`合計金額 （${calc.leaseYears}年間）`, calc.current.longTerm, calc.proposal.longTerm);
+  const totalLabel = calc.leaseUnknown ? "カウンター料金" : "合計金額";
+  totalRow(`${totalLabel} （単月）`, calc.current.monthly, calc.proposal.monthly);
+  totalRow(`${totalLabel} （年間）`, calc.current.yearly, calc.proposal.yearly);
+  totalRow(`${totalLabel} （${calc.leaseYears}年間）`, calc.current.longTerm, calc.proposal.longTerm);
   r++;
 
   // ── トータル削減料金

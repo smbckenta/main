@@ -439,6 +439,15 @@ export interface CurrentMachine {
   deviceId?: string;
   /** 月額リース料（税抜） */
   monthlyLease: number;
+  /**
+   * 現行のリース料金が分からない案件。
+   * リース明細をお預かりできていない、金額が不明、といった場合に true。
+   *
+   * このときはリース料を比較に含めず、カウンター料金だけで比べる。
+   * 分からない額を0円として扱うと、削減額を実際より大きく見せてしまうため。
+   * リース満了で本当に0円の案件とは区別する（そちらは false のまま）。
+   */
+  leaseUnknown?: boolean;
   leaseTerm?: number;
   leaseStart?: string;
   leaseEnd?: string;
@@ -522,6 +531,11 @@ export interface Fleet {
    * （6年リースなら6年間）。
    */
   leaseTerm: number;
+  /**
+   * 現行のリース料金が分からない案件。
+   * リース料金の内訳を出さず、カウンター料金だけで比べる。
+   */
+  leaseUnknown?: boolean;
   units: FleetUnit[];
 }
 
@@ -562,7 +576,10 @@ export interface FleetTotals {
   leaseTotal: number;
   /** カウンター料金 小計（税込） */
   counterSubtotal: number;
-  /** 合計金額（単月・税込） */
+  /**
+   * 合計金額（単月・税込）。
+   * リース料金が不明な案件では、カウンター料金の小計だけになる。
+   */
   monthly: number;
   yearly: number;
   /** 合計金額（リース年数ぶん） */
@@ -573,6 +590,8 @@ export interface FleetCalc {
   units: FleetUnitCalc[];
   current: FleetTotals;
   proposal: FleetTotals;
+  /** リース料金が不明で、カウンター料金だけで比べる案件か */
+  leaseUnknown: boolean;
   /** 提案 − 現行（マイナスが削減） */
   diffMonthly: number;
   diffYearly: number;
@@ -591,7 +610,7 @@ export interface FleetCalc {
  *  fromGp     : 仕切価格に粗利額（GP）を加える（本体価格 = 仕切 + GP）
  *  fromLease  : 目標の月額リース料から販売額を逆算（既存Excelと同じ運用）
  *  fromMargin : 仕切価格に粗利率を乗せる
- *  fromPrice  : 販売額計を直接入力
+ *  fromPrice  : 本体価格を直接入力（オプション・残債精算はこれに加算される）
  */
 export type PricingMode = "fromGp" | "fromLease" | "fromMargin" | "fromPrice";
 
@@ -618,7 +637,13 @@ export interface Proposal {
   targetMonthlyLease?: number;
   /** fromMargin: 粗利率 */
   marginRate?: number;
-  /** fromPrice: 販売額計 */
+  /**
+   * fromPrice: 本体価格（税抜）を直接入力した額。
+   * PTFの対象になる額で、オプション（ptfExempt）と旧リースの残債精算は
+   * これに加算されて販売額計になる。
+   */
+  bodyPrice?: number;
+  /** @deprecated bodyPrice の旧称。古い案件を読むためだけに残している */
   sellingTotal?: number;
   /** 見積書に載せるリース回数 */
   leaseTerm: LeaseTerm;
@@ -716,6 +741,8 @@ export interface ChargeLineCalc {
 
 export interface CurrentCalc {
   monthlyLease: number;
+  /** リース料金が不明で、カウンター料金だけで比べる案件か */
+  leaseUnknown: boolean;
   counter: CounterBreakdown;
   maintenanceMonthly: number;
   /** カウンター料金の内訳（逓減単価の明細を読み取った場合） */
@@ -725,6 +752,12 @@ export interface CurrentCalc {
   tax: number;
   /** 月間経費（税込） */
   monthlyTotal: number;
+  /**
+   * 提案と比べる額（税込）。
+   * ふつうは月間経費と同じだが、リース料金が不明な案件では
+   * カウンター料金＋保守料金だけになる。
+   */
+  comparable: number;
   totalPages: number;
 }
 
@@ -779,6 +812,13 @@ export interface ProposalCalc {
   running: number;
   runningTax: number;
   monthlyTotal: number;
+  /**
+   * カウンター料金だけで比べているか。
+   * 現行のリース料金が不明な案件では、両側ともリース料を除いて比べる。
+   */
+  counterOnly: boolean;
+  /** 現行と比べる額（税込）。counterOnly のときはリース料を含まない */
+  comparable: number;
   /** 現行との差額（マイナスが削減） */
   diffMonthly: number;
   diffYearly: number;

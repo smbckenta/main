@@ -112,6 +112,16 @@ export default function FleetEditor({
             onChange={(e) => patch({ pagesNote: e.target.value })}
           />
         </div>
+        <label className="checks">
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(fleet.leaseUnknown)}
+              onChange={(e) => patch({ leaseUnknown: e.target.checked })}
+            />
+            現行のリース料金が不明（カウンター料金のみで比較する）
+          </span>
+        </label>
         <div className="field" style={{ width: 170 }}>
           <label>リース年数</label>
           <select
@@ -207,6 +217,13 @@ export default function FleetEditor({
         </button>
       </div>
 
+      {fleet.leaseUnknown && (
+        <p className="warn" style={{ marginTop: 10 }}>
+          現行のリース料金が不明なため、<b>カウンター料金だけで比較</b>します。
+          比較表からリース料金の内訳ブロックを外し、合計もカウンター料金だけになります。
+        </p>
+      )}
+
       {calc.units.length > 0 && (
         <>
           <h3>合計</h3>
@@ -221,10 +238,12 @@ export default function FleetEditor({
             </thead>
             <tbody>
               <tr>
-                <th>リース料金 合計（税込）</th>
-                <td className="num">{yen(calc.current.leaseTotal)}</td>
+                <th>リース料金 合計（税込）{fleet.leaseUnknown ? "※比較に含めません" : ""}</th>
+                <td className="num">{fleet.leaseUnknown ? "－（不明）" : yen(calc.current.leaseTotal)}</td>
                 <td className="num">{yen(calc.proposal.leaseTotal)}</td>
-                <td className="num">{sign(calc.proposal.leaseTotal - calc.current.leaseTotal)}</td>
+                <td className="num">
+                  {fleet.leaseUnknown ? "－" : sign(calc.proposal.leaseTotal - calc.current.leaseTotal)}
+                </td>
               </tr>
               <tr>
                 <th>カウンター料金 小計（税込）</th>
@@ -233,19 +252,19 @@ export default function FleetEditor({
                 <td className="num">{sign(calc.proposal.counterSubtotal - calc.current.counterSubtotal)}</td>
               </tr>
               <tr>
-                <th>合計金額（単月）</th>
+                <th>{fleet.leaseUnknown ? "カウンター料金" : "合計金額"}（単月）</th>
                 <td className="num">{yen(calc.current.monthly)}</td>
                 <td className="num">{yen(calc.proposal.monthly)}</td>
                 <td className={`num ${calc.diffMonthly < 0 ? "save" : "cut"}`}>{sign(calc.diffMonthly)}</td>
               </tr>
               <tr>
-                <th>合計金額（年間）</th>
+                <th>{fleet.leaseUnknown ? "カウンター料金" : "合計金額"}（年間）</th>
                 <td className="num">{yen(calc.current.yearly)}</td>
                 <td className="num">{yen(calc.proposal.yearly)}</td>
                 <td className={`num ${calc.diffYearly < 0 ? "save" : "cut"}`}>{sign(calc.diffYearly)}</td>
               </tr>
               <tr>
-                <th>合計金額（{calc.leaseYears}年間）</th>
+                <th>{fleet.leaseUnknown ? "カウンター料金" : "合計金額"}（{calc.leaseYears}年間）</th>
                 <td className="num">{yen(calc.current.longTerm)}</td>
                 <td className="num">{yen(calc.proposal.longTerm)}</td>
                 <td className={`num ${calc.diffMonthly < 0 ? "save" : "cut"}`}>
