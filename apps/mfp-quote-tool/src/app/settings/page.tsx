@@ -341,6 +341,21 @@ export default function SettingsPage() {
               onChange={(e) => set({ leaseRoundUnit: Number(e.target.value) })}
             />
           </Field>
+          <Field label="オプションの掛け率（%）" width={180}>
+            <input
+              type="number"
+              step="1"
+              value={Math.round((s.proposalDoc?.optionPriceRate ?? 0.8) * 100)}
+              onChange={(e) =>
+                set({
+                  proposalDoc: {
+                    ...s.proposalDoc,
+                    optionPriceRate: (Number(e.target.value) || 0) / 100,
+                  },
+                })
+              }
+            />
+          </Field>
           <Field label="既定のGP（円）" width={160}>
             <input
               type="number"

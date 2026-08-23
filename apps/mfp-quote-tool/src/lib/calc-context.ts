@@ -1,4 +1,6 @@
 import { calcFleet, hasFleet } from "./fleet";
+import { loadPhotos } from "./photos";
+import type { DocPhotos } from "./export/html";
 import { calcCurrent, calcProposal } from "./pricing";
 import { findServiceArea } from "./service-area";
 import { deviceMap, findDeviceByModel, getPriceBook, getSettings } from "./store";
@@ -51,5 +53,21 @@ export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
     proposals,
     fleet: hasFleet(quote.fleet) ? calcFleet(quote.fleet, settings.company.taxRate) : undefined,
     serviceArea,
+  };
+}
+
+
+/**
+ * 提案資料に載せる写真を data URI で読み込む。
+ * 現行機の写真は、案件で指定があればそちら、無ければ機種DBのものを使う。
+ */
+export async function loadDocPhotos(quote: Quote, calc: ProposalCalc): Promise<DocPhotos> {
+  const currentFile = quote.proposalDoc?.currentPhoto ?? calc.currentDevice?.photo;
+  const optionFiles = calc.options.map((o) => o.option.photo);
+  const map = await loadPhotos([currentFile, calc.device?.photo, ...optionFiles]);
+  return {
+    current: currentFile ? map[currentFile] : undefined,
+    proposal: calc.device?.photo ? map[calc.device.photo] : undefined,
+    byOption: map,
   };
 }

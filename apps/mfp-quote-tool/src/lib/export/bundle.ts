@@ -1,9 +1,15 @@
 import JSZip from "jszip";
 import type { Quote } from "../types";
 import { MAKER_LABELS } from "../types";
-import { calcQuoteAll } from "../calc-context";
+import { calcQuoteAll, loadDocPhotos } from "../calc-context";
 import { loadLogo } from "../logo";
-import { renderCompareHtml, renderFleetCompareHtml, renderMultiCompareHtml, renderQuoteHtml } from "./html";
+import {
+  renderCompareHtml,
+  renderFleetCompareHtml,
+  renderMultiCompareHtml,
+  renderProposalDocHtml,
+  renderQuoteHtml,
+} from "./html";
 import { htmlToPdf, PdfUnavailableError } from "./pdf";
 import {
   addFleetSheet,
@@ -15,7 +21,7 @@ import {
   workbookToBuffer,
 } from "./excel";
 
-export type DocKind = "quote" | "compare";
+export type DocKind = "quote" | "compare" | "proposal";
 export type Format = "pdf" | "xlsx";
 
 export interface ExportRequest {
@@ -94,6 +100,16 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           files.push({
             name: `${base}_比較表_${safe(maker)}.pdf`,
             buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings, logo?.dataUri)),
+            contentType: "application/pdf",
+          });
+        }
+        if (req.docs.includes("proposal")) {
+          const photos = await loadDocPhotos(quote, calc);
+          files.push({
+            name: `${base}_ご提案書_${safe(maker)}.pdf`,
+            buffer: await htmlToPdf(
+              renderProposalDocHtml(quote, current, calc, settings, photos, logo?.dataUri),
+            ),
             contentType: "application/pdf",
           });
         }

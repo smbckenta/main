@@ -1,4 +1,5 @@
 import type { Settings } from "./types";
+import { DEFAULT_PROPOSAL_DOC } from "./proposal-doc";
 
 /**
  * 初期設定値。既存の見積書Excel・仕切表・研修資料の運用値をそのまま初期値にしている。
@@ -107,6 +108,8 @@ export const DEFAULT_SETTINGS: Settings = {
 
   // 京セラの2色カラーは2.0円（フルカラー7.0円に対する運用値）
   twoColorUnitByMaker: { KYOCERA: 2.0 },
+
+  proposalDoc: DEFAULT_PROPOSAL_DOC,
 
   staff: [
     "小坂 ケビン 絢太",

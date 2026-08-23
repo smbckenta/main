@@ -104,6 +104,28 @@ export interface PriceBook {
   makerNotes: Partial<Record<Maker, MakerNote>>;
 }
 
+/**
+ * 機種に付けられるオプション（提案資料に写真付きで並べる）。
+ *
+ * 提案資料には定価を載せず、「付けた場合に月額リース料がいくら増えるか」だけを出す。
+ * お客様が見るのは月々の負担額であって、機器の値段ではないため。
+ */
+export interface DeviceOption {
+  id: string;
+  /** 品名（例: 両画面原稿送り装置） */
+  name: string;
+  /** メーカー型番 */
+  modelCode?: string;
+  /** 定価（円・税抜）。リース料の増加額はここから計算する */
+  listPrice: number;
+  /** 提案資料に載せる短い説明 */
+  description?: string;
+  /** 写真のファイル名（データ保存先の photos/ に置く） */
+  photo?: string;
+  /** 分類（給紙・フィニッシャー・セキュリティ など） */
+  category?: string;
+}
+
 /** 機種スペック（比較表に載せる項目 + 任意の詳細） */
 export interface DeviceSpec {
   id: string;
@@ -123,6 +145,10 @@ export interface DeviceSpec {
   colorType?: "color" | "mono";
   /** インターネット取得などで得た追加スペック */
   extra?: Record<string, string>;
+  /** 機種の写真のファイル名（データ保存先の photos/ に置く）。提案資料に載せる */
+  photo?: string;
+  /** この機種に付けられるオプション。提案資料の「オプションのご紹介」になる */
+  options?: DeviceOption[];
   source: SpecSource;
   updatedAt: string;
 }
@@ -266,6 +292,8 @@ export interface Settings {
   leaseRoundUnit: number;
   /** メーカー別の2色カラー単価（指定が無いメーカーは twoColorRatio で計算） */
   twoColorUnitByMaker: Partial<Record<Maker, number>>;
+  /** 提案資料（写真入りのご提案書） */
+  proposalDoc: ProposalDocSettings;
   /** 担当者（見積書に印字・削除記録に使う） */
   staff: string[];
   /** 案件の削除 */
@@ -274,6 +302,22 @@ export interface Settings {
   quoteRegister: QuoteRegisterSettings;
   /** AI（Claude）による書類の読み取り */
   ai: AiSettings;
+}
+
+/** 提案資料（見積書・比較表とは別に出す、写真入りのご提案書）の設定 */
+export interface ProposalDocSettings {
+  /**
+   * オプションの掛け率。
+   * オプションを付けた場合の月額リース料は「定価 × この率 × リース料率」で出す。
+   * 既定は0.8（8掛け）。
+   */
+  optionPriceRate: number;
+  /** 表紙に入れる標題 */
+  title: string;
+  /** 表紙に入れるリード文 */
+  lead: string;
+  /** 提案する複合機の訴求ポイント（既定値。案件ごとに書き換えられる） */
+  highlights: string[];
 }
 
 /**
@@ -649,6 +693,11 @@ export interface Proposal {
   leaseTerm: LeaseTerm;
   /** 代理店が2社入る案件（PTFを2社に払い出す） */
   twoAgencies?: boolean;
+  /**
+   * 提案資料に載せるオプション（機種DBのオプションID）。
+   * 未指定なら、その機種のオプションをすべて載せる。
+   */
+  optionIds?: string[];
   units?: CounterUnits;
   counterOverridden?: boolean;
   maintenanceMonthly: number;
@@ -675,6 +724,8 @@ export interface Quote {
    * enabled のときは、台数ぶんを1枚にまとめたA3ヨコの複数台比較表を出す。
    */
   fleet?: Fleet;
+  /** 提案資料（写真入りのご提案書）に載せる、この案件だけの内容 */
+  proposalDoc?: QuoteProposalDoc;
   ingest?: {
     counter: CounterReading[];
     lease: LeaseReading[];
@@ -683,6 +734,22 @@ export interface Quote {
   };
   createdAt: string;
   updatedAt: string;
+}
+
+/** 案件ごとの提案資料の内容 */
+export interface QuoteProposalDoc {
+  /** 表紙の標題（未指定なら設定の既定値） */
+  title?: string;
+  /** 表紙のリード文 */
+  lead?: string;
+  /** 現状の課題（箇条書き。提案資料の「現状」ページに載せる） */
+  issues?: string[];
+  /** 提案の訴求ポイント（箇条書き。未指定なら設定の既定値） */
+  highlights?: string[];
+  /** 現行機の写真のファイル名。未指定なら機種DBの写真を使う */
+  currentPhoto?: string;
+  /** 結びの文 */
+  closing?: string;
 }
 
 /* ---------------- 計算結果 ---------------- */
@@ -761,6 +828,15 @@ export interface CurrentCalc {
   totalPages: number;
 }
 
+/** オプション1件の、提案資料に出す計算結果 */
+export interface OptionCalc {
+  option: DeviceOption;
+  /** 定価 × 掛け率（提案資料には出さない社内向けの数字） */
+  price: number;
+  /** これを付けた場合に増える月額リース料（円）。提案資料にはこれだけ出す */
+  monthlyLeaseAdd: number;
+}
+
 export interface ProposalCalc {
   proposal: Proposal;
   /** 提案機のスペック */
@@ -834,4 +910,6 @@ export interface ProposalCalc {
   /** PTFの内訳（1社目／2社目） */
   ptfBreakdown: { primary: number; second: number };
   netProfit: number;
+  /** 提案資料に載せるオプションと、その月額リース料の増加額 */
+  options: OptionCalc[];
 }

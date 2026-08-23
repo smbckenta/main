@@ -6,6 +6,7 @@ import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
 import { hasFleet } from "@/lib/fleet";
 import FleetEditor from "./FleetEditor";
+import ProposalDocEditor from "./ProposalDocEditor";
 import type {
   CurrentCalc,
   DeviceSpec,
@@ -76,7 +77,7 @@ export default function QuoteEditor({
   const [fetchSpec, setFetchSpec] = useState(false);
 
   // 出力条件
-  const [docs, setDocs] = useState<("quote" | "compare")[]>(["quote", "compare"]);
+  const [docs, setDocs] = useState<("quote" | "compare" | "proposal")[]>(["quote", "compare"]);
   const [formats, setFormats] = useState<("pdf" | "xlsx")[]>(["pdf", "xlsx"]);
   const [includeProfit, setIncludeProfit] = useState(false);
 
@@ -687,8 +688,27 @@ export default function QuoteEditor({
         </section>
       )}
 
+      {calcs.length > 0 && (
+        <ProposalDocEditor
+          quote={quote}
+          calcs={calcs}
+          devices={specs}
+          settings={settings}
+          onQuoteChange={patchQuote}
+          onDeviceChange={(device) =>
+            setSpecs((prev) => ({
+              ...prev,
+              byProposal: Object.fromEntries(
+                Object.entries(prev.byProposal).map(([id, d]) => [id, d?.id === device.id ? device : d]),
+              ),
+              current: prev.current?.id === device.id ? device : prev.current,
+            }))
+          }
+        />
+      )}
+
       <section className="panel">
-        <h2>見積書・比較表の出力</h2>
+        <h2>帳票の出力</h2>
         <div className="row">
           <div className="checks">
             <label>
@@ -708,6 +728,16 @@ export default function QuoteEditor({
                 }
               />
               比較表
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={docs.includes("proposal")}
+                onChange={(e) =>
+                  setDocs((d) => (e.target.checked ? [...d, "proposal"] : d.filter((x) => x !== "proposal")))
+                }
+              />
+              ご提案書
             </label>
             <label>
               <input
@@ -759,6 +789,17 @@ export default function QuoteEditor({
               rel="noreferrer"
             >
               {MAKER_LABELS[p.maker]} 比較表プレビュー
+            </a>
+          ))}
+          {quote.proposals.map((p) => (
+            <a
+              key={`d-${p.id}`}
+              className="badge"
+              href={`/api/quotes/${quote.id}/preview?doc=proposal&proposalId=${p.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {MAKER_LABELS[p.maker]} ご提案書プレビュー
             </a>
           ))}
           {quote.proposals.length > 1 && (

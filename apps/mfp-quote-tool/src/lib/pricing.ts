@@ -1,3 +1,4 @@
+import { calcOptions } from "./proposal-doc";
 import type {
   ChargeLineCalc,
   CounterBreakdown,
@@ -514,6 +515,8 @@ export function calcProposal(
     ptf: ptf.total,
     ptfBreakdown: { primary: ptf.primary, second: ptf.second },
     netProfit: Math.round(grossProfit - ptf.total),
+    // 提案資料に載せるオプション（付けた場合の月額リース料の増加額つき）
+    options: calcOptions(proposal, ctx.device, settings),
   };
 }
 

@@ -10,6 +10,7 @@ import type {
 } from "../types";
 import { yen } from "../pricing";
 import { pagesAverageNote } from "../labels";
+import { groupOptions } from "../proposal-doc";
 
 /**
  * 既存の御見積書・比較表（Excel）の体裁に合わせたHTML。
@@ -1163,3 +1164,327 @@ export function fitZoom(rowCount: number): number {
 const SHRINKABLE_BUDGET_PX = 1_000 - 105;
 const BLOCK_HEIGHT_PX = 300;
 const ROW_HEIGHT_PX = 17.2;
+
+/* ---------------- 提案資料（写真入りのご提案書） ---------------- */
+
+/**
+ * 見積書・比較表とは別に出す、お客様にお渡しする提案資料。
+ *
+ * 構成は 表紙 → 現状 → ご提案 → オプションのご紹介 → 導入効果 の順。
+ * オプションは「付けた場合に月々いくら増えるか」だけを載せ、
+ * 定価や販売額は出さない（お客様が判断するのは月々の負担額のため）。
+ */
+const DOC_CSS = `
+  @page { size: A4; margin: 14mm 13mm; }
+  body.doc { font-size: 10.5pt; line-height: 1.7; }
+
+  .doc-page { page-break-after: always; }
+  .doc-page:last-child { page-break-after: auto; }
+
+  /* 表紙 */
+  .cover { display: flex; flex-direction: column; min-height: 250mm; }
+  .cover .cover-top { flex: 0 0 auto; }
+  .cover .cover-mid { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; }
+  .cover h1 {
+    font-size: 26pt;
+    letter-spacing: 0.18em;
+    line-height: 1.5;
+    margin: 0 0 6px;
+    text-indent: 0.18em;
+  }
+  .cover h1::after { width: 180px; height: 3px; margin-top: 14px; }
+  .cover .to {
+    font-size: 17pt;
+    font-weight: 700;
+    border-bottom: 2px solid var(--accent);
+    display: inline-block;
+    padding: 0 24px 6px 0;
+    margin-bottom: 22px;
+  }
+  .cover .lead { white-space: pre-wrap; color: #37485a; margin-top: 18px; }
+  .cover .cover-foot { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: flex-end; }
+
+  .doc h2 {
+    font-size: 15pt;
+    letter-spacing: 0.16em;
+    text-align: left;
+    text-indent: 0;
+    margin: 0 0 14px;
+    padding: 0 0 6px 12px;
+    border-bottom: 2px solid var(--accent);
+    border-left: 6px solid var(--accent);
+  }
+  .doc h3 { font-size: 11.5pt; color: var(--accent); margin: 14px 0 6px; }
+
+  /* 写真 */
+  .photo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f7fa;
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .photo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .photo.empty { color: #93a3b4; font-size: 8.5pt; }
+  .machine { display: flex; gap: 18px; align-items: flex-start; }
+  .machine .photo { width: 46%; height: 62mm; flex: 0 0 auto; }
+  .machine .detail { flex: 1 1 auto; }
+  .machine .model { font-size: 15pt; font-weight: 700; color: var(--accent); }
+  .machine .maker { font-size: 10pt; color: #5b6b7c; }
+
+  /* 現状→提案の矢印 */
+  .flow { display: flex; align-items: center; gap: 14px; margin: 16px 0; }
+  .flow > .side { flex: 1 1 0; text-align: center; }
+  .flow .photo { height: 52mm; margin-bottom: 6px; }
+  .flow .arrow { flex: 0 0 auto; font-size: 22pt; color: var(--accent); font-weight: 700; }
+  .flow .caption { font-weight: 700; }
+  .flow .caption .sub { display: block; font-size: 9pt; font-weight: 400; color: #5b6b7c; }
+
+  /* 箇条書き */
+  .points { list-style: none; padding: 0; margin: 10px 0 0; }
+  .points li { position: relative; padding: 5px 0 5px 26px; border-bottom: 1px dashed var(--line-soft); }
+  .points li::before {
+    content: "✓";
+    position: absolute;
+    left: 4px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .issues li::before { content: "●"; color: #b3261e; font-size: 8pt; top: 7px; }
+
+  /* オプション */
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .option {
+    display: flex;
+    gap: 10px;
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 8px;
+    break-inside: avoid;
+  }
+  .option .photo { width: 30mm; height: 26mm; flex: 0 0 auto; }
+  .option .body { flex: 1 1 auto; min-width: 0; }
+  .option .name { font-weight: 700; line-height: 1.4; }
+  .option .code { font-size: 8.5pt; color: #5b6b7c; }
+  .option .desc { font-size: 9pt; color: #37485a; margin-top: 2px; }
+  .option .add {
+    margin-top: 5px;
+    padding: 3px 8px;
+    display: inline-block;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    font-size: 9pt;
+  }
+  .option .add strong { font-size: 12pt; color: var(--accent); }
+
+  /* 導入効果 */
+  .effect-big {
+    display: flex;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .effect-big > div {
+    flex: 1 1 0;
+    text-align: center;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--accent);
+    border-radius: 4px;
+    padding: 12px 8px;
+  }
+  .effect-big .label { font-size: 9.5pt; color: #5b6b7c; }
+  .effect-big .value { font-size: 20pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
+  .effect-big .value.save { color: #0a7d32; }
+`;
+
+/** 写真の枠。無いときは枠だけ出して、体裁が崩れないようにする */
+const photoBox = (src: string | undefined, alt: string, cls = ""): string =>
+  src
+    ? `<div class="photo ${cls}"><img src="${src}" alt="${esc(alt)}"></div>`
+    : `<div class="photo empty ${cls}">写真未登録</div>`;
+
+/** 提案資料に渡す写真（ファイル名 → data URI） */
+export interface DocPhotos {
+  current?: string;
+  proposal?: string;
+  byOption: Record<string, string>;
+}
+
+export function renderProposalDocHtml(
+  quote: Quote,
+  current: CurrentCalc,
+  calc: ProposalCalc,
+  settings: Settings,
+  photos: DocPhotos,
+  logo?: string,
+): string {
+  const doc = quote.proposalDoc ?? {};
+  const base = settings.proposalDoc;
+  const c = quote.current;
+  const p = calc.proposal;
+  const d = calc.device;
+  const cd = calc.currentDevice;
+
+  const title = doc.title?.trim() || base.title;
+  const highlights = (doc.highlights?.length ? doc.highlights : base.highlights).filter((h) => h.trim());
+  const issues = (doc.issues ?? []).filter((i) => i.trim());
+  const save = Math.max(0, -calc.diffMonthly);
+
+  const spec = (label: string, value: string | number | undefined, unit = "") =>
+    value === undefined || value === "" ? "" : `<tr><th>${esc(label)}</th><td>${esc(value)}${unit}</td></tr>`;
+
+  // ── 表紙
+  const cover = `
+  <div class="doc-page cover">
+    <div class="cover-top">${brandBar(settings, logo, quote, p.quoteNo)}</div>
+    <div class="cover-mid">
+      <div><span class="to">${esc(quote.customerName)} ${esc(quote.customerHonorific)}</span></div>
+      <h1>${esc(title)}</h1>
+      <div class="lead">${esc(doc.lead?.trim() || base.lead)}</div>
+    </div>
+    <div class="cover-foot">
+      <div class="small muted">${esc(jpDate(quote.quoteDate))}</div>
+      ${companyBlock(settings, logo)}
+    </div>
+  </div>`;
+
+  // ── 現状 → ご提案
+  const flow = `
+  <div class="doc-page">
+    <h2>現状のご利用状況と、ご提案</h2>
+    <div class="flow">
+      <div class="side">
+        ${photoBox(photos.current, c.modelText || "現行機")}
+        <div class="caption">${esc(c.makerText || "現行機")}
+          <span class="sub">${esc(c.modelText || "－")}</span></div>
+      </div>
+      <div class="arrow">➡</div>
+      <div class="side">
+        ${photoBox(photos.proposal, p.modelText)}
+        <div class="caption">${esc(makerJp(p.maker))}
+          <span class="sub">${esc(p.modelText)}</span></div>
+      </div>
+    </div>
+
+    <table class="grid" style="margin-top:4px">
+      <thead><tr>
+        <th style="width:30%"></th>
+        <th style="width:35%">現在ご利用の複合機</th>
+        <th style="width:35%">ご提案する複合機</th>
+      </tr></thead>
+      <tbody>
+        <tr><th style="text-align:left">メーカー</th><td>${esc(c.makerText || "－")}</td><td>${esc(makerJp(p.maker))}</td></tr>
+        <tr><th style="text-align:left">機種</th><td>${esc(c.modelText || "－")}</td><td>${esc(p.modelText)}</td></tr>
+        <tr><th style="text-align:left">印刷速度（カラー）</th><td>${x2(cd?.ppmColor, "枚/分")}</td><td>${x2(d?.ppmColor, "枚/分")}</td></tr>
+        <tr><th style="text-align:left">印刷速度（モノクロ）</th><td>${x2(cd?.ppmMono, "枚/分")}</td><td>${x2(d?.ppmMono, "枚/分")}</td></tr>
+        <tr><th style="text-align:left">ファーストコピー（カラー）</th><td>${x2(cd?.firstCopyColorSec, "秒")}</td><td>${x2(d?.firstCopyColorSec, "秒")}</td></tr>
+        <tr><th style="text-align:left">ウォームアップ</th><td>${x2(cd?.warmupSec, "秒")}</td><td>${x2(d?.warmupSec, "秒")}</td></tr>
+        <tr><th style="text-align:left">最大用紙サイズ</th><td>${esc(cd?.maxPaperSize ?? "－")}</td><td>${esc(d?.maxPaperSize ?? "－")}</td></tr>
+      </tbody>
+    </table>
+
+    ${
+      issues.length
+        ? `<h3>現状の課題</h3>
+           <ul class="points issues">${issues.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`
+        : ""
+    }
+    ${
+      highlights.length
+        ? `<h3>ご提案のポイント</h3>
+           <ul class="points">${highlights.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>`
+        : ""
+    }
+  </div>`;
+
+  // ── オプションのご紹介（金額は出さず、月々の上乗せ額だけを出す）
+  const optionPage = calc.options.length
+    ? `
+  <div class="doc-page">
+    <h2>オプションのご紹介</h2>
+    <p class="small muted">
+      下記は、ご提案の複合機に追加できるオプションです。
+      金額は「お付けした場合に月々のリース料がいくら増えるか」で記載しております（税別・${p.leaseTerm}回払いの場合）。
+    </p>
+    ${groupOptions(calc.options)
+      .map(
+        (group) => `
+      <h3>${esc(group.category)}</h3>
+      <div class="options">
+        ${group.items
+          .map(
+            (o) => `
+          <div class="option">
+            ${photoBox(o.option.photo ? photos.byOption[o.option.photo] : undefined, o.option.name)}
+            <div class="body">
+              <div class="name">${esc(o.option.name)}</div>
+              ${o.option.modelCode ? `<div class="code">${esc(o.option.modelCode)}</div>` : ""}
+              ${o.option.description ? `<div class="desc">${esc(o.option.description)}</div>` : ""}
+              <div class="add">月額 <strong>+${n(o.monthlyLeaseAdd)}</strong> 円</div>
+            </div>
+          </div>`,
+          )
+          .join("")}
+      </div>`,
+      )
+      .join("")}
+  </div>`
+    : "";
+
+  // ── 導入効果
+  const effect = `
+  <div class="doc-page">
+    <h2>導入後の月々のご負担</h2>
+    <div class="effect-big">
+      <div>
+        <div class="label">現在の月間経費（税込）</div>
+        <div class="value">${n(current.comparable)}<span style="font-size:11pt"> 円</span></div>
+      </div>
+      <div>
+        <div class="label">ご提案後の月間経費（税込）</div>
+        <div class="value">${n(calc.comparable)}<span style="font-size:11pt"> 円</span></div>
+      </div>
+      <div>
+        <div class="label">月々の削減額</div>
+        <div class="value ${save > 0 ? "save" : ""}">${save > 0 ? `▲${n(save)}` : n(Math.abs(calc.diffMonthly))}<span style="font-size:11pt"> 円</span></div>
+      </div>
+    </div>
+
+    <table class="grid" style="width:70%">
+      <tbody>
+        <tr><th style="text-align:left">月額リース料（税別・${p.leaseTerm}回払い）</th><td class="num">${n(calc.monthlyLease)} 円</td></tr>
+        <tr><th style="text-align:left">モノクロ カウンター単価</th><td class="num">${unitYen(calc.units.mono)}</td></tr>
+        <tr><th style="text-align:left">フルカラー カウンター単価</th><td class="num">${unitYen(calc.units.color)}</td></tr>
+        <tr><th style="text-align:left">2色カラー カウンター単価</th><td class="num">${unitYen(calc.units.twoColor)}</td></tr>
+        <tr><th style="text-align:left">最低基本料金</th><td class="num">${n(calc.units.minCharge)} 円</td></tr>
+      </tbody>
+    </table>
+
+    ${
+      save > 0
+        ? `<table class="grid" style="width:70%;margin-top:14px">
+      <tbody>
+        <tr><th style="text-align:left">削減額（年間）</th><td class="num save">▲${n(save * 12)} 円</td></tr>
+        <tr class="total-row"><th style="text-align:left">削減額（${calc.leaseYears}年間）</th><td class="num save">▲${n(Math.abs(calc.diffLeaseTerm))} 円</td></tr>
+      </tbody>
+    </table>
+    ${salesEffectTable(calc.diffYearly, "70%")}`
+        : ""
+    }
+
+    ${counterOnlyNote(calc)}
+
+    <div class="notes" style="margin-top:18px">${esc(
+      doc.closing?.trim() ||
+        "ご不明な点やご要望がございましたら、何なりとお申し付けください。\n何卒ご検討のほど、よろしくお願い申し上げます。",
+    )}</div>
+    <div style="margin-top:22px;display:flex;justify-content:flex-end">${companyBlock(settings, logo)}</div>
+  </div>`;
+
+  return page(`ご提案書_${quote.customerName}_${makerJp(p.maker)}`, cover + flow + optionPage + effect, {
+    css: DOC_CSS,
+    bodyClass: "doc",
+  });
+}

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getQuote } from "@/lib/store";
-import { calcQuoteAll } from "@/lib/calc-context";
+import { calcQuoteAll, loadDocPhotos } from "@/lib/calc-context";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
   renderMultiCompareHtml,
+  renderProposalDocHtml,
   renderQuoteHtml,
 } from "@/lib/export/html";
 import { loadLogo } from "@/lib/logo";
@@ -47,6 +48,17 @@ export async function GET(req: Request, { params }: Ctx) {
   }
 
   const calc = proposalId ? proposals.find((p) => p.proposal.id === proposalId) : proposals[0];
+
+  // 提案資料は写真を読み込む必要があるので先に分岐する
+  if (doc === "proposal") {
+    const target = calc ?? proposals[0];
+    const photos = await loadDocPhotos(quote, target);
+    return new NextResponse(
+      renderProposalDocHtml(quote, current, target, settings, photos, logo?.dataUri),
+      { headers: { "Content-Type": "text/html; charset=utf-8" } },
+    );
+  }
+
   const html =
     doc === "compare-all"
       ? renderMultiCompareHtml(quote, current, proposals, settings, logo?.dataUri)

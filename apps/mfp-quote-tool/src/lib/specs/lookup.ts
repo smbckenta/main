@@ -1,9 +1,11 @@
 import * as cheerio from "cheerio";
-import type { DeviceSpec, Maker } from "../types";
+import type { DeviceOption, DeviceSpec, Maker } from "../types";
 import { MAKER_LABELS } from "../types";
 import { detectMaker } from "../parse/normalize";
 import { findDeviceByModel, upsertDevice } from "../store";
 import { extractSpecTable, specFromTable } from "./parse-spec-html";
+import { extractOptions, extractProductImage } from "./product-assets";
+import { savePhoto } from "../photos";
 
 /** メーカー公式サイトのドメイン（検索を公式に限定するため） */
 const MAKER_SITES: Record<Maker, string[]> = {
@@ -36,11 +38,30 @@ async function fetchText(url: string, timeoutMs = 12_000): Promise<string | null
   }
 }
 
+/** 画像を取ってきて保存する。失敗しても本体の処理は止めない */
+async function fetchPhoto(url: string | undefined, timeoutMs = 12_000): Promise<string | undefined> {
+  if (!url) return undefined;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers: { "User-Agent": UA } });
+    if (!res.ok) return undefined;
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.startsWith("image/")) return undefined;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return await savePhoto(buffer);
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** DuckDuckGo(HTML版)で公式サイト内の仕様ページを検索する */
-async function searchSpecPages(maker: Maker, model: string): Promise<string[]> {
+async function searchSpecPages(maker: Maker, model: string, keyword = "仕様"): Promise<string[]> {
   const sites = MAKER_SITES[maker] ?? [];
   const siteQuery = sites.map((s) => `site:${s}`).join(" OR ");
-  const query = `${MAKER_LABELS[maker] ?? ""} ${model} 仕様 ${siteQuery}`.trim();
+  const query = `${MAKER_LABELS[maker] ?? ""} ${model} ${keyword} ${siteQuery}`.trim();
   const html = await fetchText(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
   if (!html) return [];
 
@@ -109,11 +130,15 @@ export async function lookupSpec(
     // 比較表に必要な速度系が1つも取れないページは仕様表ではないと判断する
     if (!partial.ppmColor && !partial.ppmMono && !partial.warmupSec) continue;
 
+    // 提案資料に使う製品写真も、同じページから拾えるなら取っておく
+    const photo = await fetchPhoto(extractProductImage(html, url));
+
     const device = await upsertDevice({
       maker,
       makerText: MAKER_LABELS[maker],
       model: cleanModel,
       ...partial,
+      ...(photo ? { photo } : {}),
       source: { method: "web", url, fetchedAt: new Date().toISOString() },
     });
     return { device, url, origin: "web", rawTable: table };
@@ -123,5 +148,54 @@ export async function lookupSpec(
     origin: "miss",
     message:
       "仕様ページは見つかりましたが、仕様表を読み取れませんでした。機種DB画面から手入力で登録してください。",
+  };
+}
+
+
+export interface OptionLookupResult {
+  options: DeviceOption[];
+  url?: string;
+  message?: string;
+}
+
+/**
+ * 機種のオプション一覧をメーカーサイトから取得する。
+ *
+ * 取れた分は機種DBに保存し、提案資料の「オプションのご紹介」に使う。
+ * ページの作りはメーカーごとに違うため、取れないことも珍しくない。
+ * その場合は機種DB画面から手で足してもらう。
+ */
+export async function lookupOptions(model: string, makerHint?: Maker): Promise<OptionLookupResult> {
+  const cleanModel = model.trim();
+  if (!cleanModel) return { options: [], message: "型番が空です。" };
+
+  const maker = makerHint ?? detectMaker(cleanModel) ?? "OTHER";
+  const urls = [
+    ...(await searchSpecPages(maker, cleanModel, "オプション 希望小売価格")),
+    ...(await searchSpecPages(maker, cleanModel, "オプション")),
+  ].filter((u, i, all) => all.indexOf(u) === i);
+
+  for (const url of urls) {
+    const html = await fetchText(url);
+    if (!html) continue;
+    const found = extractOptions(html, url);
+    if (found.length < 2) continue;
+
+    // 表の中に写真があれば取り込む（無いほうが多い）
+    const options: DeviceOption[] = [];
+    for (const option of found) {
+      const photo = option.photo?.startsWith("http") ? await fetchPhoto(option.photo) : option.photo;
+      options.push({ ...option, photo });
+    }
+
+    const device = await findDeviceByModel(cleanModel);
+    if (device) await upsertDevice({ ...device, options });
+    return { options, url };
+  }
+
+  return {
+    options: [],
+    message:
+      "オプション一覧のページを読み取れませんでした。機種DB画面から手で登録してください。",
   };
 }
