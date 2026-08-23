@@ -1,10 +1,170 @@
 @echo off
-rem Double-click launcher for the MFP quote tool (Windows).
-rem It only calls start.ps1 so that Japanese messages render correctly.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1"
-rem èµ·å‹•ã«å¤±æ•—ã—ãŸå ´åˆã§ã‚‚ã€åŸå› ãŒèª­ã‚ã‚‹ã‚ˆã†ã«ç”»é¢ã‚’é–‰ã˜ãªã„
-if errorlevel 1 (
-  echo.
-  echo èµ·å‹•ã«å¤±æ•—ã—ã¾ã—ãŸã€‚ã“ã®ãƒ•ã‚©ãƒ«ãƒ€ã® start-log.txt ã‚’æ‹…å½“è€…ã«ãŠé€ã‚Šãã ã•ã„ã€‚
-  pause
-)
+rem •¡‡‹@ Œ©ÏE”äŠr•\ì¬ƒc[ƒ‹@‹N“®—piWindowsj
+rem
+rem ‚±‚Ìƒtƒ@ƒCƒ‹‚ğƒ_ƒuƒ‹ƒNƒŠƒbƒN‚·‚é‚Æ‹N“®‚µ‚Ü‚·B
+rem PowerShell ‚ğg‚í‚È‚¢‚Ì‚ÅAÀsƒ|ƒŠƒV[‚âƒ_ƒEƒ“ƒ[ƒhƒtƒ@ƒCƒ‹‚Ì
+rem ƒuƒƒbƒN‚Ì‰e‹¿‚ğó‚¯‚Ü‚¹‚ñB‰½‚ª‹N‚«‚½‚©‚Í start-log.txt ‚Éc‚è‚Ü‚·B
+
+setlocal enabledelayedexpansion
+chcp 932 >nul 2>&1
+title •¡‡‹@ Œ©ÏE”äŠr•\ì¬ƒc[ƒ‹
+cd /d "%~dp0"
+
+set "APP=%~dp0"
+set "LOG=%APP%start-log.txt"
+set "MSG1="
+set "MSG2="
+
+>"%LOG%" echo ==== •¡‡‹@ Œ©ÏE”äŠr•\ì¬ƒc[ƒ‹ ‹N“®ƒƒO ====
+>>"%LOG%" echo “ú     : %DATE% %TIME%
+>>"%LOG%" echo ƒtƒHƒ‹ƒ_ : %APP%
+
+echo.
+echo === •¡‡‹@ Œ©ÏE”äŠr•\ì¬ƒc[ƒ‹ ===
+echo.
+
+rem --- ZIP‚Ì’†‚©‚çÀs‚µ‚Ä‚¢‚È‚¢‚© ---
+rem ƒGƒNƒXƒvƒ[ƒ‰[‚ÅZIP‚ğŠJ‚¢‚½‚Ü‚ÜÀs‚·‚é‚ÆAˆêƒtƒHƒ‹ƒ_‚É1ŒÂ‚¾‚¯
+rem æ‚èo‚³‚ê‚Ä“®‚­‚½‚ßA‚Ù‚©‚Ìƒtƒ@ƒCƒ‹‚ªŒ©‚Â‚©‚ç‚¸¸”s‚·‚éB
+echo %APP% | find /i "\AppData\Local\Temp\" >nul
+if not errorlevel 1 goto in_zip
+echo %APP% | find /i ".zip\" >nul
+if not errorlevel 1 goto in_zip
+
+rem --- ƒtƒ@ƒCƒ‹‚ª‘µ‚Á‚Ä‚¢‚é‚© ---
+if not exist "%APP%package.json" goto no_files
+if not exist "%APP%src" goto no_files
+
+rem --- Node.js ‚ª‚ ‚é‚© ---
+where node >nul 2>&1
+if errorlevel 1 goto no_node
+set "NODEV="
+for /f "tokens=*" %%V in ('node -v') do set "NODEV=%%V"
+echo Node.js !NODEV! ‚ğŠm”F‚µ‚Ü‚µ‚½B
+>>"%LOG%" echo Node.js  : !NODEV!
+
+rem --- ƒf[ƒ^‚Ì•Û‘¶æ‚ğŒˆ‚ß‚é ---
+rem Šù’è‚Í Googleƒhƒ‰ƒCƒu‚Ì‹¤—LƒtƒHƒ‹ƒ_B•Ï‚¦‚½‚¢‚Æ‚«‚ÍA‚±‚ÌƒtƒHƒ‹ƒ_‚É
+rem data-dir.txt ‚ğ’u‚¢‚Ä1s–Ú‚ÉƒtƒHƒ‹ƒ_‚ÌƒpƒX‚ğ‘‚­B
+set "DATADIR="
+if exist "%APP%data-dir.txt" goto datadir_file
+if exist "G:\‹¤—Lƒhƒ‰ƒCƒu" goto datadir_drive
+set "DATADIR=%APP%data"
+echo Googleƒhƒ‰ƒCƒu ^(G:^) ‚ªŒ©‚Â‚©‚ç‚È‚¢‚½‚ßAƒf[ƒ^‚Í‚±‚ÌPC“à‚É•Û‘¶‚µ‚Ü‚·B
+goto datadir_done
+:datadir_file
+set /p DATADIR=<"%APP%data-dir.txt"
+goto datadir_done
+:datadir_drive
+set "DATADIR=G:\‹¤—Lƒhƒ‰ƒCƒu\šKevin\£0Claude\•¡‡‹@Œ©Ïì¬ƒc[ƒ‹\data"
+:datadir_done
+if not exist "!DATADIR!" mkdir "!DATADIR!"
+set "MFP_DATA_DIR=!DATADIR!"
+echo ƒf[ƒ^‚Ì•Û‘¶æ: !DATADIR!
+>>"%LOG%" echo •Û‘¶æ   : !DATADIR!
+
+rem --- •K—v‚È•”•i‚Ìæ“¾ ---
+rem V‚µ‚¢”Å‚É“ü‚ê‘Ö‚¦‚é‚Æ•K—v‚È•”•i‚ª‘‚¦‚é‚±‚Æ‚ª‚ ‚éBnode_modules ‚ª
+rem ‚ ‚é‚¾‚¯‚Å‚Í‘«‚è‚È‚¢‚Ì‚ÅApackage-lock.json ‚Ì“ú•t‚ÆƒTƒCƒY‚ğT‚¦‚Ä‚¨‚«A
+rem ‘O‰ñ‚Æˆá‚Á‚Ä‚¢‚ê‚Î“ü‚ê’¼‚·B
+set "LOCKSTAMP="
+for %%F in ("%APP%package-lock.json") do set "LOCKSTAMP=%%~tF %%~zF"
+set "STAMP=%APP%node_modules\.mfp-install-stamp"
+set "PREV=__none__"
+if exist "%STAMP%" set /p PREV=<"%STAMP%"
+if not exist "%APP%node_modules" set "PREV=__none__"
+if "!PREV!"=="!LOCKSTAMP!" goto install_done
+
+echo.
+echo •K—v‚È•”•i‚ğæ“¾‚µ‚Ä‚¢‚Ü‚·B”•ª‚©‚©‚è‚Ü‚·c ^(npm install^)
+>>"%LOG%" echo npm install ‚ğÀs‚µ‚Ü‚·
+call npm install --no-audit --no-fund
+if errorlevel 1 goto npm_failed
+>"%STAMP%" echo !LOCKSTAMP!
+echo •”•i‚Ìæ“¾‚ªI‚í‚è‚Ü‚µ‚½B
+:install_done
+
+rem --- PDFo—Í‚Ég‚¤ Chromiumi‰‰ñ‚Ì‚İE¸”s‚µ‚Ä‚à‘±sj ---
+if exist "%APP%.chromium-installed" goto chromium_done
+echo.
+echo PDFo—Í—p‚Ì•”•i‚ğæ“¾’†‚Å‚·c ^(‰‰ñ‚Ì‚İ^)
+call npx --yes playwright install chromium
+if errorlevel 1 goto chromium_skipped
+>"%APP%.chromium-installed" echo ok
+goto chromium_done
+:chromium_skipped
+echo PDFo—Í—p‚Ì•”•i‚ğæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½BExcelo—Í‚Í‚»‚Ì‚Ü‚Üg‚¦‚Ü‚·B
+echo PDF‚ª•K—v‚Èê‡‚ÍA’ •[ƒvƒŒƒrƒ…[‰æ–Ê‚©‚ç Ctrl+P ¨uPDF‚Æ‚µ‚Ä•Û‘¶v‚ğ‚²—˜—p‚­‚¾‚³‚¢B
+>>"%LOG%" echo Chromium ‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½
+:chromium_done
+
+rem --- AIiClaudej‚ÌAPIƒL[ ---
+rem PDFEÊ^‚Ì“Ç‚İæ‚è‚Ég‚¤B•Û‘¶æ‚Ì api-key.txt ‚É’u‚¢‚Ä‚¨‚­B
+if not exist "!DATADIR!\api-key.txt" goto nokey
+set /p ANTHROPIC_API_KEY=<"!DATADIR!\api-key.txt"
+echo AI“Ç‚İæ‚è—p‚ÌAPIƒL[‚ğ“Ç‚İ‚İ‚Ü‚µ‚½B
+goto key_done
+:nokey
+echo AI‚ÌAPIƒL[‚ª–¢“o˜^‚Å‚·Bİ’è‰æ–Ê‚©‚ç“o˜^‚Å‚«‚Ü‚·B
+:key_done
+
+rem --- ‹ó‚¢‚Ä‚¢‚éƒ|[ƒg‚ğ’T‚· ---
+set PORT=3100
+:portloop
+netstat -ano | find ":!PORT! " | find "LISTENING" >nul
+if errorlevel 1 goto portfound
+set /a PORT=!PORT!+1
+if !PORT! lss 3110 goto portloop
+:portfound
+>>"%LOG%" echo ƒ|[ƒg   : !PORT!
+
+echo.
+echo ‹N“®‚µ‚Ä‚¢‚Ü‚·c ‚µ‚Î‚ç‚­‚·‚é‚Æƒuƒ‰ƒEƒU‚ª©“®‚ÅŠJ‚«‚Ü‚·B
+echo I—¹‚·‚é‚Æ‚«‚ÍA‚±‚Ì•‚¢‰æ–Ê‚ğ•Â‚¶‚é‚© Ctrl + C ‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢B
+echo.
+
+rem ‹N“®‚ğ‘Ò‚Á‚Ä‚©‚çƒuƒ‰ƒEƒU‚ğŠJ‚­
+start "" /min cmd /c "timeout /t 12 /nobreak >nul & start "" http://localhost:!PORT!/"
+
+call npx next dev -p !PORT!
+>>"%LOG%" echo next dev I—¹ƒR[ƒh: !ERRORLEVEL!
+goto end
+
+:in_zip
+set "MSG1=ZIPƒtƒ@ƒCƒ‹‚Ì’†‚©‚çÀs‚µ‚Ä‚¢‚Ü‚·B"
+set "MSG2=ZIP‚ğ‰EƒNƒŠƒbƒN ¨u‚·‚×‚Ä“WŠJv‚Å“WŠJ‚µ‚Ä‚©‚çAo‚Ä‚«‚½ƒtƒHƒ‹ƒ_‚Ì’†‚Ì start.bat ‚ğÀs‚µ‚Ä‚­‚¾‚³‚¢B"
+goto fail
+
+:no_files
+set "MSG1=‚±‚ÌƒtƒHƒ‹ƒ_‚Éƒtƒ@ƒCƒ‹‚ª‘µ‚Á‚Ä‚¢‚Ü‚¹‚ñB"
+set "MSG2=ZIP‚ğ“WŠJ‚µ’¼‚µ‚ÄAƒtƒHƒ‹ƒ_‚²‚Æã‘‚«‚µ‚Ä‚­‚¾‚³‚¢B"
+goto fail
+
+:no_node
+set "MSG1=Node.js ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+set "MSG2=PowerShell ‚Å  winget install OpenJS.NodeJS.LTS  ‚ğÀs‚µAPC‚ğÄ‹N“®‚µ‚Ä‚©‚ç‚à‚¤ˆê“x‚¨‚µ‚­‚¾‚³‚¢B"
+goto fail
+
+:npm_failed
+set "MSG1=•”•i‚Ìæ“¾inpm installj‚É¸”s‚µ‚Ü‚µ‚½B"
+set "MSG2=Ğ“àƒlƒbƒgƒ[ƒN‚Ì§ŒÀ‚Åæ“¾‚Å‚«‚È‚¢‚±‚Æ‚ª‚ ‚è‚Ü‚·B‚±‚Ì‰æ–Ê‚Ì“à—e‚ğ‚¨‘—‚è‚­‚¾‚³‚¢B"
+goto fail
+
+:fail
+echo.
+echo !MSG1!
+echo !MSG2!
+echo.
+>>"%LOG%" echo ƒGƒ‰[   : !MSG1!
+>>"%LOG%" echo ‘Îˆ     : !MSG2!
+echo ‚±‚Ì‰æ–Ê‚Ì“à—e‚ÆA‚±‚ÌƒtƒHƒ‹ƒ_‚Ì start-log.txt ‚ğ’S“–Ò‚É‚¨‘—‚è‚­‚¾‚³‚¢B
+echo.
+pause
+exit /b 1
+
+:end
+echo.
+echo I—¹‚µ‚Ü‚µ‚½B
+echo ƒGƒ‰[‚ÅI—¹‚µ‚½ê‡‚ÍA‚±‚ÌƒtƒHƒ‹ƒ_‚Ì start-log.txt ‚ğ‚¨‘—‚è‚­‚¾‚³‚¢B
+pause
+exit /b 0
