@@ -304,9 +304,16 @@ export async function ingestDocuments(
   for (const reading of counterReadings) {
     if (!reading.chargeLines?.length || reading.amount === undefined) continue;
     const sum = calcChargeLines(reading.chargeLines).reduce((total, l) => total + l.amount, 0);
-    if (Math.abs(sum - reading.amount) <= 1) continue;
-    warnings.push(
-      `カウンター明細の合計が合いません（読み取った内訳の合計 ${sum.toLocaleString()}円 / ` +
+    if (Math.abs(sum - reading.amount) <= 1) {
+      // 検算が通ったことも伝える。合っていると分かれば、原本と突き合わせる手間が省ける
+      warnings.push(
+        `カウンター明細の検算が合いました（内訳の合計 ${sum.toLocaleString()}円 ＝ 明細の合計 ${reading.amount.toLocaleString()}円）。`,
+      );
+      continue;
+    }
+    // 数字が違っているという最重要の知らせなので、いちばん上に出す
+    warnings.unshift(
+      `【要確認】カウンター明細の合計が合いません（読み取った内訳の合計 ${sum.toLocaleString()}円 / ` +
         `明細の合計 ${reading.amount.toLocaleString()}円）。区分の取りこぼしがないか、` +
         `下の「カウンター料金の内訳」で原本と見比べてください。`,
     );

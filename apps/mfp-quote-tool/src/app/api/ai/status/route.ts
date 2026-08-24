@@ -15,6 +15,28 @@ export interface AiStatus {
   /** api-key.txt を置く場所（画面で案内する） */
   dataDir: string;
   message: string;
+  /** 伏せ字にしたAPIキー。貼り付けが途中で切れていないか目で確かめるため */
+  keyHint?: string;
+  /** キーの形がおかしい場合の注意書き */
+  keyWarning?: string;
+}
+
+/**
+ * 貼り付けミスは「見た目では分からない」のが厄介なので、
+ * 頭と尻尾だけ見せて長さを添える。
+ * キー全体は絶対に返さない（画面のソースに残ってしまう）。
+ */
+function maskKey(key: string): string {
+  if (key.length <= 16) return `${key.slice(0, 4)}…（${key.length}文字）`;
+  return `${key.slice(0, 12)}…${key.slice(-4)}（${key.length}文字）`;
+}
+
+/** キーの形から、よくある貼り付けミスを見つける */
+function checkKey(key: string): string | undefined {
+  if (/\s/.test(key)) return "APIキーの途中に空白や改行が入っています。貼り付け直してください。";
+  if (!key.startsWith("sk-ant-")) return "APIキーが「sk-ant-」で始まっていません。別の文字列を貼り付けている可能性があります。";
+  if (key.length < 90) return "APIキーが短すぎます。貼り付けが途中で切れている可能性があります。";
+  return undefined;
 }
 
 /**
@@ -56,5 +78,7 @@ export async function GET() {
     model: settings.ai.model,
     dataDir: DATA_DIR,
     message,
+    keyHint: key ? maskKey(key) : undefined,
+    keyWarning: key ? checkKey(key) : undefined,
   } satisfies AiStatus);
 }

@@ -608,7 +608,7 @@ export default function QuoteEditor({
             機種DBに無ければインターネットからスペックを取得
           </label>
           <button onClick={() => generateProposals(true)} disabled={!!busy}>
-            提案を作り直す
+            提案内容を作成する
           </button>
           <button className="secondary" onClick={() => generateProposals(false)} disabled={!!busy}>
             追加する

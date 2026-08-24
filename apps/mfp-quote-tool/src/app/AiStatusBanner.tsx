@@ -22,11 +22,32 @@ export default function AiStatusBanner() {
 
   if (!status) return null;
 
+  const SOURCE: Record<string, string> = {
+    settings: "設定画面のAPIキー",
+    env: "環境変数 ANTHROPIC_API_KEY",
+    file: "保存先の api-key.txt",
+    none: "",
+  };
+
   if (status.ready) {
     return (
-      <p className="badge" style={{ display: "inline-block", marginBottom: 10 }}>
-        AI読み取り：使えます（{status.model}）
-      </p>
+      <div style={{ marginBottom: 10 }}>
+        <p className="badge" style={{ display: "inline-block" }}>
+          AI読み取り：使えます（{status.model}）
+        </p>
+        {status.keyHint && (
+          <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
+            {SOURCE[status.source]}：{status.keyHint}
+          </span>
+        )}
+        {status.keyWarning && (
+          <p className="error" style={{ marginTop: 6 }}>
+            {status.keyWarning}
+            <br />
+            <a href="/settings">設定画面</a>で貼り付け直したあと、「AI読み取りの接続テスト」で確認してください。
+          </p>
+        )}
+      </div>
     );
   }
 

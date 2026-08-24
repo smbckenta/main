@@ -1,6 +1,7 @@
 import type { CounterReading } from "../types";
 import type { ExtractedDoc } from "./extract";
 import { parseJpDate, toHalfWidth } from "./normalize";
+import { parsePerformanceCharge } from "./performance-charge";
 
 /**
  * 印刷明細書（カウンター明細）の読み取り。
@@ -107,6 +108,11 @@ export function monthsBetween(from?: string, to?: string): number {
 
 /** 明細を読み取る。機番が複数あればブロックに分割して機械ごとに返す */
 export function parseCounter(doc: ExtractedDoc): CounterReading[] {
+  // パフォーマンスチャージ様式は縦に段が続くため、行ごとの解釈では拾えない。
+  // 専用の読み取りを先に試す。
+  const performanceCharge = parsePerformanceCharge(doc);
+  if (performanceCharge.length) return performanceCharge;
+
   const lines = doc.lines.map(toHalfWidth).filter((l) => l.trim());
   if (!lines.length) return [];
 
