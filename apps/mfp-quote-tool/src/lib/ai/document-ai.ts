@@ -11,6 +11,7 @@ import {
   splitTall,
 } from "../parse/ocr";
 import type { AiSettings } from "../types";
+import { checkApiKey } from "./api-key";
 import { AiDocumentSchema, type AiDocument } from "./schema";
 
 /**
@@ -68,7 +69,10 @@ export async function resolveApiKey(ai?: AiSettings): Promise<string> {
 
 export async function isAiReady(ai?: AiSettings): Promise<boolean> {
   if (!ai?.enabled) return false;
-  return Boolean(await resolveApiKey(ai));
+  const key = await resolveApiKey(ai);
+  // 形のおかしいキー（Consoleの伏せ字を貼ってしまった等）で読み取りに入ると、
+  // 書類を送ったうえで401になり、黙ってOCRへ落ちる。手前で止める。
+  return Boolean(key) && !checkApiKey(key);
 }
 
 /** 画像形式をマジックナンバーから判定する（拡張子が当てにならないため） */
@@ -264,6 +268,8 @@ export interface AnalyzeInput {
 export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnalysisResult> {
   const apiKey = await resolveApiKey(input.ai);
   if (!apiKey) throw new AiUnavailableError("APIキーが設定されていません。");
+  const badKey = checkApiKey(apiKey);
+  if (badKey) throw new AiUnavailableError(badKey);
 
   const client = new Anthropic({ apiKey, maxRetries: 2 });
   const maxPages = Math.max(1, Math.min(input.ai.maxPages || 20, 100));
@@ -303,7 +309,7 @@ export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnal
     // 出力上限を大きく取ると、SDKが「10分を超える可能性がある」と判断して
     // 送信前に例外を投げる（＝APIに届かないまま失敗し、黙ってOCRに落ちる）。
     // 明細を最後まで書き切らせたいので上限は下げず、受け取り方を変える。
-    const response: Anthropic.Message = await client.messages
+    const stream = client.messages
       .stream({
         model: input.ai.model || "claude-opus-5",
         max_tokens: 32000,
@@ -311,8 +317,11 @@ export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnal
         thinking: { type: "adaptive" },
         system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
         messages,
-      })
-      .finalMessage();
+      });
+    // 受け取り口を用意しておく。これが無いと、通信が落ちたときのエラーが
+    // 誰にも拾われず、アプリごと落ちてしまう
+    stream.on("error", () => {});
+    const response: Anthropic.Message = await stream.finalMessage();
     inputTokens += response.usage.input_tokens;
     outputTokens += response.usage.output_tokens;
     model = response.model;

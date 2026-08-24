@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { checkApiKey } from "@/lib/ai/api-key";
 import { resolveApiKey } from "@/lib/ai/document-ai";
 import { getSettings } from "@/lib/store";
 
@@ -41,10 +42,21 @@ export async function POST() {
     } satisfies AiTestResult);
   }
 
+  // 形が明らかにおかしいキーは、問い合わせる前に止める。
+  // 通信まで行くと理由が「401」としか出ず、貼り付けミスだと気づけない。
+  const bad = checkApiKey(apiKey);
+  if (bad) return NextResponse.json({ ok: false, message: bad } satisfies AiTestResult);
+
   try {
-    const res = await new Anthropic({ apiKey, maxRetries: 1 }).messages
-      .stream({ model, max_tokens: 16, messages: [{ role: "user", content: "接続テストです。OKとだけ返してください。" }] })
-      .finalMessage();
+    const stream = new Anthropic({ apiKey, maxRetries: 1 }).messages.stream({
+      model,
+      max_tokens: 16,
+      messages: [{ role: "user", content: "接続テストです。OKとだけ返してください。" }],
+    });
+    // 受け取り口を必ず用意しておく。これが無いと、通信が落ちたときの
+    // エラーが誰にも拾われず、アプリごと落ちる（画面には Failed to fetch と出る）
+    stream.on("error", () => {});
+    const res = await stream.finalMessage();
     return NextResponse.json({ ok: true, model: res.model, message: "つながりました。AIで読み取れます。" } satisfies AiTestResult);
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined;

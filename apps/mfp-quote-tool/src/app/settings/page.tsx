@@ -715,6 +715,13 @@ export default function SettingsPage() {
           文字起こし（OCR）では崩れてしまうスキャン書類・スマホ写真でも、表の意味を踏まえて枚数・単価・リース料を拾えます。
           APIキーは <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noreferrer">Claude Console</a> で発行してください。
         </p>
+        <p className="warn">
+          <strong>APIキーは「作成した直後」にしかすべて表示されません。</strong>
+          キーの一覧に出ている <code>sk-ant-api03-C7J...3gAA</code> のような表記は伏せ字で、
+          これをコピーしても使えません（20文字ほどしかありません）。
+          「＋キーを作成」を押し、作成直後に表示される<strong>100文字ほどの文字列</strong>をコピーして、
+          下の欄に貼り付けてください。
+        </p>
         <div className="row">
           <Field label="AIで読み取る" width={160}>
             <select

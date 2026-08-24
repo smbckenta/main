@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkApiKey, maskApiKey } from "@/lib/ai/api-key";
 import { resolveApiKey } from "@/lib/ai/document-ai";
 import { getSettings, DATA_DIR } from "@/lib/store";
 
@@ -21,30 +22,6 @@ export interface AiStatus {
   keyWarning?: string;
 }
 
-/**
- * 貼り付けミスは「見た目では分からない」のが厄介なので、
- * 頭と尻尾だけ見せて長さを添える。
- * キー全体は絶対に返さない（画面のソースに残ってしまう）。
- */
-function maskKey(key: string): string {
-  if (key.length <= 16) return `${key.slice(0, 4)}…（${key.length}文字）`;
-  return `${key.slice(0, 12)}…${key.slice(-4)}（${key.length}文字）`;
-}
-
-/** キーの形から、よくある貼り付けミスを見つける */
-function checkKey(key: string): string | undefined {
-  if (/\s/.test(key)) return "APIキーの途中に空白や改行が入っています。貼り付け直してください。";
-  if (!key.startsWith("sk-ant-")) return "APIキーが「sk-ant-」で始まっていません。別の文字列を貼り付けている可能性があります。";
-  if (key.length < 90) return "APIキーが短すぎます。貼り付けが途中で切れている可能性があります。";
-  return undefined;
-}
-
-/**
- * AI読み取りが使える状態かを返す。
- *
- * キーが無いと黙ってOCRに切り替わり、読み取り精度が落ちたことに
- * 気づけない。画面で常に状態が見えるようにするための口。
- */
 export async function GET() {
   const settings = await getSettings();
   const fromSettings = settings.ai.apiKey?.trim();
@@ -59,8 +36,11 @@ export async function GET() {
         ? "file"
         : "none";
 
-  const ready = Boolean(settings.ai.enabled && key);
-  const message = !settings.ai.enabled
+  const keyWarning = key ? checkApiKey(key) : undefined;
+  // 形のおかしいキーで「使えます」と出すと、読み取り時に黙ってOCRへ落ちる。
+  // 使えない状態として扱う。
+  const ready = Boolean(settings.ai.enabled && key && !keyWarning);
+  const baseMessage = !settings.ai.enabled
     ? "設定で「AIで読み取る」が「使わない」になっています。PDF・写真は文字起こし（OCR）で読み取ります。"
     : key
       ? {
@@ -70,6 +50,7 @@ export async function GET() {
           none: "",
         }[source]
       : "APIキーが見つかりません。このままではPDF・写真は文字起こし（OCR）で読み取るため、カウンター明細の読み取り精度が大きく落ちます。";
+  const message = keyWarning ?? baseMessage;
 
   return NextResponse.json({
     ready,
@@ -78,7 +59,7 @@ export async function GET() {
     model: settings.ai.model,
     dataDir: DATA_DIR,
     message,
-    keyHint: key ? maskKey(key) : undefined,
-    keyWarning: key ? checkKey(key) : undefined,
+    keyHint: key ? maskApiKey(key) : undefined,
+    keyWarning,
   } satisfies AiStatus);
 }

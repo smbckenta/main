@@ -18,10 +18,18 @@ export default function AiTestButton() {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch("/api/ai/test", { method: "POST" });
+      const res = await fetch("/api/ai/test", { method: "POST", signal: AbortSignal.timeout(120_000) });
+      if (!res.ok) throw new Error(`アプリ側で問題が起きました（${res.status}）。`);
       setResult((await res.json()) as AiTestResult);
     } catch (err) {
-      setResult({ ok: false, message: (err as Error).message });
+      // 「Failed to fetch」だけ出しても何のことか分からないので、
+      // 何が起きているのかと、まず何をすればよいかを書く
+      const raw = (err as Error).message;
+      const message = /Failed to fetch|NetworkError|timed out|aborted/i.test(raw)
+        ? `このアプリ本体に問い合わせできませんでした（${raw}）。` +
+          "start.bat の黒い画面を閉じてしまっていないかご確認のうえ、いったん閉じて start.bat から開き直してください。"
+        : raw;
+      setResult({ ok: false, message });
     } finally {
       setBusy(false);
     }
