@@ -192,8 +192,12 @@ export async function ingestDocuments(
         const reason =
           err instanceof AiUnavailableError
             ? err.message
-            : `${(err as Error).message}（設定画面でAPIキー・モデルをご確認ください）`;
-        warnings.push(`${input.name}: AIでの読み取りに失敗しました。${reason} 文字起こし（OCR）で読み取りを試みます。`);
+            : `${(err as Error).message}（設定画面の「AI読み取りの接続テスト」で原因を確かめられます）`;
+        // AIが落ちるとOCRで何かしら読めてしまい、精度が落ちたことに気づけない。
+        // 先頭に出して、読み取り結果より先に目に入るようにする。
+        warnings.unshift(
+          `【重要】${input.name}: AIでの読み取りに失敗し、文字起こし（OCR）で読み取りました。数字が合っているか必ずご確認ください。理由：${reason}`,
+        );
         // AIが使えないときは従来どおりOCRで読む
         doc = await extractDocument(input.name, input.buffer, input.mime, { ocr: true });
       }

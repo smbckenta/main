@@ -299,12 +299,20 @@ export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnal
   let lastError = "";
 
   for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
-    const response: Anthropic.Message = await client.messages.create({
-      model: input.ai.model || "claude-opus-5",
-      max_tokens: 32000,
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      messages,
-    });
+    // 必ずストリーミングで受け取る。
+    // 出力上限を大きく取ると、SDKが「10分を超える可能性がある」と判断して
+    // 送信前に例外を投げる（＝APIに届かないまま失敗し、黙ってOCRに落ちる）。
+    // 明細を最後まで書き切らせたいので上限は下げず、受け取り方を変える。
+    const response: Anthropic.Message = await client.messages
+      .stream({
+        model: input.ai.model || "claude-opus-5",
+        max_tokens: 32000,
+        // Opus 5 は考えながら答える。明細の桁合わせはここが効く。
+        thinking: { type: "adaptive" },
+        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+        messages,
+      })
+      .finalMessage();
     inputTokens += response.usage.input_tokens;
     outputTokens += response.usage.output_tokens;
     model = response.model;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AiStatusBanner from "../AiStatusBanner";
+import AiTestButton from "./AiTestButton";
 import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } from "@/lib/types";
 
 /** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
@@ -743,6 +744,7 @@ export default function SettingsPage() {
             />
           </Field>
         </div>
+        <AiTestButton />
         <p className="warn" style={{ marginTop: 10 }}>
           APIキーは設定ファイル（settings.json）に保存されます。保存先を共有ドライブにしている場合は、
           共有相手にもキーが見えることにご注意ください。共有したくない場合は空欄のままにして、
