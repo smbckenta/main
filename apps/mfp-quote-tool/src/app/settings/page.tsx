@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AiStatusBanner from "../AiStatusBanner";
 import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } from "@/lib/types";
 
 /** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
@@ -707,6 +708,7 @@ export default function SettingsPage() {
 
       <section className="panel">
         <h2>AIによる書類の読み取り</h2>
+        <AiStatusBanner />
         <p className="muted">
           アップロードしたPDF・写真をAI（Claude）がそのまま読み取ります。
           文字起こし（OCR）では崩れてしまうスキャン書類・スマホ写真でも、表の意味を踏まえて枚数・単価・リース料を拾えます。

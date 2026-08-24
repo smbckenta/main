@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import AiStatusBanner from "./AiStatusBanner";
 import { useState } from "react";
 import { ROLE_LABELS } from "@/lib/doc-roles";
 import { pagesAverageNote } from "@/lib/labels";
@@ -87,6 +88,8 @@ export default function NewQuoteForm() {
         文字データを持たないスキャンPDFや、スマホで撮った書類の写真は、AI（Claude）がそのまま読み取ります。
         AIを使わない設定の場合は文字起こし（OCR）で読み取ります。
       </p>
+      <AiStatusBanner />
+
       <div className="row">
         <div className="field" style={{ minWidth: 320 }}>
           <label>資料（複数選択可）</label>

@@ -108,13 +108,51 @@ echo PDF‚ª•K—v‚Èê‡‚ÍA’ •[ƒvƒŒƒrƒ…[‰æ–Ê‚©‚ç Ctrl+P ¨uPDF‚Æ‚µ‚Ä•Û‘¶v‚ğ‚²—˜—
 :chromium_done
 
 rem --- AIiClaudej‚ÌAPIƒL[ ---
-rem PDFEÊ^‚Ì“Ç‚İæ‚è‚Ég‚¤B•Û‘¶æ‚Ì api-key.txt ‚É’u‚¢‚Ä‚¨‚­B
-if not exist "!DATADIR!\api-key.txt" goto nokey
-set /p ANTHROPIC_API_KEY=<"!DATADIR!\api-key.txt"
-echo AI“Ç‚İæ‚è—p‚ÌAPIƒL[‚ğ“Ç‚İ‚İ‚Ü‚µ‚½B
+rem PDFEÊ^‚Ì“Ç‚İæ‚è‚Ég‚¤BƒL[‚ª–³‚¢‚Æ•¶š‹N‚±‚µiOCRj‚ÉØ‚è‘Ö‚í‚èA
+rem ƒJƒEƒ“ƒ^[–¾×‚Ì“Ç‚İæ‚è¸“x‚ª‘å‚«‚­—‚¿‚é‚Ì‚ÅA–³‚¯‚ê‚Î‚±‚±‚Å•·‚­B
+set "KEYFILE=!DATADIR!\api-key.txt"
+if exist "!KEYFILE!" goto key_from_file
+rem İ’è‰æ–Ê‚©‚ç“o˜^Ï‚İ‚È‚çA‚»‚¿‚ç‚ğg‚¤‚Ì‚Å•·‚©‚È‚¢
+if exist "!DATADIR!\settings.json" findstr /c:"sk-ant-" "!DATADIR!\settings.json" >nul 2>&1
+if not errorlevel 1 goto key_in_settings
+
+echo.
+echo ------------------------------------------------------------
+echo  PDFEÊ^‚Ì“Ç‚İæ‚è‚Ég‚¤ AI ‚ÌAPIƒL[‚ª“o˜^‚³‚ê‚Ä‚¢‚Ü‚¹‚ñB
+echo  ‚±‚Ì‚Ü‚Üi‚ß‚é‚ÆAƒJƒEƒ“ƒ^[–¾×‚Í•¶š‹N‚±‚µiOCRj‚Å‚Ì
+echo  “Ç‚İæ‚è‚É‚È‚èA–‡”‚â’P‰¿‚ğæ‚è‚±‚Ú‚µ‚Ü‚·B
+echo.
+echo  https://platform.claude.com/settings/keys ‚Å”­s‚µ‚½ƒL[
+echo  isk-ant- ‚Ån‚Ü‚é•¶š—ñj‚ğ“\‚è•t‚¯‚Ä Enter ‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢B
+echo  ¦ “\‚è•t‚¯‚ÍA‚±‚Ì•‚¢‰æ–Ê‚Å‰EƒNƒŠƒbƒN‚Å‚·B
+echo  ¦ ‚ ‚Æ‚Å‰æ–Ê‚Ìuİ’èv‚©‚ç“o˜^‚·‚éê‡‚ÍA‰½‚à“ü‚ê‚¸‚É EnterB
+echo ------------------------------------------------------------
+set "APIKEY="
+set /p APIKEY=APIƒL[: 
+if "!APIKEY!"=="" goto key_skipped
+>"!KEYFILE!" echo !APIKEY!
+set "ANTHROPIC_API_KEY=!APIKEY!"
+set "APIKEY="
+cls
+echo === •¡‡‹@ Œ©ÏE”äŠr•\ì¬ƒc[ƒ‹ ===
+echo APIƒL[‚ğ•Û‘¶‚µ‚Ü‚µ‚½BŸ‰ñ‚©‚ç‚Í•·‚«‚Ü‚¹‚ñB
+>>"%LOG%" echo APIƒL[ : “ü—Í‚ğ•Û‘¶‚µ‚Ü‚µ‚½
 goto key_done
-:nokey
-echo AI‚ÌAPIƒL[‚ª–¢“o˜^‚Å‚·Bİ’è‰æ–Ê‚©‚ç“o˜^‚Å‚«‚Ü‚·B
+
+:key_skipped
+echo APIƒL[‚È‚µ‚Å‹N“®‚µ‚Ü‚·BPDFEÊ^‚Í•¶š‹N‚±‚µiOCRj‚Å‚Ì“Ç‚İæ‚è‚É‚È‚è‚Ü‚·B
+>>"%LOG%" echo APIƒL[ : –¢“o˜^‚Ì‚Ü‚Ü‹N“®
+goto key_done
+
+:key_from_file
+set /p ANTHROPIC_API_KEY=<"!KEYFILE!"
+echo AI“Ç‚İæ‚è—p‚ÌAPIƒL[‚ğ“Ç‚İ‚İ‚Ü‚µ‚½B
+>>"%LOG%" echo APIƒL[ : api-key.txt
+goto key_done
+
+:key_in_settings
+echo AI“Ç‚İæ‚è—p‚ÌAPIƒL[‚Íİ’è‰æ–Ê‚É“o˜^Ï‚İ‚Å‚·B
+>>"%LOG%" echo APIƒL[ : settings.json
 :key_done
 
 rem --- ‹ó‚¢‚Ä‚¢‚éƒ|[ƒg‚ğ’T‚· ---

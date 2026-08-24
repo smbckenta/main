@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import AiStatusBanner from "@/app/AiStatusBanner";
 import { ROLE_LABELS, type DocRole } from "@/lib/doc-roles";
 import type { CurrentCalc, ProposalCalc, Quote, ServiceArea } from "@/lib/types";
 
@@ -81,6 +82,8 @@ export default function DocumentsPanel({
         追加でお預かりした契約書・カウンター明細をここから読み取れます。
         読み取れた項目だけが現行機に反映され、手で直した内容はそのまま残ります。
       </p>
+
+      <AiStatusBanner />
 
       <div className="row">
         <div className="field" style={{ width: 220 }}>
