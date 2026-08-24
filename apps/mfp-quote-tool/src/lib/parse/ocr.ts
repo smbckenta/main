@@ -336,6 +336,53 @@ export async function resizeImage(
 }
 
 /**
+ * 大きな書類の写真を、上下に少し重ねながら分割する。
+ *
+ * AIに渡す画像は長辺1568px程度に縮められる。A4の明細をまるごと1枚で渡すと
+ * 単価や控除カウントのような小さな数字がつぶれるため、上下に割ってから
+ * それぞれを1568pxで渡し、実質の解像度を上げる。
+ * 行が切れ目にかかっても読めるよう、境目は少し重ねる。
+ */
+export async function splitTall(
+  buf: Buffer,
+  parts = 2,
+  overlap = 0.06,
+): Promise<Buffer[]> {
+  try {
+    const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+    const image = await loadImage(buf);
+    const height = image.height;
+    const band = height / parts;
+    const margin = band * overlap;
+
+    const out: Buffer[] = [];
+    for (let i = 0; i < parts; i++) {
+      const top = Math.max(0, Math.round(i * band - margin));
+      const bottom = Math.min(height, Math.round((i + 1) * band + margin));
+      const h = bottom - top;
+      if (h <= 0) continue;
+      const canvas = createCanvas(image.width, h);
+      canvas.getContext("2d").drawImage(image, 0, top, image.width, h, 0, 0, image.width, h);
+      out.push(canvas.toBuffer("image/png"));
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** 画像の大きさ（読み取り方を決めるのに使う） */
+export async function imageSize(buf: Buffer): Promise<{ width: number; height: number } | undefined> {
+  try {
+    const { loadImage } = await import("@napi-rs/canvas");
+    const image = await loadImage(buf);
+    return { width: image.width, height: image.height };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * 画像1枚を文字起こしして行の配列で返す。
  *
  * 綺麗なスキャンは無加工が、写真は縮小や傾き補正＋二値化が有利で、

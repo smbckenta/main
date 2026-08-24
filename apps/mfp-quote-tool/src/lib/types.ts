@@ -729,11 +729,31 @@ export interface Quote {
   ingest?: {
     counter: CounterReading[];
     lease: LeaseReading[];
-    files: { name: string; kind: string; role: string; parsedAt: string }[];
+    files: IngestedFileRecord[];
     warnings: string[];
   };
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * 読み取った資料1件の記録。
+ * どのファイルを、どうやって（AI／文字起こし）読んだのかを残す。
+ */
+export interface IngestedFileRecord {
+  /** アップロード時のファイル名（画面に出す） */
+  name: string;
+  kind: string;
+  role: string;
+  parsedAt: string;
+  /** 保管したファイル名。これで原本を開き直せる */
+  file?: string;
+  /** AI（Claude）で読み取ったか */
+  aiUsed?: boolean;
+  /** 文字起こし（OCR）で読み取ったか */
+  ocrUsed?: boolean;
+  /** 読み取れた行数（確認用） */
+  lineCount?: number;
 }
 
 /** 案件ごとの提案資料の内容 */

@@ -10,6 +10,7 @@ import { parseCounter, toMonthlyAverage } from "./parse/counter";
 import { parseLease } from "./parse/lease";
 import { looksLikeSchedule, parseSchedule } from "./parse/schedule";
 import { detectMaker, extractModelCandidates } from "./parse/normalize";
+import { calcChargeLines } from "./pricing";
 import { getSettings } from "./store";
 import type { DocRole } from "./doc-roles";
 import type { CounterReading, CurrentChargeLine, CurrentMachine, LeaseReading, Maker } from "./types";
@@ -289,11 +290,30 @@ export async function ingestDocuments(
     );
   if (!counterReadings.length)
     warnings.push("印刷明細から枚数を読み取れませんでした。手入力してください。");
+  // 逓減単価の明細は、区分ごとの金額を足した額が明細の合計と合うはず。
+  // 合わなければ区分を取りこぼしている可能性が高いので、その場で知らせる。
+  for (const reading of counterReadings) {
+    if (!reading.chargeLines?.length || reading.amount === undefined) continue;
+    const sum = calcChargeLines(reading.chargeLines).reduce((total, l) => total + l.amount, 0);
+    if (Math.abs(sum - reading.amount) <= 1) continue;
+    warnings.push(
+      `カウンター明細の合計が合いません（読み取った内訳の合計 ${sum.toLocaleString()}円 / ` +
+        `明細の合計 ${reading.amount.toLocaleString()}円）。区分の取りこぼしがないか、` +
+        `下の「カウンター料金の内訳」で原本と見比べてください。`,
+    );
+  }
   if (current.deductionRate) {
     warnings.push(
       `印刷明細に一律控除（${Math.round(current.deductionRate * 1000) / 10}%）がありました。` +
         "現行の請求枚数はこの控除後で計算します。当社の提案には控除がないため、提案側は実枚数のまま比較します。",
     );
+  }
+
+  const summary = counterReadings
+    .flatMap((r) => r.chargeLines ?? [])
+    .map((l) => `${l.name} ${l.pages.toLocaleString()}枚`);
+  if (summary.length) {
+    warnings.push(`カウンター明細から読み取った区分：${summary.join(" / ")}`);
   }
 
   return {

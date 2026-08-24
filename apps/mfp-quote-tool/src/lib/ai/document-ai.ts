@@ -1,7 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { ROLE_LABELS, type DocRole } from "../doc-roles";
-import { heicToJpeg, isHeic, pdfPageCount, renderPdfPage, resizeImage } from "../parse/ocr";
+import {
+  heicToJpeg,
+  imageSize,
+  isHeic,
+  pdfPageCount,
+  renderPdfPage,
+  resizeImage,
+  splitTall,
+} from "../parse/ocr";
 import type { AiSettings } from "../types";
 import { AiDocumentSchema, type AiDocument } from "./schema";
 
@@ -100,6 +108,34 @@ async function toImageBlock(name: string, buf: Buffer): Promise<Anthropic.ImageB
   };
 }
 
+/**
+ * 写真・画像をAPIに渡すブロックを作る。
+ *
+ * 大きな写真は、全体を1枚渡したうえで上下に割ったものも渡す。
+ * A4の明細を1枚に縮めると単価や控除カウントの小さな数字がつぶれるため、
+ * 「全体で構造をつかみ、分割で細部を読む」形にする。
+ */
+async function imageBlocks(name: string, buf: Buffer): Promise<Anthropic.ContentBlockParam[]> {
+  const whole = await toImageBlock(name, buf);
+  const size = await imageSize(buf);
+  // 縮小しても十分な大きさが残る写真だけ分割する（小さい画像は割っても情報が増えない）
+  const longSide = size ? Math.max(size.width, size.height) : 0;
+  if (longSide < IMAGE_LONG_SIDE * 1.6) return [whole];
+
+  const parts = await splitTall(buf, 2);
+  if (parts.length < 2) return [whole];
+
+  const blocks: Anthropic.ContentBlockParam[] = [
+    { type: "text", text: `${name}：まず全体、そのあと上半分・下半分を拡大したものを渡します。` },
+    whole,
+  ];
+  for (const [i, part] of parts.entries()) {
+    blocks.push({ type: "text", text: i === 0 ? "上半分（拡大）" : "下半分（拡大）" });
+    blocks.push(await toImageBlock(`${name}#${i + 1}`, part));
+  }
+  return blocks;
+}
+
 /** PDFはそのまま渡す。大きすぎる・ページが多すぎる場合は先頭ページを画像化する */
 async function pdfBlocks(
   name: string,
@@ -126,7 +162,7 @@ async function pdfBlocks(
   const blocks: Anthropic.ContentBlockParam[] = [];
   for (let p = 1; p <= pages; p++) {
     const png = await renderPdfPage(buf, p, 2);
-    blocks.push(await toImageBlock(`${name}#${p}`, png));
+    blocks.push(...(await imageBlocks(`${name}#${p}`, png)));
   }
   if (total > pages) {
     notes.push(`${name}: ${total}ページのうち先頭${pages}ページのみAIで読み取りました（設定の「AIに渡す最大ページ数」で変更できます）。`);
@@ -157,10 +193,33 @@ const SYSTEM_PROMPT = `あなたは複合機（コピー機・プリンター）
   区分ごとに chargeLines を作り、帯を tiers に並べる。「控除 3%の控除カウント」があれば deductionPercent に 3 を入れる。
   フルカラーが「コピー」と「プリント」に分かれて単価が違う場合は、別々の chargeLines にする（合算しない）。
   この形式では monoPages / colorPages などにも枚数を入れたうえで、chargeLines にも内訳を入れる。
+- 印刷枚数そのものが一律で差し引かれる控除（「ミスプリント1%控除」「2%控除」）があれば、
+  counters の deductionPercent にその率を入れる。控除は必ず拾うこと。
 - 支払予定表の残債（remainingDebt）は、本日以降で最初に到来する支払回の「残高（未経過リース料）」。書類に「残債」「一括精算額」の記載があればその金額を使う。
 - 読み取れない項目は推測せず null にする。数字を作らない。
 - evidence には、その値の根拠になった書類上の行をそのまま（読み取れた文字のまま）入れる。
-- transcript には書類本文を上から順に書き起こす。表は1行1レコード、列は半角スペース区切り。最大150行（長い書類は数字が入っている行を優先する）。
+- transcript には書類本文を上から順に書き起こす。表は1行1レコード、列は半角スペース区切り。最大80行（長い書類は数字が入っている行を優先する）。
+  金額・枚数・単価の入った行を必ず含める。ここが長くなりすぎて出力が切れるくらいなら、transcript を削ってでも counters と lease を完全に埋める。
+
+パフォーマンスチャージ明細（リコー等）の読み方
+この形式は取りこぼしが起きやすいので、次の手順で必ず全部を拾ってください。
+
+1.【ご契約情報】の表から、区分ごとの「今回検針内容」「前回検針内容」「ご使用カウント」を読む。
+   例）モノカラー総出力 267,304 / 265,915 / 1,389
+       フルカラー総出力① 68,266 / 67,831 / 435
+       フルカラーコピー（①−②） 6,965 / 6,912 / 53
+       フルカラープリント② 61,301 / 60,919 / 382
+   「フルカラー総出力」は内訳（コピー＋プリント）の合計なので、chargeLines には入れない。
+2.【ご利用金額内訳】の表から、区分ごとに次を読む。
+   ・控除 N%の控除カウント → deductionPercent に N
+   ・請求カウント
+   ・帯（「1－ 1000／月」「1001－ 2000／月」）ごとの単価と、その帯のカウント・内訳金額
+   例）モノカラー総出力：控除2%（28カウント）、請求1,361、1-1000が3.0円で3,000円、
+       1001-2000が2.6円で938円
+3. 区分は明細に出てくる順にすべて作る。金額の書かれた行を1つも飛ばさない。
+4. 最後の「合計（税抜き）」を counters の amount に入れる。
+   各区分の内訳金額を足した額と一致するか、自分で確かめてから返す。
+   合わない場合は notes にその旨と、どの区分が怪しいかを書く。
 
 出力の形式
 次のJSON Schemaに従うJSONオブジェクトだけを出力してください。
@@ -216,7 +275,7 @@ export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnal
     blocks = r.blocks;
     notes.push(...r.notes);
   } else {
-    blocks = [await toImageBlock(input.name, input.buffer)];
+    blocks = await imageBlocks(input.name, input.buffer);
   }
 
   const today = (input.today ?? new Date()).toISOString().slice(0, 10);
@@ -242,7 +301,7 @@ export async function analyzeDocumentWithAi(input: AnalyzeInput): Promise<AiAnal
   for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
     const response: Anthropic.Message = await client.messages.create({
       model: input.ai.model || "claude-opus-5",
-      max_tokens: 16000,
+      max_tokens: 32000,
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages,
     });

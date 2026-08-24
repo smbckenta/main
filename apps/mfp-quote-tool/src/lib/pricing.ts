@@ -30,6 +30,12 @@ export function ceilTo(value: number, unit: number): number {
   return Math.ceil(value / unit) * unit;
 }
 
+/** 端数の切り下げ（目標月額から逆算するときに使う） */
+export function floorTo(value: number, unit: number): number {
+  if (!unit || unit <= 1) return Math.floor(value);
+  return Math.floor(value / unit) * unit;
+}
+
 /** 明細（定価）の合計 */
 export function sumItems(items: { qty: number; unitPrice: number }[]): number {
   return items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
@@ -406,9 +412,13 @@ export function calcProposal(
     // 仕切価格に粗利額をそのまま加える
     sellingBase = cost + (proposal.grossProfitAmount ?? 0);
   } else if (proposal.pricingMode === "fromLease") {
-    // 目標月額から逆算した総額から、上乗せ分を差し引いた残りが本体価格
+    // 目標月額から逆算した総額から、上乗せ分を差し引いた残りが本体価格。
+    //
+    // ここは必ず「切り下げ」る。切り上げると逆算した総額がわずかに大きくなり、
+    // 月額が目標を数十銭だけ上回る。そこに100円単位の切り上げが掛かると
+    // まるまる100円高く出てしまう（12,400円と指定したのに12,500円になる）。
     const total = leaseRate > 0 ? (proposal.targetMonthlyLease ?? 0) / leaseRate : 0;
-    sellingBase = total - addOnTotal - debtSettlement.total;
+    sellingBase = floorTo(total, settings.roundUnit) - addOnTotal - debtSettlement.total;
   } else if (proposal.pricingMode === "fromMargin") {
     const rate = Math.min(Math.max(proposal.marginRate ?? settings.defaultMarginRate, 0), 0.95);
     sellingBase = cost > 0 ? cost / (1 - rate) : 0;
@@ -416,9 +426,12 @@ export function calcProposal(
     // 本体価格を直接入力する方式。オプションと残債精算はこのあと加算する
     sellingBase = proposal.bodyPrice ?? proposal.sellingTotal ?? 0;
   }
-  // 「仕切＋GP」と「本体価格を直接入力」は、入れた額がそのまま金額になるべきなので
-  // 端数処理しない。逆算した額（目標リース料・粗利率）だけ端数を丸める。
-  const asEntered = proposal.pricingMode === "fromGp" || proposal.pricingMode === "fromPrice";
+  // 入れた額（GP・本体価格）と、目標月額から切り下げで逆算した額は、
+  // ここで丸め直さない。丸め直すと目標月額に戻らなくなる。
+  const asEntered =
+    proposal.pricingMode === "fromGp" ||
+    proposal.pricingMode === "fromPrice" ||
+    proposal.pricingMode === "fromLease";
   sellingBase = asEntered
     ? Math.max(0, Math.round(sellingBase))
     : roundTo(Math.max(0, sellingBase), settings.roundUnit);

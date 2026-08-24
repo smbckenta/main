@@ -81,19 +81,23 @@ describe("リース料率", () => {
 });
 
 describe("販売額の逆算", () => {
-  it("月額リース料12,800円・6年 → 販売額計 約771,100円（既存Excelの 12800/1.66% と一致）", () => {
+  it("月額リース料12,800円・6年 → 販売額計 771,000円（既存Excelの 12800/1.66%）", () => {
     const quote = makeQuote();
     const calc = calcProposal(quote, makeProposal(), settings);
-    expect(calc.sellingTotal).toBe(771_100); // 771,084.34 を100円単位に丸め
+    // 771,084.34 を100円単位に切り下げる。
+    // 切り上げると月額が12,800円をわずかに超え、100円単位の切り上げで
+    // 12,900円になってしまうため（指定した月額どおりに出すのが優先）
+    expect(calc.sellingTotal).toBe(771_000);
+    expect(calc.monthlyLease).toBe(12_800);
     expect(calc.listTotal).toBe(1_937_000);
-    expect(calc.discount).toBe(771_100 - 1_937_000);
+    expect(calc.discount).toBe(771_000 - 1_937_000);
   });
 
   it("5年・7年の月額もリースシミュレーションとして併記できる", () => {
     const calc = calcProposal(makeQuote(), makeProposal(), settings);
     // 月額リース料は100円単位で切り上げる
-    expect(calc.leaseByTerm[60]).toBe(ceilTo(771_100 * 0.0195, 100));
-    expect(calc.leaseByTerm[84]).toBe(ceilTo(771_100 * 0.0145, 100));
+    expect(calc.leaseByTerm[60]).toBe(ceilTo(771_000 * 0.0195, 100));
+    expect(calc.leaseByTerm[84]).toBe(ceilTo(771_000 * 0.0145, 100));
     expect(calc.leaseByTerm[60]).toBe(15_100);
   });
 
@@ -542,5 +546,50 @@ describe("本体価格を直接入力する", () => {
   it("古い案件（sellingTotal に入っている）もそのまま読める", () => {
     const proposal = { ...makeProposal({ pricingMode: "fromPrice" }), sellingTotal: 800_000 };
     expect(calcProposal(makeQuote(), proposal, settings).sellingBase).toBe(800_000);
+  });
+});
+
+describe("目標の月額リース料から逆算する", () => {
+  /** 指定した月額が、そのまま見積書の月額になること */
+  const monthlyFor = (target: number, leaseTerm: 60 | 72 | 84 = 72) =>
+    calcProposal(
+      makeQuote(),
+      makeProposal({ pricingMode: "fromLease", targetMonthlyLease: target, leaseTerm }),
+      settings,
+    ).monthlyLease;
+
+  it("指定した月額がそのまま出る（切り上げで100円高くならない）", () => {
+    expect(monthlyFor(12_400)).toBe(12_400);
+    expect(monthlyFor(12_500)).toBe(12_500);
+    expect(monthlyFor(16_000)).toBe(16_000);
+    expect(monthlyFor(9_900)).toBe(9_900);
+  });
+
+  it("リース年数を変えても、指定した月額のまま出る", () => {
+    expect(monthlyFor(12_400, 60)).toBe(12_400);
+    expect(monthlyFor(12_400, 84)).toBe(12_400);
+  });
+
+  it("オプション（PTF対象外）があっても、指定した月額のまま出る", () => {
+    const calc = calcProposal(
+      makeQuote(),
+      makeProposal({
+        pricingMode: "fromLease",
+        targetMonthlyLease: 12_400,
+        items: [
+          { name: "本体", qty: 1, unit: "台", unitPrice: 1_500_000 },
+          { name: "フィニッシャー", qty: 1, unit: "台", unitPrice: 200_000, ptfExempt: true },
+        ],
+      }),
+      settings,
+    );
+    expect(calc.monthlyLease).toBe(12_400);
+    // 上乗せ分は本体価格から差し引かれ、販売額計の合計は変わらない
+    expect(calc.sellingBase + calc.addOnTotal).toBe(calc.sellingTotal);
+  });
+
+  it("100円単位でない目標額でも、それを超えない", () => {
+    expect(monthlyFor(12_437)).toBeLessThanOrEqual(12_500);
+    expect(monthlyFor(12_437)).toBeGreaterThan(12_300);
   });
 });

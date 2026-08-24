@@ -60,6 +60,17 @@ export default function NewQuoteForm() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "作成に失敗しました。");
+
+      // 読み取った資料の原本を案件に残す（あとで原本を開き直せるように）。
+      // 解析はもう済んでいるので、保存だけを頼む
+      if (files?.length) {
+        const store = new FormData();
+        store.append("mode", "store");
+        for (const f of Array.from(files)) store.append("files", f);
+        await fetch(`/api/quotes/${json.id}/documents`, { method: "POST", body: store }).catch(() => {
+          /* 保存に失敗しても案件は作れているので、画面は進める */
+        });
+      }
       router.push(`/quotes/${json.id}`);
     } catch (err) {
       setError((err as Error).message);

@@ -5,6 +5,7 @@ import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
 import { hasFleet } from "@/lib/fleet";
+import DocumentsPanel from "./DocumentsPanel";
 import FleetEditor from "./FleetEditor";
 import ProposalDocEditor from "./ProposalDocEditor";
 import type {
@@ -403,6 +404,8 @@ export default function QuoteEditor({
         {message && <p className="warn" style={{ marginTop: 10 }}>{message}</p>}
         {error && <p className="error" style={{ marginTop: 10 }}>{error}</p>}
       </section>
+
+      <DocumentsPanel quote={quote} onResult={applyServerResult} />
 
       <section className="panel">
         <h2>現行機（お預かり資料の読み取り結果）</h2>
