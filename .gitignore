@@ -36,3 +36,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# 配布用ZIP（scripts/make-mfp-zip.py が作る生成物）
+複合機見積作成ツール_*.zip
