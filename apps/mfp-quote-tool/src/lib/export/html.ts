@@ -158,18 +158,72 @@ const CSS = `
     letter-spacing: 0.04em;
   }
   /* 濃い帯の行では、削減額の色を明るくして読めるようにする */
-  .grid tbody tr.total-row .save { color: #8ce8ad; }
-  .grid tbody tr.total-row .cut { color: #ffb3ac; }
+  .grid tbody tr.total-row .save { color: #ffc9c2; }
+  .grid tbody tr.total-row .cut { color: #d6e2ef; }
   .grid tbody tr.total-row td, .grid tbody tr.total-row th { background: var(--accent); color: #fff; font-weight: 700; border-color: var(--accent); }
 
-  .cut { color: #b3261e; font-weight: 700; }
-  .save { color: #0a7d32; font-weight: 700; }
+  /* 削減額は赤で強調する（お客様がいちばん見る数字）。
+     増額のほうは控えめな色にして、赤が「削減」だけを指すようにする。 */
+  .save { color: #d0021b; font-weight: 700; }
+  .cut { color: #40556b; font-weight: 700; }
+  /* 合計の削減額（単月・年間・リース年数）はひときわ大きく出す */
+  .save-total .save { font-size: 1.25em; }
   .page-break { page-break-before: always; }
 
-  /* 比較表の削減効果 */
-  .effect { margin-top: 12px; }
-  .effect thead th { background: #14395c; color: #fff; }
-  .effect tbody tr td:last-child { font-weight: 700; }
+  /* 比較表の削減効果。商談でいちばん見る表なので、他より一段大きく出す */
+  .effect { margin-top: 14px; border: 2px solid #b3001b; }
+  .effect thead th {
+    background: #b3001b;
+    color: #fff;
+    font-size: 1.28em;
+    letter-spacing: 0.1em;
+    padding: 0.45em 0.6em;
+    border-color: #b3001b;
+  }
+  .effect .effect-rate th { background: #fdeaec; color: #7a0013; font-size: 1.05em; padding: 0.3em 0.6em; }
+  .effect .effect-value th { background: #fdeaec; color: #7a0013; font-weight: 700; }
+  .effect .effect-value td {
+    background: #fff !important;
+    color: #d0021b;
+    font-weight: 700;
+    font-size: 1.72em;
+    letter-spacing: 0.01em;
+    padding: 0.18em 0.5em;
+  }
+  .effect .effect-value td::before { content: "¥"; font-size: 0.62em; margin-right: 0.15em; }
+  .effect-note { margin-top: 5px; font-size: 0.98em; color: #7a0013; }
+  /* 合計合算削減金額の表。下の削減効果と幅を揃えて、目線が縦に流れるようにする */
+  .save-summary th { font-size: 1.05em; }
+  .effect-note b { color: #b3001b; }
+`;
+
+/**
+ * 比較表を1枚に収めるための縮小。
+ *
+ * 明細の区分や段が増えると行が伸びて2枚目にこぼれる。表を切って
+ * 2枚にすると、お客様は「現状」と「提案」を並べて見られなくなるので、
+ * Excelの「1ページに収める」と同じように、字と余白を一緒に縮めて1枚に収める。
+ *
+ * 大きさに関わる指定はすべて em か var(--fit) 経由にしてある。
+ * ここを pt や px で書くと、その部分だけ縮まずに行だけが潰れてしまう。
+ */
+const COMPARE_CSS = `
+  body.compare { font-size: calc(9.5pt * var(--fit, 1)); }
+  body.compare h2 {
+    font-size: calc(15pt * var(--fit, 1));
+    margin: calc(16px * var(--fit, 1)) 0 calc(10px * var(--fit, 1));
+    padding-bottom: calc(6px * var(--fit, 1));
+  }
+  body.compare .grid th, body.compare .grid td { padding: 0.26em 0.63em; }
+  body.compare .small { font-size: 0.9em; }
+  body.compare .notes { font-size: 0.86em; margin-top: 0.8em; padding: 0.5em 0.85em; }
+  body.compare .customer { font-size: calc(13.5pt * var(--fit, 1)); min-width: 0; }
+  body.compare .company { font-size: calc(8.5pt * var(--fit, 1)); }
+  body.compare .company .name { font-size: calc(11.5pt * var(--fit, 1)); }
+  body.compare .company .offices { font-size: calc(7.8pt * var(--fit, 1)); }
+  body.compare .company .logo { width: calc(215px * var(--fit, 1)); max-height: calc(42px * var(--fit, 1)); }
+  body.compare .brand img { height: calc(44px * var(--fit, 1)); }
+  body.compare .effect { margin-top: 0.9em; }
 `;
 
 const esc = (s: unknown): string =>
@@ -619,18 +673,21 @@ export function renderCompareHtml(
     </tbody>
   </table>
 
-  <table class="grid" style="width:62%;margin-top:14px">
+  <table class="grid save-summary" style="width:78%;margin-top:14px">
     <tbody>
-      <tr><th style="text-align:left">合計合算削減金額　（単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
-      <tr><th style="text-align:left">合計合算削減金額　（年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
-      <tr><th style="text-align:left">合計合算削減金額　（${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
+      <tr class="save-total"><th style="text-align:left">合計合算削減金額　（単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
+      <tr class="save-total"><th style="text-align:left">合計合算削減金額　（年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
+      <tr class="save-total"><th style="text-align:left">合計合算削減金額　（${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
     </tbody>
   </table>
 
   ${counterOnlyNote(calc)}
   ${salesEffectTable(calc.diffYearly)}
   `;
-  return page(`比較表_${quote.customerName}_${makerJp(calc.proposal.maker)}`, body);
+  return page(`比較表_${quote.customerName}_${makerJp(calc.proposal.maker)}`, body, {
+    css: `${COMPARE_CSS}\n  body.compare { --fit: ${fitCompare(compareRowCount(current))}; }`,
+    bodyClass: "compare",
+  });
 }
 
 /**
@@ -644,16 +701,22 @@ function counterOnlyNote(calc?: ProposalCalc): string {
 　　リース料金をお知らせいただければ、リース料を含めた比較表をあらためてご用意いたします。</div>`;
 }
 
-/** 削減額を「年間売上高に換算した効果」（利益率20%/10%/5% → 5倍/10倍/20倍） */
-function salesEffectTable(diffYearly: number, width = "70%"): string {
+/**
+ * 削減額を「年間売上高に換算した効果」（利益率20%/10%/5% → 5倍/10倍/20倍）。
+ *
+ * 商談でいちばん効くのがこの表なので、他の表より大きく、赤で出す。
+ * 「月々いくら安くなるか」より「売上に直すといくらぶんか」のほうが、
+ * 経営者の方には金額の大きさが伝わる。
+ */
+function salesEffectTable(diffYearly: number, width = "78%"): string {
   const save = Math.max(0, -diffYearly);
   if (save <= 0) return "";
   return `
   <table class="grid effect" style="width:${width}">
     <thead><tr><th colspan="4">年間売上高に換算したコスト削減効果</th></tr></thead>
     <tbody>
-      <tr><th>利益率</th><th class="center">20%</th><th class="center">10%</th><th class="center">5%</th></tr>
-      <tr>
+      <tr class="effect-rate"><th>利益率</th><th class="center">20%</th><th class="center">10%</th><th class="center">5%</th></tr>
+      <tr class="effect-value">
         <th>年間売上高</th>
         <td class="num">${n(save * 5)}</td>
         <td class="num">${n(save * 10)}</td>
@@ -661,7 +724,7 @@ function salesEffectTable(diffYearly: number, width = "70%"): string {
       </tr>
     </tbody>
   </table>
-  <div class="small" style="margin-top:4px">上記程度の「売上高が増加した」ことと同等の効果が得られます。</div>`;
+  <div class="effect-note">上記程度の<b>「売上高が増加した」ことと同等の効果</b>が得られます。</div>`;
 }
 
 /** 複数メーカーを横並びにした比較表（同時提案用） */
@@ -758,7 +821,13 @@ export function renderMultiCompareHtml(
   <div class="small" style="margin-top:6px">※黄色の列が月間経費の最も安い提案です。</div>
   ${counterOnlyNote(calcs[0])}
   `;
-  return page(`比較表_${quote.customerName}_各社`, body);
+  return page(`比較表_${quote.customerName}_各社`, body, {
+    // 各社を横並びにした比較表は、明細の区分が増えても行は増えない
+    // （区分ごとの内訳は出さず、カウンター合計だけを並べる）。
+    // 背が高くなるのはメーカーの数が増えたときだけ。
+    css: `${COMPARE_CSS}\n  body.compare { --fit: ${fitCompare(0, calcs.length)}; }`,
+    bodyClass: "compare",
+  });
 }
 
 /**
@@ -1115,9 +1184,9 @@ export function renderFleetCompareHtml(
       <div class="band">- ト ー タ ル 削 減 料 金 -</div>
       <table class="grid">
         <tbody>
-          <tr><th style="text-align:left">合計合算削減金額 （単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
-          <tr><th style="text-align:left">合計合算削減金額 （年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
-          <tr><th style="text-align:left">合計合算削減金額 （${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
+          <tr class="save-total"><th style="text-align:left">合計合算削減金額 （単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
+          <tr class="save-total"><th style="text-align:left">合計合算削減金額 （年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
+          <tr class="save-total"><th style="text-align:left">合計合算削減金額 （${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
           <tr class="total-row"><th style="text-align:left">削減率</th><td class="num">${
             calc.reductionRate === 0
               ? "±0%"
@@ -1136,6 +1205,48 @@ export function renderFleetCompareHtml(
     bodyClass: "fleet",
   });
 }
+
+/**
+ * 比較表（A4たて）の、行数に応じた縮小率。
+ *
+ * 表が伸びる原因は、逓減単価の明細の区分と段。1区分あたり1行、
+ * 段が2つ以上ある区分はさらに段の数だけ行が増える。
+ * 各社を横並びにした比較表は列が増えるぶん、見出しが折り返して背が高くなる。
+ *
+ * PDFに書き出すときは、これを出発点にChromiumで実際の高さを測り直して
+ * 詰め直す（fitToOnePage）。ここでの見積りは、HTMLをそのまま
+ * ブラウザで印刷したときのための備え。
+ */
+export function fitCompare(rowCount: number, columns = 1): number {
+  const budget = COMPARE_BUDGET_PX - (columns > 1 ? 30 * (columns - 1) : 0);
+  const scale = budget / (COMPARE_BLOCK_PX + COMPARE_ROW_PX * rowCount);
+  if (scale >= 0.98) return 1;
+  return Math.max(0.5, Math.round(scale * 1_000) / 1_000);
+}
+
+/**
+ * 比較表の、行数で伸び縮みする部分の行数。
+ *
+ * 逓減単価の明細が無い場合は「ブラック・フルカラー・2色カラー」の3行で固定なので、
+ * 伸び縮みは無い（0を返す）。この3行ぶんの高さは下の COMPARE_BLOCK_PX に含めてある。
+ */
+export function compareRowCount(current: CurrentCalc): number {
+  const lines = current.chargeLines;
+  if (!lines?.length) return 0;
+  // 区分ごとに1行。段が2つ以上ある区分は、その段の数だけ行が増える
+  return lines.reduce((sum, l) => sum + 1 + (l.bands.length > 1 ? l.bands.length : 0), 0);
+}
+
+/**
+ * 以下の3つは Chromium で実測して求めた値（A4たて・印刷幅190mm）。
+ *
+ *   印刷できる高さ : 297mm − 上下余白24mm ≒ 1,032px（96dpi）→ 余裕を見て1,020px
+ *   行数で変わらない部分 : 見出し・自社情報・枚数表・合計欄・削減効果で約925px（余裕を見て945px）
+ *   明細1行あたり : 約37.5px（区分名の下に枚数と実効単価を添えるため2行分の高さになる）
+ */
+const COMPARE_BUDGET_PX = 1_020;
+const COMPARE_BLOCK_PX = 945;
+const COMPARE_ROW_PX = 37.5;
 
 /**
  * A3ヨコ1枚に収まるよう、字と行の高さを縮める割合（Excelの「1ページに収める」と同じ考え方）。

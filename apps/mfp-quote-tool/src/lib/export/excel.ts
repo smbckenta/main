@@ -27,6 +27,11 @@ const SUM_FILL: ExcelJS.Fill = {
 };
 const YEN = "#,##0";
 const UNIT = "0.00";
+/**
+ * 削減額。安くなる側（マイナス）を赤の「▲1,234」で出す。
+ * 書式で色を付けるので、値を触らずに済み、集計もそのまま効く。
+ */
+const SAVING = '#,##0;[Red]"▲"#,##0';
 
 function jpDate(iso: string): string {
   const [y, m, d] = iso.split("-");
@@ -39,6 +44,8 @@ interface RowOptions {
   border?: boolean;
   numFmt?: string;
   align?: ("left" | "center" | "right" | undefined)[];
+  /** 削減額として赤字で出す値の位置（values の何番目か） */
+  saving?: number[];
 }
 
 /** A列を空けて B列から値を並べる（既存Excelの見た目に合わせる） */
@@ -56,6 +63,7 @@ function putRow(
     if (opts.fill) cell.fill = opts.fill;
     if (opts.border) cell.border = THIN;
     if (typeof v === "number" && opts.numFmt) cell.numFmt = opts.numFmt;
+    if (typeof v === "number" && opts.saving?.includes(i)) cell.numFmt = SAVING;
     const align = opts.align?.[i];
     if (align) cell.alignment = { horizontal: align, vertical: "middle" };
   });
@@ -457,7 +465,7 @@ function addCompareBlock(
         calc.monthlyLease + calc.counter.total,
         calc.monthlyLease + calc.counter.total - current.monthlyLease - current.counter.total,
       ],
-      { border: true, numFmt: YEN },
+      { border: true, numFmt: YEN, saving: [3] },
     );
   }
   putRow(sheet, r++, ["　　保守料金", current.maintenanceMonthly, calc.maintenanceMonthly, ""], {
@@ -474,7 +482,7 @@ function addCompareBlock(
       calc.comparable,
       calc.diffMonthly,
     ],
-    { border: true, numFmt: YEN, bold: true, fill: SUM_FILL },
+    { border: true, numFmt: YEN, bold: true, fill: SUM_FILL, saving: [3] },
   );
   if (calc.counterOnly) {
     putRow(sheet, r++, [
@@ -483,9 +491,13 @@ function addCompareBlock(
   }
   r++;
 
-  putRow(sheet, r++, ["合計合算削減金額　（単月）", "", calc.diffMonthly], { numFmt: YEN, bold: true });
-  putRow(sheet, r++, ["合計合算削減金額　（年間）", "", calc.diffYearly], { numFmt: YEN, bold: true });
-  putRow(sheet, r++, [`合計合算削減金額　（${calc.leaseYears}年間）`, "", calc.diffLeaseTerm], { numFmt: YEN, bold: true });
+  putRow(sheet, r++, ["合計合算削減金額　（単月）", "", calc.diffMonthly], { numFmt: YEN, bold: true, saving: [2] });
+  putRow(sheet, r++, ["合計合算削減金額　（年間）", "", calc.diffYearly], { numFmt: YEN, bold: true, saving: [2] });
+  putRow(sheet, r++, [`合計合算削減金額　（${calc.leaseYears}年間）`, "", calc.diffLeaseTerm], {
+    numFmt: YEN,
+    bold: true,
+    saving: [2],
+  });
   r++;
 
   const save = Math.max(0, -calc.diffYearly);
@@ -530,6 +542,15 @@ export function addMultiCompareSheet(
   const row = (label: string, left: string | number, values: (string | number)[], numFmt?: string) =>
     putRow(sheet, r++, [label, left, ...values], { border: true, numFmt });
 
+  /** 削減額の行。各社の列を赤字（▲）で出す */
+  const savingRow = (label: string, values: number[]) =>
+    putRow(sheet, r++, [label, "－", ...values], {
+      border: true,
+      numFmt: YEN,
+      bold: true,
+      saving: values.map((_, i) => i + 2),
+    });
+
   row("機種", quote.current.modelText || "－", calcs.map((c) => c.proposal.modelText));
   row("連続コピー速度（カラー）", val(calcs[0]?.currentDevice?.ppmColor, "枚/分"), calcs.map((c) => val(c.device?.ppmColor, "枚/分")));
   row("ファーストコピー（カラー）", val(calcs[0]?.currentDevice?.firstCopyColorSec, "秒"), calcs.map((c) => val(c.device?.firstCopyColorSec, "秒")));
@@ -559,10 +580,10 @@ export function addMultiCompareSheet(
     calcs.map((c) => c.comparable),
     YEN,
   );
-  row("削減額（単月）", "－", calcs.map((c) => c.diffMonthly), YEN);
-  row("削減額（年間）", "－", calcs.map((c) => c.diffYearly), YEN);
+  savingRow("削減額（単月）", calcs.map((c) => c.diffMonthly));
+  savingRow("削減額（年間）", calcs.map((c) => c.diffYearly));
   const years = [...new Set(calcs.map((c) => c.leaseYears))].join("・");
-  row(`削減額（${years}年間＝リース期間）`, "－", calcs.map((c) => c.diffLeaseTerm), YEN);
+  savingRow(`削減額（${years}年間＝リース期間）`, calcs.map((c) => c.diffLeaseTerm));
 
   return sheet;
 }
@@ -686,6 +707,7 @@ function putFleetRow(
     if (opts.fill) cell.fill = opts.fill;
     if (opts.border && !opts.skipBorder?.includes(i)) cell.border = THIN;
     if (typeof v === "number" && opts.numFmt) cell.numFmt = opts.numFmt;
+    if (typeof v === "number" && opts.saving?.includes(i)) cell.numFmt = SAVING;
     const align = opts.align?.[i];
     if (align) cell.alignment = { horizontal: align, vertical: "middle" };
   });
@@ -906,11 +928,12 @@ export function addFleetSheet(
 
   // ── トータル削減料金
   fleetBand(sheet, r++, "- ト ー タ ル 削 減 料 金 -");
-  putFleetRow(sheet, r++, ["合計合算削減金額 （単月）", calc.diffMonthly], { border: true, numFmt: YEN });
-  putFleetRow(sheet, r++, ["合計合算削減金額 （年間）", calc.diffYearly], { border: true, numFmt: YEN });
+  putFleetRow(sheet, r++, ["合計合算削減金額 （単月）", calc.diffMonthly], { border: true, numFmt: YEN, saving: [1] });
+  putFleetRow(sheet, r++, ["合計合算削減金額 （年間）", calc.diffYearly], { border: true, numFmt: YEN, saving: [1] });
   putFleetRow(sheet, r++, [`合計合算削減金額 （${calc.leaseYears}年間）`, calc.diffLeaseTerm], {
     border: true,
     numFmt: YEN,
+    saving: [1],
   });
   putFleetRow(sheet, r, ["削減率", calc.reductionRate], { border: true, bold: true });
   sheet.getRow(r).getCell(2).numFmt = "0.0%";

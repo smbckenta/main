@@ -99,7 +99,10 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
         if (req.docs.includes("compare")) {
           files.push({
             name: `${base}_比較表_${safe(maker)}.pdf`,
-            buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings, logo?.dataUri)),
+            // 比較表は必ず1枚に収める（並べて見比べる紙なので、切れると使えない）
+            buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings, logo?.dataUri), {
+              fitOnePage: true,
+            }),
             contentType: "application/pdf",
           });
         }
@@ -117,7 +120,9 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
       if (targets.length > 1 && req.docs.includes("compare")) {
         files.push({
           name: `${base}_比較表_各社.pdf`,
-          buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings, logo?.dataUri)),
+          buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings, logo?.dataUri), {
+            fitOnePage: true,
+          }),
           contentType: "application/pdf",
         });
       }
@@ -126,7 +131,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           name: `${base}_複数台比較表.pdf`,
           buffer: await htmlToPdf(
             renderFleetCompareHtml(quote, withFleet.input, withFleet.fleet, settings, logo?.dataUri),
-            { format: "A3", landscape: true },
+            { format: "A3", landscape: true, fitOnePage: true },
           ),
           contentType: "application/pdf",
         });
