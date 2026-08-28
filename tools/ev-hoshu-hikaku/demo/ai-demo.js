@@ -21,9 +21,12 @@
       termFrom: '', termTo: '', autoRenew: null, cancellationNotice: '',
       statutoryInspectionIncluded: null, exclusions: [],
       units: [{
-        unitNo: '1号機', kind: 'エレベーター', maker: 'オーチス', model: 'GeN2',
-        serialNo: 'OT-114523', installedOn: '2008-09',
-        capacityKg: 750, capacityPersons: 11, ratedSpeed: 60, stops: 6,
+        unitNo: '1号機', kind: 'エレベーター', usage: '乗用',
+        maker: 'オーチス', model: 'GeN2', serialNo: 'OT-114523',
+        confirmationCertificateOn: '1999-11', inspectionCertificateOn: '2000-08',
+        manufacturedOn: '2000-05', installedOn: '2000-08',
+        renewals: [],
+        capacityKg: 750, capacityPersons: 11, ratedSpeed: 60, travelM: 18.2, stops: 6,
         inspectionDate: '2026-04-18', inspector: '（一財）岡山県建築住宅センター',
         findings: [
           { rank: '要重点点検', item: '主索の摩耗', detail: '素線切れは無いが直径の減少が進行' },
@@ -31,9 +34,10 @@
         ]
       }],
       evidence: [
+        '確認済証交付年月日 平成11年11月18日　検査済証交付年月日 平成12年8月4日',
         '昇降機の種類 エレベーター（乗用）　製造者 日本オーチス・エレベータ株式会社',
         '積載量 750kg　最大定員 11人　定格速度 60m/min',
-        '停止階数 6　検査年月日 令和8年4月18日',
+        '停止階数 6　昇降行程 18.2m　検査年月日 令和8年4月18日',
         '保守点検業者 日本オーチス・エレベータ株式会社'
       ],
       warnings: ['保守料金の記載は報告書にありません']

@@ -23,6 +23,59 @@
     };
   }
 
+
+  function unit(site, no, maker, model, kind, usage, conf, opts) {
+    opts = opts || {};
+    return {
+      id: 'demo-u-' + site + '-' + no,
+      site: site, unitNo: no, kind: kind || 'エレベーター', usage: usage || '乗用',
+      maker: maker, model: model, serialNo: opts.serialNo || '',
+      confirmationCertificateOn: conf,
+      inspectionCertificateOn: opts.inspected || '',
+      manufacturedOn: opts.manufactured || '',
+      installedOn: opts.installed || '',
+      renewals: opts.renewals || [],
+      findings: opts.findings || [],
+      capacityKg: opts.kg || 600, capacityPersons: opts.persons || 9,
+      ratedSpeed: opts.speed || 60, travelM: opts.travel || '', stops: opts.stops || 5,
+      inspectionDate: opts.inspection || '2026-03-16',
+      inspector: opts.inspector || '（一財）日本建築設備・昇降機センター'
+    };
+  }
+
+  var SAMPLE_UNITS = [
+    unit('ジャンボ岩国店', '1号機', '三菱', 'GPS-3', 'エレベーター', '乗用', '1996-03', {
+      serialNo: 'MT-88213', inspected: '1997-02', manufactured: '1996-11', stops: 5,
+      findings: [{ rank: '要重点点検', item: '主索の摩耗', detail: '素線切れは無いが直径の減少が進行' }]
+    }),
+    unit('ジャンボ岩国店', '2号機', '三菱', 'GPS-3', 'エレベーター', '乗用', '1996-03', {
+      serialNo: 'MT-88214', inspected: '1997-02', manufactured: '1996-11', stops: 5
+    }),
+    unit('ジャンボ防府店', '1号機', 'フジテック', 'ルシオール', 'エレベーター', '乗用', '2002-07', {
+      serialNo: 'FJ-20714', inspected: '2003-04', stops: 5
+    }),
+    unit('ジャンボ水島店', '1号機', '日立', 'アーバンエース', 'エレベーター', '人荷用', '1994-05', {
+      serialNo: 'HT-51002', inspected: '1995-01', kg: 1000, persons: 15, stops: 4,
+      renewals: [
+        { on: '2005-08', scope: '巻上機オーバーホール' },
+        { on: '2016-09', scope: '制御盤更新（準撤去リニューアル）' }
+      ]
+    }),
+    unit('ジャンボ備前店', '1号機', '東芝', 'エレビスタ', 'エレベーター', '乗用', '1999-02', {
+      serialNo: 'TS-30991', inspected: '1999-12', stops: 5,
+      findings: [
+        { rank: '要是正', item: '戸開走行保護装置', detail: '未設置' },
+        { rank: '要重点点検', item: '調速機ロープ', detail: '摩耗が進行' }
+      ]
+    }),
+    unit('サンエイ倉敷本店', '1号機', '三菱', 'エレパック', 'エレベーター', '乗用', '2010-03', {
+      serialNo: 'MT-14882', inspected: '2010-11', stops: 4
+    }),
+    unit('アミスタ大供', '1号機', 'オーチス', 'GeN2', 'エレベーター', '乗用', '2006-06', {
+      serialNo: 'OT-77120', inspected: '2007-03', kg: 750, persons: 11, stops: 10, travel: 28.4
+    })
+  ];
+
   var SAMPLE_CASE = {
     id: 'demo-case',
     title: 'EV保守 価格比較表',
@@ -55,6 +108,7 @@
       row('アミスタ大供', 'オーチス', 1, '日本オーチス・エレベータ㈱', '不明', 10, 'FM契約', 60000, F3, 32000),
       row('アミスタ東島田', 'オーチス', 1, '日本オーチス・エレベータ㈱', '不明', 10, 'FM契約', 55000, F3, 32000)
     ],
+    units: SAMPLE_UNITS,
     ingest: [], files: [], warnings: [],
     createdAt: '2026-05-20T00:00:00.000Z',
     updatedAt: '2026-05-20T00:00:00.000Z'

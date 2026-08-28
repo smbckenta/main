@@ -69,6 +69,7 @@ def main():
     scripts = [
         read('lib', 'logo.js'),
         'var EV_TEMPLATE_BASE64 = "%s";' % template_b64,
+        read('lib', 'lifecycle.js'),
         read('lib', 'zip.js'),
         read('lib', 'xlsx-fill.js'),
         read('demo', 'store-demo.js'),

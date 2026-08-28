@@ -182,6 +182,7 @@
       issuer: Object.assign({}, App.settings.issuer),
       remarks: d.remarks,
       rows: [newRow(App.settings)],
+      units: [],
       ingest: [],
       files: [],
       warnings: [],
@@ -211,6 +212,13 @@
     if (!c) return fail(new Error('案件を読み込めませんでした'));
     if (!c.rows || !c.rows.length) c.rows = [newRow(App.settings)];
     c.rows.forEach(function (r) { if (!r.id) r.id = uuid(); });
+    // 台帳を持たない古い案件も開けるようにしておく
+    if (!c.units) c.units = [];
+    c.units.forEach(function (u) {
+      if (!u.id) u.id = uuid();
+      if (!u.renewals) u.renewals = [];
+      if (!u.findings) u.findings = [];
+    });
     App.current = c;
     App.lastExtract = null;
     App.pending = [];
@@ -251,6 +259,7 @@
   // ---------- 画面切り替え ----------
   function renderAll() {
     renderRead();
+    renderUnits();
     renderRows();
     renderCover();
     renderPreview();
@@ -419,10 +428,16 @@
 
     var units = (d.units || []).map(function (u) {
       var findings = (u.findings || []).filter(function (f) { return f.rank !== '指摘なし'; });
+      var a = Lifecycle.assess(u);
+      var age = a.elapsed
+        ? '　<b>' + esc(Lifecycle.BASIS_LABEL[a.basis]) + ' ' + esc(Lifecycle.both(a.baseOn)) +
+          ' / 経過 ' + a.elapsed.years + '年' + a.elapsed.months + 'ヶ月</b>' +
+          (a.alert ? ' <span class="state bad">' + a.cycleYears + '年経過</span>' : '')
+        : '';
       return '<li>' + esc([u.unitNo, u.maker, u.model].filter(Boolean).join(' / ')) +
         (u.stops ? '　停止階数 ' + u.stops : '') +
-        (u.installedOn ? '　設置 ' + esc(u.installedOn) : '') +
         (u.inspectionDate ? '　検査日 ' + esc(u.inspectionDate) : '') +
+        age +
         (findings.length
           ? '<div class="warn">' + findings.map(function (f) {
               return '【' + esc(f.rank) + '】' + esc(f.item) + (f.detail ? '：' + esc(f.detail) : '');
@@ -507,6 +522,8 @@
       }
     });
 
+    var addedUnits = importUnits(documents);
+
     // 取り込み前からある空行は片付ける
     c.rows = c.rows.filter(function (r, i) {
       return r.site || r.currentMonthly || c.rows.length === 1;
@@ -515,11 +532,336 @@
 
     saveCurrent().catch(fail);
     renderAll();
-    switchPane('rows');
-    toast(added ? added + ' 件を明細に追加しました' : '明細を更新しました');
+    switchPane(addedUnits ? 'units' : 'rows');
+    toast([
+      added ? added + ' 件を明細に追加' : '明細を更新',
+      addedUnits ? addedUnits + ' 号機を台帳に追加' : ''
+    ].filter(Boolean).join('、') + 'しました');
   }
 
-  // ---------- ② 明細 ----------
+  // 読み取った号機を台帳に入れる。設置場所＋号機（無ければ製造番号）で同じものを見る。
+  function importUnits(documents) {
+    var c = App.current;
+    if (!c.units) c.units = [];
+    var added = 0;
+
+    documents.forEach(function (doc) {
+      var site = (doc.buildingName || '').trim() || (doc.fileName || '').replace(/\.[^.]+$/, '');
+      (doc.units || []).forEach(function (src) {
+        var unit = c.units.filter(function (u) {
+          if (src.serialNo && u.serialNo) return u.serialNo === src.serialNo;
+          return (u.site || '') === site && (u.unitNo || '') === (src.unitNo || '');
+        })[0];
+        var isNew = !unit;
+        if (isNew) {
+          unit = newUnit(site);
+          c.units.push(unit);
+          added++;
+        }
+        var fill = function (key, value) {
+          if (value === undefined || value === null || value === '') return;
+          if (isNew || !unit[key]) unit[key] = value;
+        };
+        fill('unitNo', src.unitNo);
+        fill('kind', src.kind === '不明' ? '' : src.kind);
+        fill('usage', src.usage);
+        fill('maker', src.maker);
+        fill('model', src.model);
+        fill('serialNo', src.serialNo);
+        fill('inspector', src.inspector);
+        UNIT_DATE_KEYS.concat(['inspectionDate']).forEach(function (key) {
+          fill(key, Lifecycle.normalize(src[key]) || src[key]);
+        });
+        ['capacityKg', 'capacityPersons', 'ratedSpeed', 'travelM', 'stops'].forEach(function (key) {
+          fill(key, src[key]);
+        });
+        if (!unit.vendor && doc.vendor) unit.vendor = doc.vendor;
+
+        // 履歴と指摘は同じ年月・同じ項目のものを重ねない
+        (src.renewals || []).forEach(function (r) {
+          var on = Lifecycle.normalize(r.on) || r.on;
+          if (!on) return;
+          if (unit.renewals.some(function (x) { return x.on === on; })) return;
+          unit.renewals.push({ on: on, scope: r.scope || '' });
+        });
+        (src.findings || []).forEach(function (f) {
+          if (!f || !f.item) return;
+          if (unit.findings.some(function (x) { return x.item === f.item && x.rank === f.rank; })) return;
+          unit.findings.push({ rank: f.rank || '不明', item: f.item, detail: f.detail || '' });
+        });
+      });
+    });
+    return added;
+  }
+
+  // ---------- ② 昇降機台帳 ----------
+  var UNIT_DATE_KEYS = ['confirmationCertificateOn', 'inspectionCertificateOn', 'manufacturedOn', 'installedOn'];
+
+  function newUnit(site) {
+    return {
+      id: uuid(),
+      site: site || '', unitNo: '', kind: 'エレベーター', usage: '',
+      maker: '', model: '', serialNo: '',
+      confirmationCertificateOn: '', inspectionCertificateOn: '',
+      manufacturedOn: '', installedOn: '',
+      renewals: [], findings: [],
+      capacityKg: '', capacityPersons: '', ratedSpeed: '', travelM: '', stops: '',
+      inspectionDate: '', inspector: ''
+    };
+  }
+
+  function units() {
+    var c = App.current;
+    if (!c.units) c.units = [];
+    return c.units;
+  }
+
+  function stateHtml(a) {
+    if (!a.elapsed) return '<span class="state none">確認済証交付年月が未入力</span>';
+    var e = a.elapsed.years + '年' + a.elapsed.months + 'ヶ月';
+    if (a.alert) {
+      return '<span class="state bad">' + a.cycleYears + '年経過（' + e + '）</span>';
+    }
+    if (a.remainingYears <= 3) {
+      return '<span class="state soon">あと約' + a.remainingYears + '年で' + a.cycleYears + '年</span>';
+    }
+    return '<span class="state">経過 ' + e + '</span>';
+  }
+
+  function basisHtml(a) {
+    if (!a.elapsed) {
+      return '<div class="basis"><div class="muted">' +
+        '確認済証交付年月（または製造年月）を入れると、経過年数と' +
+        Lifecycle.RENEWAL_CYCLE_YEARS + '年の判定が出ます。</div></div>';
+    }
+    var over = a.remainingMonths < 0;
+    return '<div class="basis">' +
+      '<div><span class="muted">起点</span> <b>' + esc(Lifecycle.BASIS_LABEL[a.basis]) + '</b>　' +
+      esc(Lifecycle.both(a.baseOn)) + '</div>' +
+      '<div><span class="muted">経過</span> <b>' + a.elapsed.years + '年' + a.elapsed.months + 'ヶ月</b></div>' +
+      '<div><span class="muted">' + a.cycleYears + '年まで</span> <b>' +
+      (over ? '超過（' + Math.ceil(-a.remainingMonths / 12) + '年）' : 'あと約' + a.remainingYears + '年') +
+      '</b></div>' +
+      (a.renewal
+        ? '<div><span class="muted">最終リニューアル</span> <b>' + esc(Lifecycle.both(a.renewal.on)) + '</b>' +
+          (a.renewal.scope ? '　' + esc(a.renewal.scope) : '') + '</div>'
+        : '') +
+      '</div>';
+  }
+
+  function ufield(i, key, label, type) {
+    var v = units()[i][key];
+    return '<label class="f">' + esc(label) +
+      '<input type="' + (type || 'text') + '" data-u="' + i + '" data-k="' + key + '" value="' +
+      esc(v == null ? '' : v) + '"></label>';
+  }
+
+  function udate(i, key, label) {
+    var v = units()[i][key] || '';
+    var hint = Lifecycle.both(v);
+    return '<label class="f">' + esc(label) +
+      '<input type="text" data-u="' + i + '" data-k="' + key + '" data-date="1" ' +
+      'placeholder="2003-04 / 平成15年4月" value="' + esc(v) + '">' +
+      '<span class="ymhint' + (hint ? '' : ' empty') + '">' +
+      (hint || '西暦でも和暦でも入力できます') + '</span></label>';
+  }
+
+  function unitCard(u, i) {
+    var a = Lifecycle.assess(u);
+    var last = a.renewal;
+    var renewals = (u.renewals || []).map(function (r, j) {
+      var isLast = last && last === r;
+      var wa = Lifecycle.wareki(r.on);
+      return '<li class="' + (isLast ? 'last' : '') + '">' +
+        '<input class="on" data-ur="' + i + '" data-ri="' + j + '" data-k="on" data-date="1" ' +
+        'placeholder="2015-06" value="' + esc(r.on || '') + '">' +
+        '<span class="wa">' + esc(wa) + '</span>' +
+        '<input class="scope" data-ur="' + i + '" data-ri="' + j + '" data-k="scope" ' +
+        'placeholder="実施内容（例: 制御盤更新）" value="' + esc(r.scope || '') + '">' +
+        (isLast ? '<span class="wa">最終</span>' : '') +
+        '<button class="icon-btn" data-rdel="' + i + '.' + j + '">×</button></li>';
+    }).join('');
+
+    var findings = (u.findings || []).map(function (f, j) {
+      var cls = f.rank === '要是正' ? 'fix' : f.rank === '要重点点検' ? 'watch' : '';
+      return '<li class="' + cls + '">' +
+        '<select data-uf="' + i + '" data-fi="' + j + '" data-k="rank">' +
+        ['要是正', '要重点点検', '指摘なし', '不明'].map(function (r) {
+          return '<option' + (f.rank === r ? ' selected' : '') + '>' + r + '</option>';
+        }).join('') + '</select>' +
+        '<input data-uf="' + i + '" data-fi="' + j + '" data-k="item" placeholder="項目" value="' + esc(f.item || '') + '">' +
+        '<input data-uf="' + i + '" data-fi="' + j + '" data-k="detail" placeholder="内容" value="' + esc(f.detail || '') + '">' +
+        '<button class="icon-btn" data-fdel="' + i + '.' + j + '">×</button></li>';
+    }).join('');
+
+    var cls = a.alert ? ' is-alert' : (a.elapsed && a.remainingYears <= 3 ? ' is-soon' : '');
+    return '<div class="unit' + cls + '">' +
+      '<div class="head">' +
+      '<div><div class="name">' + esc([u.site, u.unitNo].filter(Boolean).join('　') || '（未入力）') + '</div>' +
+      '<div class="sub">' + esc([u.maker, u.model, u.kind, u.usage].filter(Boolean).join(' / ')) + '</div></div>' +
+      '<span class="spacer"></span>' + stateHtml(a) +
+      '<button class="icon-btn" data-udel="' + i + '">削除</button>' +
+      '</div><div class="inner">' +
+      basisHtml(a) +
+      '<div class="grid c4">' +
+      ufield(i, 'site', '設置場所') + ufield(i, 'unitNo', '号機') +
+      ufield(i, 'kind', '種別') + ufield(i, 'usage', '用途') +
+      ufield(i, 'maker', 'メーカー') + ufield(i, 'model', '型式') +
+      ufield(i, 'serialNo', '製造番号') + ufield(i, 'inspector', '検査者') +
+      '</div>' +
+      '<div class="grid c4" style="margin-top:12px">' +
+      udate(i, 'confirmationCertificateOn', '確認済証交付年月') +
+      udate(i, 'inspectionCertificateOn', '検査済証交付年月') +
+      udate(i, 'manufacturedOn', '製造年月') +
+      udate(i, 'inspectionDate', '検査年月日') +
+      '</div>' +
+      '<div class="grid c4" style="margin-top:12px">' +
+      ufield(i, 'capacityKg', '積載量（kg）', 'number') +
+      ufield(i, 'capacityPersons', '最大定員（人）', 'number') +
+      ufield(i, 'ratedSpeed', '定格速度（m/min）', 'number') +
+      ufield(i, 'stops', '停止階数', 'number') +
+      '</div>' +
+      '<div class="sect">リニューアル履歴</div>' +
+      (renewals ? '<ul class="renewals">' + renewals + '</ul>'
+        : '<p class="hint" style="margin:0 0 8px">まだありません。実施済みなら追加すると、その年月から数え直します。</p>') +
+      '<button class="btn" data-radd="' + i + '">＋ リニューアルを追加</button>' +
+      '<div class="sect">指摘事項</div>' +
+      (findings ? '<ul class="findings">' + findings + '</ul>'
+        : '<p class="hint" style="margin:0 0 8px">指摘はありません。</p>') +
+      '<button class="btn" data-fadd="' + i + '">＋ 指摘事項を追加</button>' +
+      '</div></div>';
+  }
+
+  function updateUnitBadge(count) {
+    var dot = $('#unitAlertDot');
+    if (!dot) return;
+    dot.hidden = !count;
+    dot.textContent = count || '';
+  }
+
+  function renderUnits() {
+    var host = $('#unitsBody');
+    if (needCase(host)) { updateUnitBadge(0); return; }
+    var list = units();
+    var assessed = list.map(function (u) { return Lifecycle.assess(u); });
+    var alerts = assessed.filter(function (a) { return a.alert; }).length;
+    var soon = assessed.filter(function (a) {
+      return !a.alert && a.elapsed && a.remainingYears <= 3;
+    }).length;
+    var issues = list.reduce(function (n, u) {
+      return n + (u.findings || []).filter(function (f) {
+        return f.rank === '要是正' || f.rank === '要重点点検';
+      }).length;
+    }, 0);
+    updateUnitBadge(alerts);
+
+    host.innerHTML =
+      '<div class="summary">' +
+      '<div class="stat"><div class="n">' + list.length + '</div><div class="k">登録された号機</div></div>' +
+      '<div class="stat' + (alerts ? ' alert' : '') + '"><div class="n">' + alerts + '</div>' +
+      '<div class="k">' + Lifecycle.RENEWAL_CYCLE_YEARS + '年経過（要リニューアル検討）</div></div>' +
+      '<div class="stat"><div class="n">' + soon + '</div><div class="k">3年以内に' +
+      Lifecycle.RENEWAL_CYCLE_YEARS + '年</div></div>' +
+      '<div class="stat"><div class="n">' + issues + '</div><div class="k">要是正・要重点点検</div></div>' +
+      '</div>' +
+      (list.length
+        ? list.map(unitCard).join('')
+        : '<div class="card"><p class="hint" style="margin:0">' +
+          '「① 書類読み取り」で定期検査報告書を読み取ると、号機がここに並びます。手で追加もできます。</p></div>') +
+      '<button id="addUnitBtn" class="btn">＋ 号機を追加</button>';
+
+    bindUnits(host);
+  }
+
+  function bindUnits(host) {
+    var c = App.current;
+
+    host.addEventListener('input', function (e) {
+      var el = e.target;
+      if (el.dataset.u !== undefined) {
+        var u = units()[Number(el.dataset.u)];
+        u[el.dataset.k] = el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
+        if (el.dataset.date) updateDateHint(el);
+        touch();
+      } else if (el.dataset.ur !== undefined) {
+        var r = units()[Number(el.dataset.ur)].renewals[Number(el.dataset.ri)];
+        r[el.dataset.k] = el.value;
+        touch();
+      } else if (el.dataset.uf !== undefined) {
+        var f = units()[Number(el.dataset.uf)].findings[Number(el.dataset.fi)];
+        f[el.dataset.k] = el.value;
+        touch();
+      }
+    });
+
+    // 入力欄を離れたところで「平成15年4月」→「2003-04」に直し、判定も引き直す
+    host.addEventListener('change', function (e) {
+      var el = e.target;
+      if (!el.dataset.date && el.dataset.uf === undefined) return;
+      if (el.dataset.date) {
+        var normalized = Lifecycle.normalize(el.value);
+        if (normalized) {
+          if (el.dataset.u !== undefined) units()[Number(el.dataset.u)][el.dataset.k] = normalized;
+          if (el.dataset.ur !== undefined) {
+            units()[Number(el.dataset.ur)].renewals[Number(el.dataset.ri)][el.dataset.k] = normalized;
+          }
+        }
+      }
+      touch();
+      renderUnits();
+    });
+
+    $$('[data-udel]', host).forEach(function (b) {
+      b.onclick = function () {
+        if (!confirm('この号機を台帳から削除します。よろしいですか？')) return;
+        units().splice(Number(b.dataset.udel), 1);
+        touch(); renderUnits();
+      };
+    });
+    $$('[data-radd]', host).forEach(function (b) {
+      b.onclick = function () {
+        units()[Number(b.dataset.radd)].renewals.push({ on: '', scope: '' });
+        touch(); renderUnits();
+      };
+    });
+    $$('[data-rdel]', host).forEach(function (b) {
+      b.onclick = function () {
+        var p = b.dataset.rdel.split('.');
+        units()[Number(p[0])].renewals.splice(Number(p[1]), 1);
+        touch(); renderUnits();
+      };
+    });
+    $$('[data-fadd]', host).forEach(function (b) {
+      b.onclick = function () {
+        units()[Number(b.dataset.fadd)].findings.push({ rank: '要是正', item: '', detail: '' });
+        touch(); renderUnits();
+      };
+    });
+    $$('[data-fdel]', host).forEach(function (b) {
+      b.onclick = function () {
+        var p = b.dataset.fdel.split('.');
+        units()[Number(p[0])].findings.splice(Number(p[1]), 1);
+        touch(); renderUnits();
+      };
+    });
+    if ($('#addUnitBtn')) {
+      $('#addUnitBtn').onclick = function () {
+        var site = (c.rows && c.rows[0] && c.rows[0].site) || '';
+        units().push(newUnit(site));
+        touch(); renderUnits();
+      };
+    }
+  }
+
+  function updateDateHint(input) {
+    var hint = input.parentNode.querySelector('.ymhint');
+    if (!hint) return;
+    var both = Lifecycle.both(input.value);
+    hint.textContent = both || '西暦でも和暦でも入力できます';
+    hint.classList.toggle('empty', !both);
+  }
+
+  // ---------- ③ 明細 ----------
   var CUR_COLS = [
     { k: 'site', label: '設置場所', w: 150 },
     { k: 'currentMaker', label: 'メーカー', w: 84 },
@@ -738,7 +1080,7 @@
     touch(); renderRows(); renderPreview();
   }
 
-  // ---------- ③ 表紙・備考 ----------
+  // ---------- ④ 表紙・備考 ----------
   function renderCover() {
     var host = $('#coverBody');
     if (needCase(host)) return;
@@ -796,7 +1138,7 @@
       '<input type="' + (type || 'text') + '" data-f="' + path + '" value="' + esc(value == null ? '' : value) + '"></label>';
   }
 
-  // ---------- ④ 比較表（画面プレビュー＝印刷レイアウト） ----------
+  // ---------- ⑤ 比較表（画面プレビュー＝印刷レイアウト） ----------
   function jpDate(iso) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
     if (!m) return '';

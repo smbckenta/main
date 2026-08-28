@@ -153,6 +153,74 @@ label.f textarea{min-height:80px; resize:vertical; line-height:1.6}
 }
 .toast div.err{background:var(--danger)}
 
+/* ---------- 昇降機台帳 ---------- */
+.tabs button .dot{
+  display:inline-block; min-width:18px; height:18px; margin-left:7px; padding:0 5px;
+  border-radius:999px; background:var(--danger); color:#fff;
+  font-size:11px; line-height:18px; text-align:center; vertical-align:1px;
+}
+.summary{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px}
+.stat{
+  flex:1 1 150px; background:var(--panel); border:1px solid var(--line);
+  border-radius:8px; padding:12px 14px;
+}
+.stat.alert{border-color:#e6b0a8; background:#fdf4f3}
+.stat .n{font-size:22px; font-weight:700; line-height:1.2; font-variant-numeric:tabular-nums}
+.stat.alert .n{color:var(--danger)}
+.stat .k{font-size:11px; color:var(--muted); margin-top:2px}
+
+.unit{
+  background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--line);
+  border-radius:8px; margin-bottom:14px;
+}
+.unit.is-alert{border-left-color:var(--danger)}
+.unit.is-soon{border-left-color:#d9a441}
+.unit > .head{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:12px 16px; border-bottom:1px solid var(--line);
+}
+.unit .name{font-weight:700; font-size:14px}
+.unit .sub{font-size:12px; color:var(--muted)}
+.unit .head .spacer{flex:1}
+.unit .inner{padding:16px}
+.state{
+  font-size:12px; font-weight:700; padding:4px 12px; border-radius:999px;
+  background:var(--accent-weak); color:var(--accent); white-space:nowrap;
+}
+.state.bad{background:#fdeaea; color:var(--danger)}
+.state.soon{background:#fdf3e0; color:var(--warn)}
+.state.none{background:#eef0f2; color:var(--muted)}
+
+.basis{
+  display:flex; gap:20px; flex-wrap:wrap; align-items:baseline;
+  background:#f7f9fb; border:1px solid #e2e8ee; border-radius:6px;
+  padding:10px 14px; margin-bottom:14px; font-size:12px;
+}
+.basis b{font-size:13px}
+.basis .muted{color:var(--muted)}
+.ymhint{font-size:11px; color:var(--accent); min-height:15px}
+.ymhint.empty{color:var(--muted)}
+
+.renewals{list-style:none; margin:0 0 8px; padding:0; display:grid; gap:6px}
+.renewals li{
+  display:flex; gap:8px; align-items:center;
+  border:1px solid var(--line); border-radius:6px; padding:6px 10px; background:#fff;
+}
+.renewals li.last{border-color:#9dc0e2; background:#f5f9fd}
+.renewals input{border:0; padding:3px 4px; background:transparent; font:inherit}
+.renewals .on{width:120px; font-weight:700}
+.renewals .wa{font-size:11px; color:var(--muted); white-space:nowrap}
+.renewals .scope{flex:1}
+.findings{list-style:none; margin:0 0 8px; padding:0; display:grid; gap:6px}
+.findings li{display:flex; gap:8px; align-items:center; border:1px solid var(--line); border-radius:6px; padding:6px 10px}
+.findings li.fix{border-color:#e6b0a8; background:#fdf4f3}
+.findings li.watch{border-color:#e6cfa0; background:#fdfaf2}
+.findings select{border:0; background:transparent; font:inherit; font-weight:700; font-size:12px}
+.findings input{border:0; padding:3px 4px; background:transparent; font:inherit; flex:1}
+.sect{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.08em; margin:16px 0 8px}
+.icon-btn{border:0; background:transparent; color:var(--muted); padding:2px 6px; font:inherit}
+.icon-btn:hover{color:var(--danger)}
+
 /* ---------- 比較表プレビュー（印刷レイアウト） ---------- */
 .sheet-wrap{overflow:auto; background:#5b6570; padding:22px}
 .sheet{
@@ -242,13 +310,18 @@ label.f textarea{min-height:80px; resize:vertical; line-height:1.6}
     <main class="work">
       <nav class="tabs no-print">
         <button data-pane="read" class="on">① 書類読み取り</button>
-        <button data-pane="rows">② 明細</button>
-        <button data-pane="cover">③ 表紙・備考</button>
-        <button data-pane="preview">④ 比較表</button>
+        <button data-pane="units">② 昇降機台帳<span id="unitAlertDot" class="dot" hidden></span></button>
+        <button data-pane="rows">③ 明細</button>
+        <button data-pane="cover">④ 表紙・備考</button>
+        <button data-pane="preview">⑤ 比較表</button>
       </nav>
 
       <section id="pane-read" class="pane on">
         <div id="readBody"></div>
+      </section>
+
+      <section id="pane-units" class="pane">
+        <div id="unitsBody"></div>
       </section>
 
       <section id="pane-rows" class="pane">
@@ -269,6 +342,7 @@ label.f textarea{min-height:80px; resize:vertical; line-height:1.6}
 <div id="toast" class="toast no-print"></div>
 
 <script src="lib/logo.js"></script>
+<script src="lib/lifecycle.js"></script>
 <script src="lib/zip.js"></script>
 <script src="lib/xlsx-fill.js"></script>
 <script src="lib/store.js"></script>

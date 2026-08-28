@@ -25,25 +25,51 @@
     additionalProperties: false
   };
 
+  var RENEWAL = {
+    type: 'object',
+    properties: {
+      on: { type: 'string', description: 'リニューアル・改修を実施した年月。YYYY-MM 形式' },
+      scope: { type: 'string', description: '実施した内容。例「制御盤更新」「準撤去リニューアル」' }
+    },
+    required: ['on', 'scope'],
+    additionalProperties: false
+  };
+
   var UNIT = {
     type: 'object',
     properties: {
       unitNo: { type: 'string', description: '号機番号。例「1号機」' },
       kind: { type: 'string', enum: ['エレベーター', 'エスカレーター', '小荷物専用昇降機', '不明'] },
+      usage: { type: 'string', description: '用途。例「乗用」「人荷用」「寝台用」' },
       maker: { type: 'string', description: '製造者。「三菱電機」は「三菱」のように通称でよい' },
       model: { type: 'string' },
-      serialNo: { type: 'string' },
+      serialNo: { type: 'string', description: '製造番号' },
+      confirmationCertificateOn: {
+        type: 'string',
+        description: '確認済証交付年月日。報告書の【1】欄。YYYY-MM または YYYY-MM-DD。和暦は西暦に直す'
+      },
+      inspectionCertificateOn: {
+        type: 'string',
+        description: '検査済証交付年月日。YYYY-MM または YYYY-MM-DD。和暦は西暦に直す'
+      },
+      manufacturedOn: { type: 'string', description: '製造年月。YYYY-MM 形式' },
       installedOn: { type: 'string', description: '設置年月。YYYY-MM 形式。不明なら空' },
+      renewals: {
+        type: 'array', items: RENEWAL,
+        description: 'リニューアル・主要部品の更新履歴。書類に記載があるものだけ'
+      },
       capacityKg: { type: ['number', 'null'] },
       capacityPersons: { type: ['number', 'null'] },
       ratedSpeed: { type: ['number', 'null'], description: '定格速度 m/min' },
+      travelM: { type: ['number', 'null'], description: '昇降行程 m' },
       stops: { type: ['number', 'null'], description: '停止階数' },
       inspectionDate: { type: 'string', description: '検査年月日。YYYY-MM-DD 形式' },
       inspector: { type: 'string', description: '検査者氏名または検査機関' },
       findings: { type: 'array', items: FINDING }
     },
-    required: ['unitNo', 'kind', 'maker', 'model', 'serialNo', 'installedOn',
-      'capacityKg', 'capacityPersons', 'ratedSpeed', 'stops',
+    required: ['unitNo', 'kind', 'usage', 'maker', 'model', 'serialNo',
+      'confirmationCertificateOn', 'inspectionCertificateOn', 'manufacturedOn', 'installedOn',
+      'renewals', 'capacityKg', 'capacityPersons', 'ratedSpeed', 'travelM', 'stops',
       'inspectionDate', 'inspector', 'findings'],
     additionalProperties: false
   };
@@ -107,7 +133,15 @@
     '- spec は仕様欄に入る短い表記。遠隔監視が付くなら「遠隔監視装置付き」。',
     '- evidence には判断の根拠になった行を書類の原文のまま入れる。要約しない。',
     '- 判断に迷った点、書類間で食い違う点、単位や期間の解釈は warnings に残す。',
-    '- 定期検査報告書の指摘事項は findings に「要是正」「要重点点検」で分けて入れる。'
+    '- 定期検査報告書の指摘事項は findings に「要是正」「要重点点検」で分けて入れる。',
+    '',
+    '年月の扱い:',
+    '- 日付はすべて西暦に直し、YYYY-MM または YYYY-MM-DD で書く（和暦のまま返さない）。',
+    '- confirmationCertificateOn は定期検査報告書の【1】欄「確認済証交付年月日」。',
+    '  更新時期の判断に使う重要な項目なので、書かれていれば必ず拾う。',
+    '- 製造年月・設置年月・確認済証交付年月日は別物として扱い、混ぜない。',
+    '- リニューアルや制御盤更新などの実施年月が書かれていれば renewals に入れる。',
+    '  書かれていないときは推測せず空配列にする。'
   ].join('\n');
 
   function b64(bytes) {
