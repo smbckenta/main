@@ -28,18 +28,49 @@ Claude に読ませて、**EVパートナーズ株式会社名義の「EV保守 
 
 ---
 
+## 起動
+
+**`start.cmd` をダブルクリック**してください。ローカルサーバーが立ち上がり、
+既定のブラウザで `http://127.0.0.1:<ポート>/` が開きます。閉じるときはコンソールで `Ctrl+C`。
+
+Node.js があれば追加のインストールは要りません（Claude Code が動いていれば入っています）。
+mac / Linux は `./start.sh`、ポートを決め打ちしたいときは `node serve.js 8080` です。
+
+`index.html` を直接ダブルクリックしても動きますが、`file://` だとブラウザの設定によって
+フォルダ選択（File System Access API）が使えないことがあるので `start.cmd` を勧めます。
+
+> **Chrome か Edge で開いてください。** Firefox / Safari はフォルダ保存に対応していません。
+
 ## 準備（初回だけ）
 
 1. `▲0Claude\ev-hoshu-hikaku\data\` を作る
 2. `data-template\settings.json` を `data\settings.json` にコピーし、担当者名を入れる
 3. `data\api-key.txt` を作り、Claude の API キーを1行だけ書く
-4. `index.html` を **Chrome か Edge** で開く（Firefox / Safari はフォルダ保存に対応していません）
-5. 「データフォルダを接続」→ 手順1で作った `data` フォルダを選ぶ
-6. 初回の Excel 書き出し時にひな形を聞かれるので `template\ev-hikaku-template.xlsx` を選ぶ
-   （選んだものが `data\template.xlsx` に保存され、以後は聞かれません）
+4. `start.cmd` で開き、「データフォルダを接続」→ 手順1で作った `data` フォルダを選ぶ
+
+ひな形は初回の Excel 書き出し時に `template\ev-hikaku-template.xlsx` から
+`data\template.xlsx` へ自動で取り込まれます（`file://` で開いたときだけ手で選びます）。
 
 > API キーは `data` フォルダに置くので、**ドライブの共有範囲＝キーの共有範囲**になります。
 > 共有ドライブの権限を確認してから置いてください。
+
+---
+
+## デモ版
+
+`python3 scripts/build-demo.py` で `demo/ev-hikaku-demo.html` を作ると、
+本体をそのまま埋め込んだ1ファイルのデモができます。ブラウザで開くだけで動き、
+設定もフォルダ選択も要りません（claude.ai の Artifact として公開するのもこれです）。
+
+本体との違いは3点だけで、差し替えているのは `demo/` の3ファイルです。
+
+| 差し替え | 本体 | デモ |
+| --- | --- | --- |
+| `demo/store-demo.js` | Google ドライブの data フォルダ | ブラウザの localStorage |
+| `demo/ai-demo.js` | Claude API に PDF を送る | 用意した読み取り結果を再生 |
+| `demo/download-demo.js` | ファイルをダウンロード | 生成のみ（Artifact は .xlsx を保存できない） |
+
+画面と Excel 生成は本体のコードをそのまま使うので、本体を直したら作り直すだけで揃います。
 
 ---
 
