@@ -388,6 +388,16 @@ export interface AiSettings {
 export interface CounterReading {
   modelText?: string;
   serialNo?: string;
+  /**
+   * 設置場所（「本社」「北部九州工事課」「ゆめソーラー直方店」など）。
+   * 複数台の明細では、これが台を見分ける手がかりになり、
+   * そのまま複数台比較表の設置場所欄になる。
+   */
+  location?: string;
+  /** メーカー表記（明細から読めた場合） */
+  makerText?: string;
+  /** 月額保守料金（カウンターとは別に請求されている場合） */
+  maintenanceMonthly?: number;
   periodFrom?: string;
   periodTo?: string;
   monoPages?: number;
@@ -559,6 +569,11 @@ export interface FleetUnit {
   id: string;
   /** 設置場所 */
   location: string;
+  /**
+   * 機番。カウンター明細を読み直したときに、どの台の話かを突き合わせる鍵。
+   * 設置場所は書き換えられることがあるので、機番があればそちらを優先する。
+   */
+  serialNo?: string;
   current: FleetSide;
   proposal: FleetSide;
 }

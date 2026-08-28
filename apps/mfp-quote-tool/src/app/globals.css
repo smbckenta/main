@@ -259,3 +259,73 @@ th.num {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ---------------- 複数台の比較（台ごとの入力） ---------------- */
+
+/*
+ * 現行と提案を左右に並べる。
+ * 中のチャージ表は横に長いので、列からはみ出して隣に重ならないよう、
+ * 列の最小幅を広く取ったうえで、はみ出す分は表の中で横スクロールさせる。
+ */
+.fleet-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+/* grid の子は既定で min-width:auto。これを外さないと中身の幅で押し広げられる */
+.fleet-sides > * {
+  min-width: 0;
+}
+
+.fleet-side {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px 12px;
+  background: #fff;
+}
+
+.fleet-side > .fleet-side-title {
+  display: block;
+  margin: -10px -12px 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 7px 7px 0 0;
+}
+
+.fleet-side.current > .fleet-side-title {
+  background: #eef2f6;
+  color: #46586b;
+}
+
+.fleet-side.proposal > .fleet-side-title {
+  background: #eaf0f7;
+  color: #1f4e79;
+}
+
+/* チャージ表がはみ出す場合はこの中だけ横スクロールする */
+.fleet-lines {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.fleet-lines table {
+  min-width: 470px;
+}
+
+.fleet-lines th,
+.fleet-lines td {
+  padding: 4px 5px;
+  vertical-align: top;
+}
+
+/* 段（1〜1000枚 0.6円）の1行 */
+.fleet-tier {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 3px;
+  white-space: nowrap;
+}

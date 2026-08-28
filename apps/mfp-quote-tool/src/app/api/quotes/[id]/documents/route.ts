@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getQuote, saveQuote } from "@/lib/store";
 import { calcQuoteAll } from "@/lib/calc-context";
+import { distinctMachines } from "@/lib/fleet";
 import { ingestDocuments, type DocRole } from "@/lib/ingest";
 import { saveUpload } from "@/lib/uploads";
 import type { CurrentMachine, Quote } from "@/lib/types";
@@ -123,7 +124,14 @@ export async function POST(req: Request, { params }: Ctx) {
     } as Quote);
 
     const calc = await calcQuoteAll(saved);
-    return NextResponse.json({ quote: saved, ...calc, ingest: result });
+    // 台の一覧は、この回に読んだ分だけでなく案件に溜まった読み取り全部から数える。
+    // 販売店の請求書とメーカーの明細を別々に読ませても、機番で1台にまとまる。
+    const machines = distinctMachines(saved.ingest?.counter ?? []);
+    return NextResponse.json({
+      quote: saved,
+      ...calc,
+      ingest: { ...result, machines: machines.length > 1 ? machines : undefined },
+    });
   } catch (err) {
     return NextResponse.json(
       { error: `解析に失敗しました: ${(err as Error).message}` },

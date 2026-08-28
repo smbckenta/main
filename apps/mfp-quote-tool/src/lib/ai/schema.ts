@@ -40,6 +40,11 @@ export const AiCounterSchema = z.object({
   periodTo: text("この明細の対象期間の終了日（YYYY-MM-DD）"),
   modelText: text("機種名・型番"),
   serialNo: text("製造番号・機番"),
+  location: text(
+    "この機械の設置場所（「本社」「北部九州工事課」「ゆめソーラー直方店」「2階事務所」など）。書かれていなければ null",
+  ),
+  makerText: text("メーカー名（リコー・キヤノン・京セラ など）。書かれていなければ null"),
+  maintenanceMonthly: num("カウンターとは別に請求されている月額保守料金（円・税抜）。無ければ null"),
   monoPages: num("モノクロ（白黒）の印刷枚数"),
   colorPages: num("フルカラーの印刷枚数"),
   twoColorPages: num("2色カラーの印刷枚数"),
@@ -175,6 +180,9 @@ export function toCounterReadings(doc: AiDocument): CounterReading[] {
     const reading: CounterReading = {
       modelText: trimmed(c.modelText) ?? trimmed(doc.modelText),
       serialNo: trimmed(c.serialNo),
+      location: trimmed(c.location),
+      makerText: trimmed(c.makerText) ?? trimmed(doc.makerText),
+      maintenanceMonthly: positive(c.maintenanceMonthly, 1_000_000),
       periodFrom: isoDate(c.periodFrom),
       periodTo: isoDate(c.periodTo),
       monoPages: pages(c.monoPages),

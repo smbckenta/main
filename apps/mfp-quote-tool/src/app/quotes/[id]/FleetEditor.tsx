@@ -1,18 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_FLEET,
   calcFleet,
   copySide,
   deductionRateOf,
   emptyFleetUnit,
+  fleetFromReadings,
   newChargeLine,
   proposalFromCurrent,
   withDeductionRate,
 } from "@/lib/fleet";
-import { LEASE_TERMS } from "@/lib/types";
-import type { ChargeTier, CurrentChargeLine, Fleet, FleetSide, FleetUnit, Quote } from "@/lib/types";
+import { LEASE_TERMS, MAKERS, MAKER_LABELS } from "@/lib/types";
+import type {
+  ChargeTier,
+  CounterReading,
+  CurrentChargeLine,
+  DeviceSpec,
+  Fleet,
+  FleetSide,
+  FleetUnit,
+  Quote,
+} from "@/lib/types";
 
 /**
  * 複合機が複数台ある案件の入力。
@@ -35,14 +45,32 @@ const KINDS: { value: CurrentChargeLine["kind"]; label: string }[] = [
 export default function FleetEditor({
   quote,
   taxRate,
+  machines,
   onChange,
 }: {
   quote: Quote;
   taxRate: number;
+  /** 直前の読み取りで明細から拾えた台（設置場所つき） */
+  machines?: CounterReading[];
   onChange: (fleet: Fleet) => void;
 }) {
   const fleet = quote.fleet ?? DEFAULT_FLEET;
   const calc = useMemo(() => calcFleet(fleet, taxRate), [fleet, taxRate]);
+
+  // 提案機種を選ぶための機種DB。1回だけ読む
+  const [devices, setDevices] = useState<DeviceSpec[]>([]);
+  useEffect(() => {
+    fetch("/api/devices")
+      .then((r) => r.json())
+      .then((d: DeviceSpec[]) => setDevices(Array.isArray(d) ? d : []))
+      .catch(() => setDevices([]));
+  }, []);
+
+  /** 明細から読み取った台を取り込む（手入力した提案側は残す） */
+  function importMachines() {
+    if (!machines?.length) return;
+    onChange(fleetFromReadings(machines, fleet));
+  }
 
   const patch = (p: Partial<Fleet>) => onChange({ ...fleet, ...p });
   const patchUnit = (id: string, p: Partial<FleetUnit>) =>
@@ -83,9 +111,21 @@ export default function FleetEditor({
           設置場所ごとに現行機と提案機を並べ、リース料金とカウンター料金を台数ぶん合計して比べます。
           削減シミュレーションは「単月・年間・リース年数ぶん」の3段で出します。
         </p>
-        <button className="secondary" onClick={addUnit}>
-          複数台比較表を使う（1台目を追加）
-        </button>
+        <div className="row">
+          <button className="secondary" onClick={addUnit}>
+            複数台比較表を使う（1台目を追加）
+          </button>
+          {machines && machines.length > 1 && (
+            <button onClick={importMachines}>
+              カウンター明細から{machines.length}台を取り込む
+            </button>
+          )}
+        </div>
+        {machines && machines.length > 1 && (
+          <p className="muted" style={{ marginTop: 6 }}>
+            読み取った設置場所：{machines.map((m) => m.location || m.modelText || m.serialNo).join(" / ")}
+          </p>
+        )}
       </section>
     );
   }
@@ -145,7 +185,10 @@ export default function FleetEditor({
           <div key={unit.id} className="card" style={{ marginTop: 12 }}>
             <div className="row" style={{ justifyContent: "space-between" }}>
               <div className="field" style={{ flex: 1, minWidth: 280 }}>
-                <label>No.{u.no}　設置場所</label>
+                <label>
+                  No.{u.no}　設置場所
+                  {unit.serialNo && <span className="muted">（機番 {unit.serialNo}）</span>}
+                </label>
                 <input
                   value={unit.location}
                   placeholder="○○支店（2階事務所）"
@@ -176,7 +219,7 @@ export default function FleetEditor({
               </div>
             </div>
 
-            <div className="grid2" style={{ marginTop: 10 }}>
+            <div className="fleet-sides" style={{ marginTop: 10 }}>
               <SideEditor
                 title="現状利用状況"
                 side={unit.current}
@@ -190,6 +233,7 @@ export default function FleetEditor({
                 side={unit.proposal}
                 deductionRate={proposalDeduction}
                 billed={u.proposal.counterTotal}
+                devices={devices}
                 onChange={(p) => patchSide(unit.id, "proposal", p)}
               />
             </div>
@@ -215,7 +259,17 @@ export default function FleetEditor({
         <button className="secondary" onClick={addUnit}>
           台を追加
         </button>
+        {machines && machines.length > 0 && (
+          <button className="secondary" onClick={importMachines} title="明細に載っている複合機を、設置場所つきで台に取り込みます。すでにある台は現行側だけ差し替え、提案側の入力は残します。">
+            カウンター明細から{machines.length}台を取り込む
+          </button>
+        )}
       </div>
+      {machines && machines.length > 0 && (
+        <p className="muted" style={{ marginTop: 4 }}>
+          明細から読み取った設置場所：{machines.map((m) => m.location || m.modelText || m.serialNo).join(" / ")}
+        </p>
+      )}
 
       {fleet.leaseUnknown && (
         <p className="warn" style={{ marginTop: 10 }}>
@@ -294,6 +348,7 @@ function SideEditor({
   deductionRate,
   billed,
   allowDeduction,
+  devices,
   onChange,
 }: {
   title: string;
@@ -301,24 +356,83 @@ function SideEditor({
   deductionRate: number;
   billed: number;
   allowDeduction?: boolean;
+  /** 提案側で選べる機種（機種DB） */
+  devices?: DeviceSpec[];
   onChange: (patch: Partial<FleetSide>) => void;
 }) {
+  const isProposal = !allowDeduction;
   const patchLine = (i: number, p: Partial<CurrentChargeLine>) =>
     onChange({ lines: side.lines.map((l, x) => (x === i ? { ...l, ...p } : l)) });
   const patchTier = (i: number, t: number, p: Partial<ChargeTier>) =>
     patchLine(i, { tiers: side.lines[i].tiers.map((tier, x) => (x === t ? { ...tier, ...p } : tier)) });
 
+  /**
+   * 提案側は台ごとにメーカーを選べる。
+   * 選んだメーカーの機種だけを型番の候補に出す（台数が多いと選び間違えるため）。
+   */
+  const maker = MAKERS.find((m) => MAKER_LABELS[m] === side.makerText.trim());
+  const candidates = (devices ?? []).filter((d) => !maker || d.maker === maker);
+  const listId = `fleet-models-${maker ?? "all"}`;
+
+  /** 機種DBから選んだら、型番と印刷速度をまとめて入れる */
+  function pickModel(model: string) {
+    const found = (devices ?? []).find((d) => d.model === model);
+    onChange({
+      modelText: model,
+      ...(found
+        ? {
+            makerText: found.makerText || MAKER_LABELS[found.maker],
+            ppm: found.ppmColor ?? found.ppmMono ?? side.ppm,
+          }
+        : {}),
+    });
+  }
+
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10 }}>
-      <strong style={{ fontSize: 13 }}>{title}</strong>
-      <div className="row" style={{ marginTop: 6 }}>
-        <div className="field" style={{ width: 110 }}>
+    <div className={`fleet-side ${isProposal ? "proposal" : "current"}`}>
+      <strong className="fleet-side-title">{title}</strong>
+      <div className="row">
+        <div className="field" style={{ width: 140 }}>
           <label>メーカー</label>
-          <input value={side.makerText} onChange={(e) => onChange({ makerText: e.target.value })} />
+          {isProposal ? (
+            <select
+              value={maker ?? ""}
+              onChange={(e) =>
+                onChange({ makerText: e.target.value ? MAKER_LABELS[e.target.value as (typeof MAKERS)[number]] : "" })
+              }
+            >
+              <option value="">（選択してください）</option>
+              {MAKERS.map((m) => (
+                <option key={m} value={m}>
+                  {MAKER_LABELS[m]}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input value={side.makerText} onChange={(e) => onChange({ makerText: e.target.value })} />
+          )}
         </div>
-        <div className="field" style={{ flex: 1, minWidth: 150 }}>
-          <label>{title === "現状利用状況" ? "物件名（型番）" : "提案機種"}</label>
-          <input value={side.modelText} onChange={(e) => onChange({ modelText: e.target.value })} />
+        <div className="field" style={{ flex: 1, minWidth: 170 }}>
+          <label>{isProposal ? "提案機種" : "物件名（型番）"}</label>
+          {isProposal ? (
+            <>
+              <input
+                list={listId}
+                value={side.modelText}
+                placeholder="型番を入力、または一覧から選ぶ"
+                onChange={(e) => pickModel(e.target.value)}
+              />
+              <datalist id={listId}>
+                {candidates.map((d) => (
+                  <option key={d.id} value={d.model}>
+                    {MAKER_LABELS[d.maker]}
+                  </option>
+                ))}
+              </datalist>
+            </>
+          ) : (
+            <input value={side.modelText} onChange={(e) => onChange({ modelText: e.target.value })} />
+          )}
         </div>
         <div className="field" style={{ width: 90 }}>
           <label>印刷速度</label>
@@ -378,7 +492,8 @@ function SideEditor({
         </div>
       )}
 
-      <table style={{ marginTop: 8 }}>
+      <div className="fleet-lines">
+      <table>
         <thead>
           <tr>
             <th>項目</th>
@@ -417,7 +532,7 @@ function SideEditor({
               </td>
               <td>
                 {l.tiers.map((t, x) => (
-                  <div key={x} style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 3 }}>
+                  <div key={x} className="fleet-tier">
                     <input
                       type="number"
                       style={{ width: 70 }}
@@ -480,6 +595,7 @@ function SideEditor({
           ))}
         </tbody>
       </table>
+      </div>
       <div className="row" style={{ marginTop: 6, justifyContent: "space-between" }}>
         <div className="row">
           <button

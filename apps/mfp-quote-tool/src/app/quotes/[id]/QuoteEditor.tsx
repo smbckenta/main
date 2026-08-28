@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
-import { hasFleet } from "@/lib/fleet";
+import { distinctMachines, hasFleet } from "@/lib/fleet";
 import DocumentsPanel from "./DocumentsPanel";
 import FleetEditor from "./FleetEditor";
 import ProposalDocEditor from "./ProposalDocEditor";
 import type {
+  CounterReading,
   CurrentCalc,
   DeviceSpec,
   LeaseTerm,
@@ -48,6 +49,13 @@ export default function QuoteEditor({
 }) {
   const [quote, setQuote] = useState<Quote>(initialQuote);
   const [serviceArea, setServiceArea] = useState<ServiceArea | undefined>(initialServiceArea);
+  /**
+   * 直前の読み取りで、明細から拾えた複合機の一覧（設置場所つき）。
+   * 複数台比較表にそのまま取り込めるよう、画面に持っておく。
+   */
+  const [machines, setMachines] = useState<CounterReading[]>(() =>
+    distinctMachines(initialQuote.ingest?.counter ?? []),
+  );
   const [book, setBook] = useState<PriceBook | null>(null);
   /** サーバーで計算した結果（仕切表を読み込むまでの表示に使う） */
   const [serverCalc, setServerCalc] = useState<{ current: CurrentCalc; proposals: ProposalCalc[] }>({
@@ -115,8 +123,16 @@ export default function QuoteEditor({
   );
 
   /** サーバーの計算結果を取り込む（保存・提案作成のあと） */
-  function applyServerResult(json: { quote: Quote; current: CurrentCalc; proposals: ProposalCalc[]; serviceArea?: ServiceArea }) {
+  function applyServerResult(json: {
+    quote: Quote;
+    current: CurrentCalc;
+    proposals: ProposalCalc[];
+    serviceArea?: ServiceArea;
+    ingest?: { warnings?: string[]; machines?: CounterReading[] };
+  }) {
     setQuote(json.quote);
+    // 明細に複合機が何台も載っていた場合は、複数台比較表に取り込めるようにする
+    if (json.ingest?.machines?.length) setMachines(json.ingest.machines);
     setServerCalc({ current: json.current, proposals: json.proposals });
     setSpecs({
       byProposal: Object.fromEntries(json.proposals.map((c) => [c.proposal.id, c.device])),
@@ -572,6 +588,7 @@ export default function QuoteEditor({
       <FleetEditor
         quote={quote}
         taxRate={settings.company.taxRate}
+        machines={machines}
         onChange={(fleet) => patchQuote({ fleet })}
       />
 

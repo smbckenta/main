@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import AiStatusBanner from "@/app/AiStatusBanner";
 import { ROLE_LABELS, type DocRole } from "@/lib/doc-roles";
-import type { CurrentCalc, ProposalCalc, Quote, ServiceArea } from "@/lib/types";
+import type { CounterReading, CurrentCalc, ProposalCalc, Quote, ServiceArea } from "@/lib/types";
 
 /**
  * お預かりした資料の一覧と、追加の読み取り。
@@ -41,7 +41,7 @@ export default function DocumentsPanel({
     current: CurrentCalc;
     proposals: ProposalCalc[];
     serviceArea?: ServiceArea;
-    ingest?: { warnings: string[] };
+    ingest?: { warnings: string[]; machines?: CounterReading[] };
   }) => void;
 }) {
   const [role, setRole] = useState<DocRole>("unknown");

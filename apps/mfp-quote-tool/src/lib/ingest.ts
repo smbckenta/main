@@ -10,6 +10,7 @@ import { parseCounter, toMonthlyAverage } from "./parse/counter";
 import { parseLease } from "./parse/lease";
 import { looksLikeSchedule, parseSchedule } from "./parse/schedule";
 import { detectMaker, extractModelCandidates } from "./parse/normalize";
+import { distinctMachines } from "./fleet";
 import { calcChargeLines } from "./pricing";
 import { getSettings } from "./store";
 import type { DocRole } from "./doc-roles";
@@ -50,6 +51,11 @@ export interface IngestResult {
   /** 型番候補（画面で選ばせる） */
   modelCandidates: string[];
   makerGuess?: Maker;
+  /**
+   * 明細に複合機が2台以上載っていた場合の、台ごとの内訳。
+   * そのまま複数台比較表の台になる（設置場所・機種・カウンター料金つき）。
+   */
+  machines?: CounterReading[];
   /** AIを使った場合の利用状況 */
   ai?: AiUsage;
 }
@@ -332,10 +338,30 @@ export async function ingestDocuments(
     warnings.push(`カウンター明細から読み取った区分：${summary.join(" / ")}`);
   }
 
+  const machines = distinctMachines(counterReadings);
+  if (machines.length > 1) {
+    const noPages = machines.filter((m) => !m.chargeLines?.length && !m.monoPages && !m.colorPages);
+    warnings.unshift(
+      `明細から複合機を${machines.length}台読み取りました（${machines
+        .map((m) => m.location || m.modelText || m.serialNo)
+        .join(" / ")}）。下の「複数台の比較」の「カウンター明細から${machines.length}台を取り込む」で反映できます。`,
+    );
+    if (noPages.length) {
+      // 販売店の請求書は請求額しか載っておらず、枚数と単価はメーカーの明細側にある
+      warnings.splice(
+        1,
+        0,
+        `このうち${noPages.length}台は、明細に印刷枚数と単価の記載がありません（請求額のみ）。` +
+          "メーカー発行のカウンター明細（パフォーマンスチャージ明細など）も一緒に読み込ませると、機番で突き合わせて枚数・単価が入ります。",
+      );
+    }
+  }
+
   return {
     files,
     lease: leaseReadings,
     counter: counterReadings,
+    machines: machines.length > 1 ? machines : undefined,
     current,
     warnings,
     modelCandidates,

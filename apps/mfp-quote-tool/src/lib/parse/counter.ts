@@ -1,6 +1,7 @@
 import type { CounterReading } from "../types";
 import type { ExtractedDoc } from "./extract";
 import { parseJpDate, toHalfWidth } from "./normalize";
+import { parseDealerInvoice } from "./dealer-invoice";
 import { parsePerformanceCharge } from "./performance-charge";
 
 /**
@@ -112,6 +113,11 @@ export function parseCounter(doc: ExtractedDoc): CounterReading[] {
   // 専用の読み取りを先に試す。
   const performanceCharge = parsePerformanceCharge(doc);
   if (performanceCharge.length) return performanceCharge;
+
+  // 販売店の請求書・内訳書は、設置場所ごとに台が並ぶ。
+  // 台数と設置場所が分かるのはこの様式だけなので、これも先に試す。
+  const dealer = parseDealerInvoice(doc);
+  if (dealer.length) return dealer;
 
   const lines = doc.lines.map(toHalfWidth).filter((l) => l.trim());
   if (!lines.length) return [];

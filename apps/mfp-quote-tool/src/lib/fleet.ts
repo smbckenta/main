@@ -1,5 +1,6 @@
 import { calcChargeLines } from "./pricing";
 import type {
+  CounterReading,
   CurrentChargeLine,
   Fleet,
   FleetCalc,
@@ -173,4 +174,142 @@ export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
 /** 複数台比較表として出せる状態か（1台でも入っていれば出せる） */
 export function hasFleet(fleet?: Fleet): fleet is Fleet {
   return Boolean(fleet?.enabled && fleet.units.length);
+}
+
+/* ---------------- カウンター明細からの台の組み立て ---------------- */
+
+/**
+ * 明細から「別々の機械」として読めたものを数える。
+ *
+ * 同じ機械の複数月ぶん・複数の書類ぶんは1台にまとめる。
+ * 機番か設置場所が違うものだけを別の台とみなす。
+ * 販売店の請求書（設置場所と請求額）とメーカーの明細（枚数と単価）は
+ * 別々の紙で来るので、ここで機番を頼りに1台へ寄せる。
+ */
+export function distinctMachines(readings: CounterReading[]): CounterReading[] {
+  return mergeReadings(readings.filter((r) => r.serialNo || r.location));
+}
+
+/** 読み取り結果から現行側の1台を組む */
+function sideFromReading(reading: CounterReading): FleetSide {
+  const lines: CurrentChargeLine[] = reading.chargeLines?.length
+    ? reading.chargeLines.map((l) => ({ ...l, tiers: l.tiers.map((t) => ({ ...t })) }))
+    : ([
+        ["モノクロ", "mono", reading.monoPages, reading.monoUnit],
+        ["フルカラー", "color", reading.colorPages, reading.colorUnit],
+        ["2色カラー", "twoColor", reading.twoColorPages, reading.twoColorUnit],
+      ] as const)
+        // 枚数も単価も読めなかった区分は行にしない（0円の行が並ぶと読みにくい）
+        .filter(([, , pages, unit]) => (pages ?? 0) > 0 || (unit ?? 0) > 0)
+        .map(([name, kind, pages, unit]) => ({
+          name,
+          kind,
+          pages: pages ?? 0,
+          deductionRate: reading.deductionRate,
+          tiers: [{ from: 1, to: null, unit: unit ?? 0 }],
+        }));
+
+  return {
+    makerText: reading.makerText ?? "",
+    modelText: reading.modelText ?? "",
+    monthlyLease: 0,
+    // 販売店の請求書には枚数も単価も載っておらず、請求額しか分からない。
+    // その場合だけ、請求額を最低基本料金に置いて現状の合計が実際の支払額に合うようにする。
+    // （最低基本料金は「枚数によらずこの額」という下限なので、枚数が分からない
+    //   いまの状態を素直に表せる。あとでメーカーの明細を読ませて枚数が入れば、
+    //   区分の合計がこれを上回り、そちらが採用される）
+    minCharge: lines.length ? 0 : (reading.amount ?? 0),
+    maintenanceMonthly: reading.maintenanceMonthly ?? 0,
+    lines,
+  };
+}
+
+/**
+ * 同じ機械の読み取りかどうか。
+ *
+ * 機番がいちばん確かな手がかり。販売店の請求書とメーカーの明細を
+ * 両方読み込んだときに、機番で突き合わせて1台にまとめたい。
+ * 機番が無ければ設置場所で見る。
+ */
+function sameMachine(a: CounterReading, b: CounterReading): boolean {
+  if (a.serialNo && b.serialNo) return a.serialNo === b.serialNo;
+  if (a.location && b.location) return a.location === b.location;
+  return false;
+}
+
+/**
+ * 台ごとの読み取り結果を1台にまとめる。
+ *
+ * 販売店の請求書（設置場所・機種・請求額）とメーカーの明細（枚数・単価）は
+ * 別々の紙で来る。機番で突き合わせて、両方の分かることを1台に寄せる。
+ */
+function mergeReadings(readings: CounterReading[]): CounterReading[] {
+  const out: CounterReading[] = [];
+  for (const r of readings) {
+    const found = out.find((x) => sameMachine(x, r));
+    if (!found) {
+      out.push({ ...r });
+      continue;
+    }
+    // 先に読めているものを優先し、空いているところだけ埋める
+    found.location ??= r.location;
+    found.serialNo ??= r.serialNo;
+    found.modelText ??= r.modelText;
+    found.makerText ??= r.makerText;
+    found.maintenanceMonthly ??= r.maintenanceMonthly;
+    found.amount ??= r.amount;
+    found.monoPages ??= r.monoPages;
+    found.colorPages ??= r.colorPages;
+    found.twoColorPages ??= r.twoColorPages;
+    found.monoUnit ??= r.monoUnit;
+    found.colorUnit ??= r.colorUnit;
+    found.twoColorUnit ??= r.twoColorUnit;
+    found.deductionRate ??= r.deductionRate;
+    if (!found.chargeLines?.length && r.chargeLines?.length) found.chargeLines = r.chargeLines;
+  }
+  return out;
+}
+
+/**
+ * カウンター明細から複数台の比較表を組む。
+ *
+ * 明細に載っている複合機を1台残らず拾うのが狙い。設置場所も明細から取る。
+ * すでに画面で入力してある台は消さず、機番か設置場所で突き合わせて
+ * 読み取れた内容だけを重ねる（手で直したリース料や提案機種を消さないため）。
+ */
+export function fleetFromReadings(readings: CounterReading[], base?: Fleet): Fleet {
+  const fleet = base ?? DEFAULT_FLEET;
+  const merged = distinctMachines(readings.filter((r) => r.location || r.serialNo || r.modelText));
+  if (!merged.length) return fleet;
+
+  const units = [...fleet.units];
+  merged.forEach((reading, i) => {
+    const current = sideFromReading(reading);
+    const at = units.findIndex(
+      (u) =>
+        (reading.serialNo && u.serialNo === reading.serialNo) ||
+        (reading.location && u.location === reading.location),
+    );
+    if (at >= 0) {
+      // すでにある台：現行側だけ差し替え、提案側は手入力を残す
+      units[at] = {
+        ...units[at],
+        location: units[at].location || (reading.location ?? ""),
+        serialNo: units[at].serialNo ?? reading.serialNo,
+        current: { ...current, monthlyLease: units[at].current.monthlyLease },
+      };
+      return;
+    }
+    units.push({
+      id: `u${Date.now().toString(36)}${units.length}${i}`,
+      location: reading.location ?? "",
+      serialNo: reading.serialNo,
+      current,
+      // 提案機種は営業が選ぶもの。現行の型番を写すと「現行と同じ機種」が
+      // 出てきてしまうので、空のまま渡して画面で選んでもらう
+      proposal: emptyFleetSide(),
+    });
+  });
+
+  return { ...fleet, enabled: true, units };
 }
