@@ -116,7 +116,7 @@
     App.apiKey = (await Store.readText('api-key.txt').catch(function () { return ''; })).trim();
     App.templateBytes = (await Store.exists('template.xlsx'))
       ? await Store.readBytes('template.xlsx')
-      : null;
+      : await adoptBundledTemplate();
     await refreshIndex();
     renderChip();
     renderCaseList();
@@ -819,7 +819,9 @@
     $('#exportBtn').onclick = function () { exportExcel().catch(fail); };
     $('#tplHint').textContent = App.templateBytes
       ? 'ひな形: data/template.xlsx'
-      : 'ひな形が未登録です。書き出し時に選んでください。';
+      : (location.protocol === 'file:'
+        ? 'ひな形が未登録です。書き出し時に template/ev-hikaku-template.xlsx を選んでください。'
+        : 'ひな形は書き出し時に自動で取り込まれます。');
   }
 
   // プレビューは実寸 1420px。ペインに収まるよう縮小して全体を見せる。
@@ -943,12 +945,35 @@
   }
 
   // ---------- Excel 書き出し ----------
+  // start.cmd（ローカルサーバー）経由で開いているときは同梱のひな形をそのまま使う。
+  // file:// で直接開いた場合は取得できないので、そのときだけ選んでもらう。
+  async function fetchBundledTemplate() {
+    if (location.protocol === 'file:') return null;
+    try {
+      var res = await fetch('template/ev-hikaku-template.xlsx', { cache: 'no-store' });
+      if (!res.ok) return null;
+      return new Uint8Array(await res.arrayBuffer());
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function adoptBundledTemplate() {
+    var bytes = await fetchBundledTemplate();
+    if (!bytes) return null;
+    await Store.write('template.xlsx', bytes).catch(function () { });
+    return bytes;
+  }
+
   async function ensureTemplate() {
     if (App.templateBytes) return App.templateBytes;
     if (await Store.exists('template.xlsx')) {
       App.templateBytes = await Store.readBytes('template.xlsx');
       return App.templateBytes;
     }
+    App.templateBytes = await adoptBundledTemplate();
+    if (App.templateBytes) return App.templateBytes;
+
     var picked = await new Promise(function (resolve) {
       var input = document.createElement('input');
       input.type = 'file';
@@ -987,19 +1012,12 @@
     var bytes = XlsxFill.fill(template, model);
     var fileName = '【' + safeName(c.title) + '】' + safeName(c.customerName || '無題') + '.xlsx';
 
-    var blob = new Blob([bytes], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = fileName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
-
     await Store.write('exports/' + fileName, bytes).catch(function () { });
-    toast('Excel を書き出しました（data/exports にも保存）');
+    var result = await Downloader.save(
+      fileName, bytes,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    toast(result && result.message ? result.message : 'Excel を書き出しました');
   }
 
   // ---------- 設定 ----------
