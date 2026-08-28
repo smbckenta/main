@@ -17,6 +17,8 @@ export default function SettingsPage() {
     dataUri: null,
   });
   const [registerTest, setRegisterTest] = useState<string>("");
+  /** APIキーを伏せずに表示するか（貼り付けの確認用） */
+  const [showApiKey, setShowApiKey] = useState(false);
   /** サービスアカウント鍵の状態（置いてあれば、共有すべきメールアドレスが分かる） */
   const [serviceAccount, setServiceAccount] = useState<{ hasKey: boolean; email: string | null }>({
     hasKey: false,
@@ -732,13 +734,20 @@ export default function SettingsPage() {
               <option value="0">使わない（OCRのみ）</option>
             </select>
           </Field>
-          <Field label="APIキー" width={360}>
-            <input
-              type="password"
-              value={s.ai.apiKey}
-              placeholder="sk-ant-... （空欄なら環境変数 ANTHROPIC_API_KEY を使用）"
-              onChange={(e) => set({ ai: { ...s.ai, apiKey: e.target.value } })}
-            />
+          <Field label="APIキー" width={420}>
+            <div className="row" style={{ gap: 4 }}>
+              <input
+                // 貼り付けが正しくできたかを目で確かめられるようにする。
+                // 伏せたままだと、途中で切れていても気づけない。
+                type={showApiKey ? "text" : "password"}
+                value={s.ai.apiKey}
+                placeholder="sk-ant-... （空欄なら環境変数 ANTHROPIC_API_KEY を使用）"
+                onChange={(e) => set({ ai: { ...s.ai, apiKey: e.target.value.trim() } })}
+              />
+              <button className="secondary" onClick={() => setShowApiKey(!showApiKey)}>
+                {showApiKey ? "隠す" : "表示"}
+              </button>
+            </div>
           </Field>
           <Field label="モデル" width={200}>
             <input value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} />
@@ -751,7 +760,7 @@ export default function SettingsPage() {
             />
           </Field>
         </div>
-        <AiTestButton />
+        <AiTestButton apiKey={s.ai.apiKey ?? ""} model={s.ai.model} />
         <p className="warn" style={{ marginTop: 10 }}>
           APIキーは設定ファイル（settings.json）に保存されます。保存先を共有ドライブにしている場合は、
           共有相手にもキーが見えることにご注意ください。共有したくない場合は空欄のままにして、

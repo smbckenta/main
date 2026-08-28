@@ -57,6 +57,14 @@ export default function AiStatusBanner() {
       <br />
       {status.message}
       <br />
+      {status.keyHint && (
+        <>
+          <span style={{ fontSize: 13 }}>
+            いま保存されているキー（{SOURCE[status.source]}）：{status.keyHint}
+          </span>
+          <br />
+        </>
+      )}
       <span style={{ fontSize: 13 }}>
         {status.enabled ? (
           <>

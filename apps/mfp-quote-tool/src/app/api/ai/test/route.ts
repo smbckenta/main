@@ -23,22 +23,28 @@ export interface AiTestResult {
  * キーが古い・残高が無い・モデル名が違う、といった失敗は実際に呼んでみないと
  * 分からず、読み取り時に黙ってOCRへ落ちてしまう。ここで一度だけ本当に呼ぶ。
  */
-export async function POST() {
-  const settings = await getSettings();
-  const model = settings.ai.model || "claude-opus-5";
+export async function POST(req: Request) {
+  // 画面に入力されたキーをそのまま試せるようにする。
+  // 「保存してからでないと試せない」と、直したつもりが直っていないときに
+  // 何を試したのか分からなくなる。
+  const body = (await req.json().catch(() => ({}))) as { apiKey?: string; model?: string };
+  const typed = body.apiKey?.trim();
 
-  if (!settings.ai.enabled) {
+  const settings = await getSettings();
+  const model = body.model?.trim() || settings.ai.model || "claude-opus-5";
+
+  if (!typed && !settings.ai.enabled) {
     return NextResponse.json({
       ok: false,
       message: "設定で「AIで読み取る」が「使わない」になっています。",
     } satisfies AiTestResult);
   }
 
-  const apiKey = await resolveApiKey(settings.ai);
+  const apiKey = typed || (await resolveApiKey(settings.ai));
   if (!apiKey) {
     return NextResponse.json({
       ok: false,
-      message: "APIキーが見つかりません。設定画面のAPIキー欄に sk-ant-… を貼り付けて保存してください。",
+      message: "APIキーが見つかりません。設定画面のAPIキー欄に sk-ant-… を貼り付けてください。",
     } satisfies AiTestResult);
   }
 
