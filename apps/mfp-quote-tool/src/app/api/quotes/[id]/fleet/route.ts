@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { calcQuoteAll } from "@/lib/calc-context";
 import { autoSelectProposals, hasFleet, type AutoSelectContext } from "@/lib/fleet";
 import { autoCounterUnits } from "@/lib/pricing";
-import { lookupPhoto, lookupSpec } from "@/lib/specs/lookup";
-import { findDeviceByModel, getPriceBook, getQuote, getSettings, saveQuote } from "@/lib/store";
+import { fillFleetSpecs } from "@/lib/specs/fleet-specs";
+import { lookupPhoto } from "@/lib/specs/lookup";
+import { getPriceBook, getQuote, getSettings, saveQuote } from "@/lib/store";
 import type { Fleet, Maker, Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -42,11 +43,21 @@ export async function POST(req: Request, { params }: Ctx) {
   const makerNote = book.makerNotes[body.maker];
   const messages: string[] = [];
 
+  // 現行機の印刷速度を先に埋める。「現行と同等以上」を選ぶ土台になるので、
+  // ここで機種DB（無ければメーカーのサイト）から引き、画面にも残す
+  const specs = await fillFleetSpecs(quote.fleet, { fetchSpec: body.fetchSpec !== false });
+  if (specs.filled.length) {
+    messages.push(
+      `現行機の印刷速度を反映しました：${specs.filled.map((f) => `${f.label} ${f.ppm}枚/分`).join(" / ")}`,
+    );
+  }
+  if (specs.missing.length) {
+    messages.push(`${specs.missing.join("・")} は印刷速度が分からないため、印刷枚数から機種を判定しています。`);
+  }
+
   const ctx: AutoSelectContext = { currentPpm: {}, counterUnits: {} };
-  for (const unit of quote.fleet.units) {
-    // 現行機の印刷速度
-    const ppm = await currentPpmOf(unit.current.modelText, Boolean(body.fetchSpec));
-    if (ppm) ctx.currentPpm![unit.id] = ppm;
+  for (const unit of specs.fleet.units) {
+    if (unit.current.ppm) ctx.currentPpm![unit.id] = unit.current.ppm;
 
     // 提案のカウンター単価は、その台の枚数とエリアから判定する
     ctx.counterUnits![unit.id] = autoCounterUnits(
@@ -59,7 +70,7 @@ export async function POST(req: Request, { params }: Ctx) {
     );
   }
 
-  const fleet = autoSelectProposals(quote.fleet, body.maker, book, settings, ctx);
+  const fleet = autoSelectProposals(specs.fleet, body.maker, book, settings, ctx);
   const chosen = [...new Set(fleet.units.map((u) => u.proposal.modelText).filter(Boolean))];
   if (!chosen.length) {
     return NextResponse.json(
@@ -84,21 +95,6 @@ export async function POST(req: Request, { params }: Ctx) {
     ...(await calcQuoteAll(saved)),
     messages: [`全${fleet.units.length}台に ${chosen.join("・")} を入れました。`, ...messages],
   });
-}
-
-/**
- * 現行機の印刷速度を調べる。
- * 機種DBにあればそれを使い、無ければ（指定されたときだけ）メーカーのサイトを見る。
- */
-async function currentPpmOf(model: string, fetchSpec: boolean): Promise<number | undefined> {
-  const clean = model.trim();
-  if (!clean) return undefined;
-  const cached = await findDeviceByModel(clean);
-  const ppmOf = (d?: { ppmColor?: number; ppmMono?: number }) => d?.ppmColor ?? d?.ppmMono;
-  if (cached) return ppmOf(cached);
-  if (!fetchSpec) return undefined;
-  const looked = await lookupSpec(clean);
-  return ppmOf(looked.device);
 }
 
 /**

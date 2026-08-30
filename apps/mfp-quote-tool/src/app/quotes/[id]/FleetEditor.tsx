@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_FLEET,
   autoSelectProposals,
@@ -108,6 +108,51 @@ export default function FleetEditor({
     if (!machines?.length) return;
     onChange(fleetFromReadings(machines, fleet));
   }
+
+  /**
+   * 現行機の印刷速度を調べて入れる。
+   *
+   * 印刷速度は明細にも請求書にも載っていないので、型番からメーカーの
+   * サイトを見るしかない。取得した仕様は機種DBに残るので、
+   * 同じ機種は二度と取りに行かない。
+   */
+  async function fillSpecs(opts: { quiet?: boolean; forceRefresh?: boolean } = {}) {
+    if (!opts.quiet) {
+      setAutoBusy(true);
+      setAutoError("");
+      setAutoMessage("");
+    }
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/fleet/specs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fleet, forceRefresh: opts.forceRefresh }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "印刷速度を調べられませんでした。");
+      onServerResult(json as ServerResult);
+      if (!opts.quiet) setAutoMessage((json.messages as string[] | undefined)?.join(" ") ?? "");
+    } catch (err) {
+      if (!opts.quiet) setAutoError((err as Error).message);
+    } finally {
+      if (!opts.quiet) setAutoBusy(false);
+    }
+  }
+
+  /**
+   * 印刷速度が空いている台があれば、画面を開いたときに1回だけ自動で調べる。
+   * 取得した仕様は機種DBに残るので、2回目以降は動かない。
+   */
+  const triedSpecs = useRef("");
+  useEffect(() => {
+    const need = fleet.units.filter((u) => !u.current.ppm && (u.current.modelText ?? "").trim().length >= 3);
+    if (!need.length) return;
+    const key = need.map((u) => `${u.id}:${u.current.modelText}`).join("|");
+    if (triedSpecs.current === key) return;
+    triedSpecs.current = key;
+    void fillSpecs({ quiet: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fleet.units]);
 
   /**
    * 全台に提案機種を入れる。
@@ -346,6 +391,14 @@ export default function FleetEditor({
                 </option>
               ))}
             </select>
+            <button
+              className="secondary"
+              onClick={() => void fillSpecs({ forceRefresh: true })}
+              disabled={autoBusy}
+              title="現行機の型番から印刷速度をメーカーのサイトで調べ、機種DBに保存します。すでに取得済みの機種は保存済みの値を使います。"
+            >
+              現行機の印刷速度を取得
+            </button>
             <button
               onClick={() => void autoSelect()}
               disabled={autoBusy}
