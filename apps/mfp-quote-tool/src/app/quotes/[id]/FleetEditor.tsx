@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_FLEET,
+  autoSelectProposals,
   calcFleet,
   copySide,
   deductionRateOf,
@@ -10,12 +11,23 @@ import {
   fleetFromReadings,
   newChargeLine,
   proposalFromCurrent,
+  requiredPpm,
   withDeductionRate,
 } from "@/lib/fleet";
 import { LEASE_TERMS, MAKERS, MAKER_LABELS } from "@/lib/types";
 import type {
   ChargeTier,
   CounterReading,
+  CurrentCalc,
+  FleetPricing,
+  FleetPricingCalc,
+  Maker,
+  PriceBook,
+  PriceBookEntry,
+  PricingMode,
+  ProposalCalc,
+  ServiceArea,
+  Settings,
   CurrentChargeLine,
   DeviceSpec,
   Fleet,
@@ -31,6 +43,14 @@ import type {
  * 複数台比較表として出す。1台だけの案件はこれまでどおり上の画面で作る。
  */
 
+/** 保存や自動選定のあとにサーバーが返す、計算済みの案件 */
+type ServerResult = {
+  quote: Quote;
+  current: CurrentCalc;
+  proposals: ProposalCalc[];
+  serviceArea?: ServiceArea;
+};
+
 const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
 const sign = (n: number) =>
   n === 0 ? "±0" : n < 0 ? `▲${Math.abs(Math.round(n)).toLocaleString()}` : `+${Math.round(n).toLocaleString()}`;
@@ -44,18 +64,22 @@ const KINDS: { value: CurrentChargeLine["kind"]; label: string }[] = [
 
 export default function FleetEditor({
   quote,
-  taxRate,
+  settings,
   machines,
   onChange,
+  onServerResult,
 }: {
   quote: Quote;
-  taxRate: number;
+  settings: Settings;
   /** 直前の読み取りで明細から拾えた台（設置場所つき） */
   machines?: CounterReading[];
   onChange: (fleet: Fleet) => void;
+  /** サーバーで組み立て直した案件を取り込む（機種の自動選定） */
+  onServerResult: (json: ServerResult) => void;
 }) {
+  const taxRate = settings.company.taxRate;
   const fleet = quote.fleet ?? DEFAULT_FLEET;
-  const calc = useMemo(() => calcFleet(fleet, taxRate), [fleet, taxRate]);
+  const calc = useMemo(() => calcFleet(fleet, taxRate, settings), [fleet, taxRate, settings]);
 
   // 提案機種を選ぶための機種DB。1回だけ読む
   const [devices, setDevices] = useState<DeviceSpec[]>([]);
@@ -66,10 +90,57 @@ export default function FleetEditor({
       .catch(() => setDevices([]));
   }, []);
 
+  // 機種の自動選定に使う仕切表
+  const [book, setBook] = useState<PriceBook | null>(null);
+  useEffect(() => {
+    fetch("/api/pricebook")
+      .then((r) => r.json())
+      .then(setBook)
+      .catch(() => setBook(null));
+  }, []);
+  const [autoMaker, setAutoMaker] = useState<Maker>("KYOCERA");
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoMessage, setAutoMessage] = useState("");
+  const [autoError, setAutoError] = useState("");
+
   /** 明細から読み取った台を取り込む（手入力した提案側は残す） */
   function importMachines() {
     if (!machines?.length) return;
     onChange(fleetFromReadings(machines, fleet));
+  }
+
+  /**
+   * 全台に提案機種を入れる。
+   *
+   * 現行機の印刷速度は明細に載っていないことが多いので、サーバー側で
+   * 機種DB（無ければメーカーのサイト）から引いてから選ばせる。
+   * 提案機種の筐体写真も同じところで用意し、機種DBに残す。
+   */
+  async function autoSelect() {
+    setAutoBusy(true);
+    setAutoError("");
+    setAutoMessage("");
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/fleet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maker: autoMaker, fetchSpec: true, fleet }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "機種を選べませんでした。");
+      onServerResult(json as ServerResult);
+      setAutoMessage((json.messages as string[] | undefined)?.join(" ") ?? "");
+    } catch (err) {
+      // サーバーに行けない場合でも、手元の仕切表だけで選べるところまではやる
+      if (book) {
+        onChange(autoSelectProposals(fleet, autoMaker, book, settings));
+        setAutoMessage("機種を入れました（現行機の速度は調べられなかったため、印刷枚数から判定しています）。");
+      } else {
+        setAutoError((err as Error).message);
+      }
+    } finally {
+      setAutoBusy(false);
+    }
   }
 
   const patch = (p: Partial<Fleet>) => onChange({ ...fleet, ...p });
@@ -234,6 +305,13 @@ export default function FleetEditor({
                 deductionRate={proposalDeduction}
                 billed={u.proposal.counterTotal}
                 devices={devices}
+                book={book}
+                settings={settings}
+                leaseTerm={fleet.leaseTerm}
+                pricingCalc={u.proposal.pricing}
+                requiredPpm={requiredPpm(unit, settings)}
+                // 提案の枚数は現行と同じ（控除前）。画面でも計算後の値を出す
+                pagesFrom={u.proposal.lines.map((l) => l.pages)}
                 onChange={(p) => patchSide(unit.id, "proposal", p)}
               />
             </div>
@@ -259,6 +337,24 @@ export default function FleetEditor({
         <button className="secondary" onClick={addUnit}>
           台を追加
         </button>
+        {fleet.units.length > 0 && (
+          <>
+            <select value={autoMaker} onChange={(e) => setAutoMaker(e.target.value as Maker)} style={{ width: 150 }}>
+              {MAKERS.filter((m) => m !== "OTHER").map((m) => (
+                <option key={m} value={m}>
+                  {MAKER_LABELS[m]}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => void autoSelect()}
+              disabled={autoBusy}
+              title="台ごとに、現行と同等以上の印刷速度の機種を仕切表から選びます。全台の合計枚数から1台を選ぶのではなく、設置場所ごとに1台ずつ出します。提案機種の写真も機種DBに用意します。"
+            >
+              {autoBusy ? "選定中…" : `全${fleet.units.length}台に機種を自動選定`}
+            </button>
+          </>
+        )}
         {machines && machines.length > 0 && (
           <button className="secondary" onClick={importMachines} title="明細に載っている複合機を、設置場所つきで台に取り込みます。すでにある台は現行側だけ差し替え、提案側の入力は残します。">
             カウンター明細から{machines.length}台を取り込む
@@ -270,6 +366,9 @@ export default function FleetEditor({
           明細から読み取った設置場所：{machines.map((m) => m.location || m.modelText || m.serialNo).join(" / ")}
         </p>
       )}
+      {autoBusy && <p className="spinner">機種を選んでいます… 現行機の速度と提案機種の写真を調べるため、少し時間がかかります。</p>}
+      {autoMessage && <p className="badge">{autoMessage}</p>}
+      {autoError && <p className="error">{autoError}</p>}
 
       {fleet.leaseUnknown && (
         <p className="warn" style={{ marginTop: 10 }}>
@@ -349,6 +448,12 @@ function SideEditor({
   billed,
   allowDeduction,
   devices,
+  book,
+  settings,
+  leaseTerm,
+  pricingCalc,
+  requiredPpm: needPpm,
+  pagesFrom,
   onChange,
 }: {
   title: string;
@@ -358,6 +463,16 @@ function SideEditor({
   allowDeduction?: boolean;
   /** 提案側で選べる機種（機種DB） */
   devices?: DeviceSpec[];
+  /** 仕切表（提案側の機種と仕切価格を選ぶ） */
+  book?: PriceBook | null;
+  settings?: Settings;
+  leaseTerm?: number;
+  /** リース料の決め方から出した金額（提案側） */
+  pricingCalc?: FleetPricingCalc;
+  /** この台に要る印刷速度（現行と同等以上） */
+  requiredPpm?: number;
+  /** 計算後の印刷枚数（提案側は現行と同じ枚数になる） */
+  pagesFrom?: number[];
   onChange: (patch: Partial<FleetSide>) => void;
 }) {
   const isProposal = !allowDeduction;
@@ -446,11 +561,15 @@ function SideEditor({
       <div className="row">
         <div className="field" style={{ width: 120 }}>
           <label>月額リース料</label>
-          <input
-            type="number"
-            value={side.monthlyLease}
-            onChange={(e) => onChange({ monthlyLease: Number(e.target.value) || 0 })}
-          />
+          {isProposal && side.pricing ? (
+            <input readOnly value={yen(pricingCalc?.monthlyLease ?? 0)} title="下の「価格の決め方」から計算しています" />
+          ) : (
+            <input
+              type="number"
+              value={side.monthlyLease}
+              onChange={(e) => onChange({ monthlyLease: Number(e.target.value) || 0 })}
+            />
+          )}
         </div>
         <div className="field" style={{ width: 120 }}>
           <label>最低基本料金</label>
@@ -492,6 +611,31 @@ function SideEditor({
         </div>
       )}
 
+      {isProposal && settings && (
+        <PricingEditor
+          pricing={side.pricing}
+          calc={pricingCalc}
+          book={book}
+          settings={settings}
+          leaseTerm={leaseTerm ?? 72}
+          requiredPpm={needPpm}
+          onChange={(pricing) => onChange({ pricing })}
+          onPickEntry={(entry) =>
+            onChange({
+              modelText: entry.model,
+              makerText: MAKER_LABELS[entry.maker],
+              ppm: entry.gradePpm,
+              pricing: {
+                mode: side.pricing?.mode ?? "fromGp",
+                ...side.pricing,
+                priceBookId: entry.id,
+                cost: entry.cost,
+              },
+            })
+          }
+        />
+      )}
+
       <div className="fleet-lines">
       <table>
         <thead>
@@ -523,12 +667,23 @@ function SideEditor({
                 </select>
               </td>
               <td className="num">
-                <input
-                  type="number"
-                  style={{ width: 90 }}
-                  value={l.pages}
-                  onChange={(e) => patchLine(i, { pages: Number(e.target.value) || 0 })}
-                />
+                {isProposal ? (
+                  // 提案の枚数は現行と同じ（現行に控除があっても控除前の枚数）。
+                  // ここで別の枚数を入れられると、比べている前提が崩れてしまう
+                  <input
+                    readOnly
+                    style={{ width: 90, textAlign: "right" }}
+                    value={(pagesFrom?.[i] ?? l.pages).toLocaleString()}
+                    title="現状利用状況と同じ枚数です（現行に控除がある場合も控除前の枚数）"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    style={{ width: 90 }}
+                    value={l.pages}
+                    onChange={(e) => patchLine(i, { pages: Number(e.target.value) || 0 })}
+                  />
+                )}
               </td>
               <td>
                 {l.tiers.map((t, x) => (
@@ -615,6 +770,178 @@ function SideEditor({
         </div>
         <div className="muted">請求金額（税込）：{yen(billed)}</div>
       </div>
+    </div>
+  );
+}
+
+const PRICING_MODES: { value: PricingMode; label: string }[] = [
+  { value: "fromGp", label: "仕切＋GP（粗利額）" },
+  { value: "fromMargin", label: "仕切＋粗利率" },
+  { value: "fromPrice", label: "本体価格を直接入力" },
+  { value: "fromLease", label: "目標の月額リース料から逆算" },
+];
+
+/**
+ * 提案する1台の価格の決め方。
+ *
+ * 1台だけの案件と同じ4通りから選べる。どれで決めても最後は本体価格に
+ * 揃うので、下に「仕切／本体価格／販売額計／GP／月額リース料」を並べて
+ * 何がどう効いたのかが分かるようにしている。
+ */
+function PricingEditor({
+  pricing,
+  calc,
+  book,
+  settings,
+  leaseTerm,
+  requiredPpm: needPpm,
+  onChange,
+  onPickEntry,
+}: {
+  pricing?: FleetPricing;
+  calc?: FleetPricingCalc;
+  book?: PriceBook | null;
+  settings: Settings;
+  leaseTerm: number;
+  requiredPpm?: number;
+  onChange: (pricing: FleetPricing | undefined) => void;
+  onPickEntry: (entry: PriceBookEntry) => void;
+}) {
+  if (!pricing) {
+    return (
+      <div className="row" style={{ marginTop: 8 }}>
+        <button
+          className="secondary"
+          onClick={() =>
+            onChange({
+              mode: "fromGp",
+              grossProfitAmount: settings.defaultGrossProfit,
+              marginRate: settings.defaultMarginRate,
+            })
+          }
+        >
+          仕切＋GPからリース料を計算する
+        </button>
+        <span className="muted" style={{ fontSize: 12 }}>
+          使わない場合は、上の「月額リース料」に直接入力してください。
+        </span>
+      </div>
+    );
+  }
+
+  const patch = (p: Partial<FleetPricing>) => onChange({ ...pricing, ...p });
+  const num = (v: string) => (v === "" ? undefined : Number(v));
+  // 現行と同等以上の速度のものだけを候補に出す（下位機種を誤って選ばないように）
+  const entries = (book?.entries ?? []).filter((e) => !needPpm || e.gradePpm >= needPpm);
+
+  return (
+    <div style={{ marginTop: 8, padding: "8px 10px", background: "#f7fafc", borderRadius: 6 }}>
+      <div className="row">
+        <div className="field" style={{ width: 200 }}>
+          <label>価格の決め方</label>
+          <select value={pricing.mode} onChange={(e) => patch({ mode: e.target.value as PricingMode })}>
+            {PRICING_MODES.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 190 }}>
+          <label>
+            仕切表から選ぶ
+            {needPpm ? <span className="muted">（{needPpm}枚機以上）</span> : null}
+          </label>
+          <select
+            value={pricing.priceBookId ?? ""}
+            onChange={(e) => {
+              const entry = entries.find((x) => x.id === e.target.value);
+              if (entry) onPickEntry(entry);
+            }}
+          >
+            <option value="">（選択してください）</option>
+            {entries.map((e) => (
+              <option key={e.id} value={e.id}>
+                {MAKER_LABELS[e.maker]} {e.model}（{e.gradePpm}枚機）
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ width: 120 }}>
+          <label>仕切価格</label>
+          <input
+            type="number"
+            value={pricing.cost ?? ""}
+            onChange={(e) => patch({ cost: num(e.target.value) })}
+          />
+        </div>
+      </div>
+
+      <div className="row">
+        {pricing.mode === "fromGp" && (
+          <div className="field" style={{ width: 130 }}>
+            <label>GP（粗利額）</label>
+            <input
+              type="number"
+              value={pricing.grossProfitAmount ?? ""}
+              onChange={(e) => patch({ grossProfitAmount: num(e.target.value) })}
+            />
+          </div>
+        )}
+        {pricing.mode === "fromMargin" && (
+          <div className="field" style={{ width: 110 }}>
+            <label>粗利率（%）</label>
+            <input
+              type="number"
+              step={1}
+              value={pricing.marginRate === undefined ? "" : Math.round(pricing.marginRate * 1000) / 10}
+              onChange={(e) => patch({ marginRate: e.target.value === "" ? undefined : Number(e.target.value) / 100 })}
+            />
+          </div>
+        )}
+        {pricing.mode === "fromPrice" && (
+          <div className="field" style={{ width: 130 }}>
+            <label>本体価格</label>
+            <input
+              type="number"
+              value={pricing.bodyPrice ?? ""}
+              onChange={(e) => patch({ bodyPrice: num(e.target.value) })}
+            />
+          </div>
+        )}
+        {pricing.mode === "fromLease" && (
+          <div className="field" style={{ width: 150 }}>
+            <label>目標の月額リース料</label>
+            <input
+              type="number"
+              value={pricing.targetMonthlyLease ?? ""}
+              onChange={(e) => patch({ targetMonthlyLease: num(e.target.value) })}
+            />
+          </div>
+        )}
+        <div className="field" style={{ width: 130 }}>
+          <label>オプション上乗せ</label>
+          <input
+            type="number"
+            value={pricing.addOnTotal ?? ""}
+            onChange={(e) => patch({ addOnTotal: num(e.target.value) })}
+          />
+        </div>
+        <button className="secondary" style={{ alignSelf: "flex-end" }} onClick={() => onChange(undefined)}>
+          決め方を使わない
+        </button>
+      </div>
+
+      {calc && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          本体価格 {yen(calc.bodyPrice)}
+          {calc.addOnTotal > 0 && ` ＋ 上乗せ ${yen(calc.addOnTotal)}`} ＝ 販売額計 {yen(calc.sellingTotal)}
+          {" ／ "}GP {yen(calc.grossProfit)}（{(calc.marginRate * 100).toFixed(1)}%）
+          {" ／ "}リース料率 {(calc.leaseRate * 100).toFixed(3)}%（{Math.round(leaseTerm / 12)}年）
+          {" → "}
+          <b>月額 {yen(calc.monthlyLease)}</b>
+        </div>
+      )}
     </div>
   );
 }

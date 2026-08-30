@@ -51,7 +51,7 @@ export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
     settings,
     current: calcCurrent(quote, settings.company.taxRate),
     proposals,
-    fleet: hasFleet(quote.fleet) ? calcFleet(quote.fleet, settings.company.taxRate) : undefined,
+    fleet: hasFleet(quote.fleet) ? calcFleet(quote.fleet, settings.company.taxRate, settings) : undefined,
     serviceArea,
   };
 }

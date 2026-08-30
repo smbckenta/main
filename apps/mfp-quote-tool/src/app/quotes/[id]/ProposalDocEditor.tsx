@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { emptyOption, optionMonthlyLease } from "@/lib/proposal-doc";
 import { MAKER_LABELS } from "@/lib/types";
 import type { DeviceOption, DeviceSpec, ProposalCalc, Quote, Settings } from "@/lib/types";
@@ -67,6 +67,50 @@ export default function ProposalDocEditor({
     }
     onDeviceChange(json as DeviceSpec);
   }
+
+  /**
+   * 筐体写真をメーカーサイトから取り、機種DBに保存する。
+   *
+   * いちど取れた写真はDBに残るので、次からはインターネットに出ない。
+   * 同じ機種で毎回取りに行くと時間もかかり、メーカーのサイトにも負担をかける。
+   */
+  async function fetchPhoto(device: DeviceSpec, opts: { quiet?: boolean } = {}) {
+    if (!opts.quiet) setBusy(`${device.model} の写真を取得中…`);
+    try {
+      const res = await fetch("/api/devices/photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: device.model, maker: device.maker }),
+      });
+      const json = (await res.json()) as { photo?: string; message?: string };
+      if (json.photo) {
+        onDeviceChange({ ...device, photo: json.photo });
+        if (!opts.quiet) setMessage(`${device.model} の写真を取得しました。`);
+      } else if (!opts.quiet) {
+        setError(json.message ?? "写真を取得できませんでした。手で登録してください。");
+      }
+    } catch {
+      if (!opts.quiet) setError("写真を取得できませんでした。手で登録してください。");
+    } finally {
+      if (!opts.quiet) setBusy("");
+    }
+  }
+
+  /**
+   * 写真の無い機種は、画面を開いたときに1回だけ自動で取りに行く。
+   * 取れた写真は機種DBに残るので、2回目以降は動かない。
+   */
+  const triedPhotos = useRef(new Set<string>());
+  useEffect(() => {
+    for (const calc of calcs) {
+      const device = devices.byProposal[calc.proposal.id];
+      if (!device || device.photo) continue;
+      if (triedPhotos.current.has(device.model)) continue;
+      triedPhotos.current.add(device.model);
+      void fetchPhoto(device, { quiet: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calcs, devices]);
 
   /** メーカーサイトからオプション一覧を取得する */
   async function fetchOptions(device: DeviceSpec) {
@@ -193,6 +237,8 @@ export default function ProposalDocEditor({
                     if (photo) await saveDevice({ ...device, photo });
                   }}
                   onClear={() => saveDevice({ ...device, photo: undefined })}
+                  onFetch={() => fetchPhoto(device)}
+                  busy={!!busy}
                 />
 
                 <div className="row" style={{ marginTop: 12, alignItems: "center" }}>
@@ -244,11 +290,16 @@ function PhotoField({
   label,
   onPick,
   onClear,
+  onFetch,
+  busy,
 }: {
   photo?: string;
   label: string;
   onPick: (file: File) => void | Promise<void>;
   onClear: () => void;
+  /** メーカーサイトから取り直す（提案機種のときだけ） */
+  onFetch?: () => void | Promise<void>;
+  busy?: boolean;
 }) {
   return (
     <div className="row" style={{ alignItems: "center" }}>
@@ -290,6 +341,11 @@ function PhotoField({
           }}
         />
       </div>
+      {onFetch && (
+        <button className="secondary" disabled={busy} onClick={() => void onFetch()}>
+          {photo ? "メーカーサイトから取り直す" : "メーカーサイトから取得"}
+        </button>
+      )}
       {photo && (
         <button className="secondary" onClick={onClear}>
           写真を外す

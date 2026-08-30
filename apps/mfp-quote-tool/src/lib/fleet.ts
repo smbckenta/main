@@ -1,7 +1,13 @@
-import { calcChargeLines } from "./pricing";
+import { calcChargeLines, ceilTo, floorTo, leaseRateOf, roundTo } from "./pricing";
 import type {
   CounterReading,
   CurrentChargeLine,
+  FleetPricing,
+  FleetPricingCalc,
+  Maker,
+  PriceBook,
+  PriceBookEntry,
+  Settings,
   Fleet,
   FleetCalc,
   FleetSide,
@@ -10,6 +16,7 @@ import type {
   FleetUnit,
   FleetUnitCalc,
 } from "./types";
+import { MAKER_LABELS } from "./types";
 
 /**
  * 複数台（A3ヨコの複数台比較表）の計算。
@@ -85,8 +92,102 @@ export function newChargeLine(name: string, kind: CurrentChargeLine["kind"]): Cu
   return { name, kind, pages: 0, tiers: [{ from: 1, to: null, unit: 0 }] };
 }
 
+/**
+ * 提案する1台のリース料を、決め方に沿って計算する。
+ *
+ * 1台だけの案件（calcProposal）と同じ順序で計算する。
+ *   本体価格を決める → 上乗せ分を足して販売額計 → × リース料率 → 切り上げ
+ * 「目標月額から逆算」だけは切り下げる。切り上げると目標月額をわずかに
+ * 上回り、そこに100円単位の切り上げが掛かって100円高く出てしまう。
+ */
+export function calcUnitLease(
+  pricing: FleetPricing,
+  leaseTerm: number,
+  settings: Settings,
+): FleetPricingCalc {
+  const cost = Math.max(0, pricing.cost ?? 0);
+  const addOnTotal = Math.max(0, pricing.addOnTotal ?? 0);
+  const leaseRate = leaseRateOf(leaseTerm, settings.leaseRates);
+
+  let bodyPrice = 0;
+  if (pricing.mode === "fromGp") {
+    bodyPrice = cost + (pricing.grossProfitAmount ?? 0);
+  } else if (pricing.mode === "fromLease") {
+    const total = leaseRate > 0 ? (pricing.targetMonthlyLease ?? 0) / leaseRate : 0;
+    bodyPrice = floorTo(total, settings.roundUnit) - addOnTotal;
+  } else if (pricing.mode === "fromMargin") {
+    const rate = Math.min(Math.max(pricing.marginRate ?? settings.defaultMarginRate, 0), 0.95);
+    bodyPrice = cost > 0 ? cost / (1 - rate) : 0;
+  } else {
+    bodyPrice = pricing.bodyPrice ?? 0;
+  }
+
+  // 入れた額（GP・本体価格）と、逆算した額はここで丸め直さない。
+  // 丸め直すと目標月額に戻らなくなる。
+  const asEntered = pricing.mode !== "fromMargin";
+  bodyPrice = asEntered
+    ? Math.max(0, Math.round(bodyPrice))
+    : roundTo(Math.max(0, bodyPrice), settings.roundUnit);
+
+  const sellingTotal = bodyPrice + addOnTotal;
+  const grossProfit = sellingTotal - cost;
+  return {
+    cost,
+    bodyPrice,
+    addOnTotal,
+    sellingTotal,
+    grossProfit,
+    marginRate: sellingTotal > 0 ? grossProfit / sellingTotal : 0,
+    monthlyLease: ceilTo(sellingTotal * leaseRate, settings.leaseRoundUnit ?? 1),
+    leaseRate,
+  };
+}
+
+/**
+ * 提案側の印刷枚数を、現行と同じにそろえる。
+ *
+ * 提案後も同じ枚数を刷る前提で比べるので、枚数は現行の実績そのもの。
+ * 現行契約にミスプリント控除が付いていても、当社の提案には控除が無いため、
+ * 控除を差し引く前の枚数を使う（差し引いた枚数で比べると提案側が安く出る）。
+ *
+ * 区分の並びが現行と揃っていればそのまま写す。揃っていない場合
+ * （現行はフルカラーがコピーとプリントに分かれ、提案は1区分）は、
+ * 同じ種別の枚数を合計して1区分に入れる。
+ */
+export function syncProposalPages(current: FleetSide, proposal: FleetSide): FleetSide {
+  if (!proposal.lines?.length) return proposal;
+
+  const currentByKind = new Map<CurrentChargeLine["kind"], number[]>();
+  for (const l of current.lines ?? []) {
+    currentByKind.set(l.kind, [...(currentByKind.get(l.kind) ?? []), l.pages]);
+  }
+
+  const seen = new Map<CurrentChargeLine["kind"], number>();
+  const lines = proposal.lines.map((line) => {
+    const from = currentByKind.get(line.kind) ?? [];
+    const sameKindCount = proposal.lines.filter((x) => x.kind === line.kind).length;
+    const i = seen.get(line.kind) ?? 0;
+    seen.set(line.kind, i + 1);
+    // 区分の数が現行と同じなら1対1、違うなら同じ種別を合計して先頭の区分に入れる
+    const pages =
+      sameKindCount === from.length
+        ? (from[i] ?? 0)
+        : i === 0
+          ? from.reduce((sum, n) => sum + n, 0)
+          : 0;
+    return pages === line.pages ? line : { ...line, pages };
+  });
+  return { ...proposal, lines };
+}
+
 /** 1台の片側（現行 or 提案）を計算する */
-export function calcFleetSide(side: FleetSide, taxRate: number): FleetSideCalc {
+export function calcFleetSide(
+  side: FleetSide,
+  taxRate: number,
+  /** リース料の決め方を使う場合に渡す（提案側） */
+  lease?: { leaseTerm: number; settings: Settings },
+): FleetSideCalc {
+  const pricing = side.pricing && lease ? calcUnitLease(side.pricing, lease.leaseTerm, lease.settings) : undefined;
   const lines = calcChargeLines(side.lines ?? []);
   const meteredSubtotal = lines.reduce((sum, l) => sum + l.amount, 0);
   const minCharge = Math.max(0, side.minCharge ?? 0);
@@ -97,7 +198,9 @@ export function calcFleetSide(side: FleetSide, taxRate: number): FleetSideCalc {
   const counterTax = Math.round(counterBeforeTax * taxRate);
 
   return {
-    monthlyLease: Math.max(0, Math.round(side.monthlyLease ?? 0)),
+    // 決め方が入っていればそちらを正とする（手入力の値は使わない）
+    monthlyLease: pricing ? pricing.monthlyLease : Math.max(0, Math.round(side.monthlyLease ?? 0)),
+    pricing,
     lines,
     deductedPages: lines.reduce((sum, l) => sum + l.deduction, 0),
     meteredSubtotal: Math.round(meteredSubtotal),
@@ -139,16 +242,18 @@ function totalsOf(
 }
 
 /** 複数台比較表ぜんぶを計算する */
-export function calcFleet(fleet: Fleet, taxRate: number): FleetCalc {
+export function calcFleet(fleet: Fleet, taxRate: number, settings?: Settings): FleetCalc {
   // 合計も削減も、提案するリース年数に合わせる（6年リースなら6年間）
   const leaseTerm = fleet.leaseTerm > 0 ? fleet.leaseTerm : 72;
   const leaseYears = Math.round(leaseTerm / 12);
+  const lease = settings ? { leaseTerm, settings } : undefined;
 
   const units: FleetUnitCalc[] = fleet.units.map((unit, i) => ({
     unit,
     no: i + 1,
     current: calcFleetSide(unit.current, taxRate),
-    proposal: calcFleetSide(unit.proposal, taxRate),
+    // 提案側の枚数は現行と同じ（控除前）にそろえてから計算する
+    proposal: calcFleetSide(syncProposalPages(unit.current, unit.proposal), taxRate, lease),
   }));
 
   const leaseUnknown = Boolean(fleet.leaseUnknown);
@@ -311,5 +416,105 @@ export function fleetFromReadings(readings: CounterReading[], base?: Fleet): Fle
     });
   });
 
+  return { ...fleet, enabled: true, units };
+}
+
+/* ---------------- 台ごとの機種の自動選定 ---------------- */
+
+/**
+ * その台に要る印刷速度（枚/分）。
+ *
+ * 現行機の印刷速度が分かっていればそれを基準にする。分からない場合は
+ * その台の月間印刷枚数から、設定のグレード表で判定する。
+ * 複数台の案件で全台の合計枚数から1台を選ぶと、実際には各拠点に
+ * 置く機械なので大きすぎる機種になってしまう。台ごとに見るのが正しい。
+ */
+export function requiredPpm(unit: FleetUnit, settings: Settings, currentPpm?: number): number {
+  const pages = (unit.current.lines ?? []).reduce((sum, l) => sum + l.pages, 0);
+  const byPages = [...settings.gradeTiers]
+    .sort((a, b) => b.minPages - a.minPages)
+    .find((t) => pages >= t.minPages)?.ppm;
+  const fallback = byPages ?? settings.gradeTiers[0]?.ppm ?? 25;
+  // 現行と同等以上にしたいので、現行の速度と枚数から要る速度の大きいほうを取る。
+  // 画面に速度が入っていなくても、機種DBから引けた速度があればそれを使う
+  return Math.max(unit.current.ppm ?? 0, currentPpm ?? 0, fallback);
+}
+
+/**
+ * 仕切表から、その台に出す機種を選ぶ。
+ * 現行と同等以上の速度で、いちばん近いもの。無ければ手持ちで最速のもの。
+ */
+export function pickEntryForUnit(
+  entries: PriceBookEntry[],
+  maker: Maker,
+  targetPpm: number,
+): PriceBookEntry | undefined {
+  const sameMaker = entries.filter((e) => e.maker === maker);
+  const a3Color = sameMaker.filter((e) => e.category === "A3カラー");
+  const pool = a3Color.length ? a3Color : sameMaker;
+  if (!pool.length) return undefined;
+  const atOrAbove = pool.filter((e) => e.gradePpm >= targetPpm).sort((a, b) => a.gradePpm - b.gradePpm);
+  return atOrAbove[0] ?? [...pool].sort((a, b) => b.gradePpm - a.gradePpm)[0];
+}
+
+/**
+ * 全台に提案機種を自動で入れる。
+ *
+ * 台ごとに現行と同等以上の機種を選び、台数ぶんそのまま提案する。
+ * 印刷枚数は現行と同じ（控除前）を写し、単価は現行の単価を初期値にする
+ * （そのままでは削減が出ないので、営業が下げて詰める前提のたたき台）。
+ */
+export interface AutoSelectContext {
+  /** 現行機の印刷速度（機種DBやインターネットから引けた場合）。台のidをキーにする */
+  currentPpm?: Record<string, number>;
+  /** 提案のカウンター単価（メーカーの条件から自動判定したもの）。台のidをキーにする */
+  counterUnits?: Record<string, { mono: number; color: number; twoColor: number }>;
+}
+
+export function autoSelectProposals(
+  fleet: Fleet,
+  maker: Maker,
+  book: PriceBook,
+  settings: Settings,
+  ctx: AutoSelectContext = {},
+): Fleet {
+  const units = fleet.units.map((unit) => {
+    const entry = pickEntryForUnit(book.entries, maker, requiredPpm(unit, settings, ctx.currentPpm?.[unit.id]));
+    if (!entry) return unit;
+
+    // 枚数と区分は現行から引き継ぎ、単価は当社の提案の単価に入れ替える。
+    // 現行の単価をそのまま残すと、同じ単価のまま比べることになって
+    // 削減が出ない（見比べる紙として意味をなさない）。
+    const proposed = ctx.counterUnits?.[unit.id];
+    const base = proposalFromCurrent(unit.current);
+    const lines = proposed
+      ? base.lines.map((l) => ({
+          ...l,
+          tiers: [{ from: 1, to: null, unit: proposed[l.kind === "other" ? "mono" : l.kind] ?? 0 }],
+        }))
+      : base.lines;
+
+    return {
+      ...unit,
+      proposal: {
+        ...base,
+        lines,
+        makerText: MAKER_LABELS[maker],
+        modelText: entry.model,
+        ppm: entry.gradePpm,
+        // 提案側に現行の保守料金・最低基本料金は引き継がない（契約が変わるため）
+        minCharge: book.makerNotes[maker]?.minCharge ?? 0,
+        maintenanceMonthly: 0,
+        monthlyLease: 0,
+        pricing: {
+          mode: "fromGp" as const,
+          priceBookId: entry.id,
+          cost: entry.cost,
+          grossProfitAmount: settings.defaultGrossProfit,
+          marginRate: settings.defaultMarginRate,
+        },
+      },
+    };
+  });
   return { ...fleet, enabled: true, units };
 }

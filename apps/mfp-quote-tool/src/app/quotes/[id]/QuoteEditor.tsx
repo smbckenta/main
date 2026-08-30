@@ -587,9 +587,10 @@ export default function QuoteEditor({
 
       <FleetEditor
         quote={quote}
-        taxRate={settings.company.taxRate}
+        settings={settings}
         machines={machines}
         onChange={(fleet) => patchQuote({ fleet })}
+        onServerResult={applyServerResult}
       />
 
       <section className="panel">

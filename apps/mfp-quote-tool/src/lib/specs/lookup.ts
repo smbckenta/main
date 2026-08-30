@@ -199,3 +199,71 @@ export async function lookupOptions(model: string, makerHint?: Maker): Promise<O
       "オプション一覧のページを読み取れませんでした。機種DB画面から手で登録してください。",
   };
 }
+
+export interface PhotoLookupResult {
+  /** 保存された写真のファイル名（photos/ の中） */
+  photo?: string;
+  url?: string;
+  /** local: すでにDBにあった / web: インターネット取得 / miss: 取得失敗 */
+  origin: "local" | "web" | "miss";
+  message?: string;
+}
+
+/**
+ * 機種の筐体写真を用意する。
+ *
+ * 仕様表の取得（lookupSpec）のついででも写真は拾っているが、
+ * 仕様表を読み取れなかった機種は写真も入らないままになる。
+ * 提案資料に写真が要るのはどの機種も同じなので、写真だけを探す道を用意する。
+ *
+ * いちどDBに入れた写真は使い回す。同じ機種で何度もインターネットに出ると
+ * 時間もかかるし、メーカーのサイトにも負担をかけるため、
+ * forceRefresh を指定しない限り取りに行かない。
+ */
+export async function lookupPhoto(
+  model: string,
+  makerHint?: Maker,
+  options: { forceRefresh?: boolean } = {},
+): Promise<PhotoLookupResult> {
+  const cleanModel = model.trim();
+  if (!cleanModel) return { origin: "miss", message: "型番が空です。" };
+
+  const cached = await findDeviceByModel(cleanModel);
+  if (cached?.photo && !options.forceRefresh) {
+    return { photo: cached.photo, origin: "local", url: cached.source.url };
+  }
+
+  const maker = makerHint ?? cached?.maker ?? detectMaker(cleanModel) ?? "OTHER";
+  // 製品ページ（写真が載っているページ）を優先して探す。
+  // 仕様ページは表ばかりで写真が無いことがある
+  const urls = [
+    ...(await searchSpecPages(maker, cleanModel, "複合機 製品")),
+    ...(await searchSpecPages(maker, cleanModel, "仕様")),
+  ].filter((u, i, all) => all.indexOf(u) === i);
+
+  for (const url of urls) {
+    const html = await fetchText(url);
+    if (!html) continue;
+    const photo = await fetchPhoto(extractProductImage(html, url));
+    if (!photo) continue;
+
+    // 取れた写真は必ずDBに残す。次からはインターネットに出ない
+    await upsertDevice({
+      ...(cached ?? {
+        maker,
+        makerText: MAKER_LABELS[maker],
+        model: cleanModel,
+      }),
+      model: cleanModel,
+      photo,
+      source: cached?.source ?? { method: "web", url, fetchedAt: new Date().toISOString() },
+    });
+    return { photo, url, origin: "web" };
+  }
+
+  return {
+    origin: "miss",
+    message:
+      "メーカーのサイトから写真を見つけられませんでした。機種DB画面から手で登録してください。",
+  };
+}

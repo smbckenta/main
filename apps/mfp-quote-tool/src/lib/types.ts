@@ -544,6 +544,34 @@ export interface CurrentMachine {
  * 1台ずつ「リース料金」と「カウンター料金」を並べ、
  * 台数ぶんの合計で現行と提案を比べる、というA3ヨコの比較表の運用に合わせている。
  */
+/**
+ * 提案する1台のリース料の決め方。
+ *
+ * 1台だけの案件（上の「提案の作成」）と同じ考え方を、複数台の1台ごとに使う。
+ *   仕切価格 ＋ 粗利額（GP） ＝ 本体価格 → × リース料率 ＝ 月額リース料
+ * 決め方は4通りあり、どれで決めても最後は本体価格に揃う。
+ *
+ * 旧リースの残債精算は案件ぜんぶで1つなので、ここには含めない
+ * （どの台に付けるかは決められないため、上の見積で扱う）。
+ */
+export interface FleetPricing {
+  mode: PricingMode;
+  /** 仕切表から選んだ機種 */
+  priceBookId?: string;
+  /** 仕切価格（円・税抜）。仕切表から選べば自動で入る */
+  cost?: number;
+  /** fromGp: 上乗せする粗利額（GP・円） */
+  grossProfitAmount?: number;
+  /** fromMargin: 粗利率（0.3 = 30%） */
+  marginRate?: number;
+  /** fromPrice: 本体価格（円・税抜）を直接入力した額 */
+  bodyPrice?: number;
+  /** fromLease: 目標の月額リース料（円・税抜） */
+  targetMonthlyLease?: number;
+  /** オプション等の上乗せ額（円・税抜）。値引きせずそのまま加算する */
+  addOnTotal?: number;
+}
+
 export interface FleetSide {
   makerText: string;
   /** 現行側は物件名、提案側は提案機種 */
@@ -563,6 +591,11 @@ export interface FleetSide {
   minCharge: number;
   /** 月額保守料金（円/月）。カウンター計に加算する（理想科学など） */
   maintenanceMonthly: number;
+  /**
+   * 提案側だけ：リース料の決め方。
+   * 入っていれば monthlyLease はここから計算した値になり、手入力の値は使わない。
+   */
+  pricing?: FleetPricing;
 }
 
 export interface FleetUnit {
@@ -603,6 +636,8 @@ export interface Fleet {
 /** 1台の片側（現行 or 提案）の計算結果 */
 export interface FleetSideCalc {
   monthlyLease: number;
+  /** リース料の決め方を使って計算した内訳（決め方が未設定なら undefined） */
+  pricing?: FleetPricingCalc;
   lines: ChargeLineCalc[];
   /** 控除された枚数の合計（現行側の一律控除。提案側は0） */
   deductedPages: number;
@@ -616,6 +651,26 @@ export interface FleetSideCalc {
   counterTax: number;
   /** 請求金額（税込） */
   counterTotal: number;
+}
+
+/** リース料の決め方から出した金額の内訳 */
+export interface FleetPricingCalc {
+  /** 仕切価格（円・税抜） */
+  cost: number;
+  /** 本体価格（円・税抜）。PTFの対象になる額 */
+  bodyPrice: number;
+  /** オプション等の上乗せ額 */
+  addOnTotal: number;
+  /** 販売額計 ＝ 本体価格 ＋ 上乗せ額 */
+  sellingTotal: number;
+  /** 粗利額 ＝ 販売額計 − 仕切価格 */
+  grossProfit: number;
+  /** 粗利率 */
+  marginRate: number;
+  /** 月額リース料（円・税抜） */
+  monthlyLease: number;
+  /** 使ったリース料率 */
+  leaseRate: number;
 }
 
 export interface FleetUnitCalc {
