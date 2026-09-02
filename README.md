@@ -210,6 +210,17 @@ user スコープの MCP サーバーは `~/.claude.json` に書かれるため�
 
 ---
 
+## 業務スクリプト
+
+| スクリプト | 用途 | 手順書 |
+|---|---|---|
+| `scripts/make_ev_bank_report.py` | 「【EVPT】エレベーター特約店管理表」の `【成約済】EV案件 管理表` シートを、銀行提出用の A3 印刷 Excel に変換する | [`docs/ev-bank-report.md`](docs/ev-bank-report.md) |
+
+Claude Code からは `claude/skills/ev-bank-report/` のスキルが呼ばれるので、
+「銀行提出用の Excel を作って」と頼むだけでも実行できます。
+
+---
+
 ## 元に戻したいとき
 
 ```powershell
