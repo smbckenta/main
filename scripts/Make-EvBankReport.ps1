@@ -84,16 +84,16 @@ if (-not $python) {
           '  winget install -e --id Python.Python.3.12')
 }
 Write-Log "Python: $((Get-Command $python).Source)" 'DarkGray'
-# py ランチャーだけ -3 を付ける
-$pyPrefix = if ($python -eq 'py') { @('-3') } else { @() }
+# 上のプローブを通った呼び出し方をそのまま使う。
+# 新しい Python Launcher は "py -3" を受け付けないため、余計な引数は付けない。
 
 # openpyxl が無ければ入れる
 # ※ 2>$null は Windows PowerShell 5.1 で NativeCommandError になることがあるので、
 #    2>&1 で変数に受けて捨てる
-$null = & $python @($pyPrefix + @('-c', 'import openpyxl')) 2>&1
+$null = & $python '-c' 'import openpyxl' 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Log 'openpyxl をインストールします...' 'Yellow'
-    $pipOut = & $python @($pyPrefix + @('-m', 'pip', 'install', '--quiet', 'openpyxl')) 2>&1
+    $pipOut = & $python '-m' 'pip' 'install' '--quiet' 'openpyxl' 2>&1
     $pipOut | ForEach-Object { Write-Log ([string] $_) }
     if ($LASTEXITCODE -ne 0) { Fail 'openpyxl のインストールに失敗しました。' }
 }
@@ -151,11 +151,11 @@ if ((Test-Path -LiteralPath $target) -and -not $Force) {
 }
 
 # --- 実行 ----------------------------------------------------------------
-$argList = $pyPrefix + @($py, (Resolve-Path -LiteralPath $Source).Path, '-o', $OutDir, '--pages', $Pages)
+$argList = @($py, (Resolve-Path -LiteralPath $Source).Path, '-o', $OutDir, '--pages', "$Pages")
 if ($Date) { $argList += @('--date', $Date) }
 
 $output = & $python @argList 2>&1
-$output | ForEach-Object { Write-Log $_ }
+$output | ForEach-Object { Write-Log ([string] $_) }
 if ($LASTEXITCODE -ne 0) { Fail '変換に失敗しました。ログを確認してください。' }
 
 Write-Log "保存しました: $target" 'Green'
