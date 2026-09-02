@@ -53,6 +53,25 @@ function Write-Log {
     if (-not $Quiet) { Write-Host $Message -ForegroundColor $Color }
 }
 
+# 外部コマンドの呼び出し。
+# ErrorActionPreference が Stop のままだと、Python が標準エラーへ 1 行でも
+# 書いた時点で NativeCommandError となりスクリプトが止まってしまう。
+# ここだけ Continue に落とし、成否は終了コードで判定する。
+function Invoke-Native {
+    param([string] $Exe, [string[]] $Arguments)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $Exe @Arguments 2>&1
+        return [pscustomobject]@{
+            Output   = @($out | ForEach-Object { [string] $_ })
+            ExitCode = $LASTEXITCODE
+        }
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
 function Fail {
     param([string] $Message)
     Write-Log "エラー: $Message" 'Red'
@@ -74,8 +93,8 @@ if (-not (Test-Path -LiteralPath $py)) { Fail "変換スクリプトが見つか
 $python = $null
 foreach ($candidate in @('py', 'python', 'python3')) {
     if (-not (Get-Command $candidate -ErrorAction SilentlyContinue)) { continue }
-    $probe = & $candidate '-c' 'print(1)' 2>&1
-    if ($LASTEXITCODE -eq 0 -and (($probe -join '') -match '1')) { $python = $candidate; break }
+    $probe = Invoke-Native $candidate @('-c', 'print(1)')
+    if ($probe.ExitCode -eq 0 -and (($probe.Output -join '') -match '1')) { $python = $candidate; break }
     Write-Log "$candidate は実行できないため飛ばします（Microsoft Store のダミーの可能性）" 'DarkGray'
 }
 if (-not $python) {
@@ -88,14 +107,14 @@ Write-Log "Python: $((Get-Command $python).Source)" 'DarkGray'
 # 新しい Python Launcher は "py -3" を受け付けないため、余計な引数は付けない。
 
 # openpyxl が無ければ入れる
-# ※ 2>$null は Windows PowerShell 5.1 で NativeCommandError になることがあるので、
-#    2>&1 で変数に受けて捨てる
-$null = & $python '-c' 'import openpyxl' 2>&1
-if ($LASTEXITCODE -ne 0) {
+if ((Invoke-Native $python @('-c', 'import openpyxl')).ExitCode -ne 0) {
     Write-Log 'openpyxl をインストールします...' 'Yellow'
-    $pipOut = & $python '-m' 'pip' 'install' '--quiet' 'openpyxl' 2>&1
-    $pipOut | ForEach-Object { Write-Log ([string] $_) }
-    if ($LASTEXITCODE -ne 0) { Fail 'openpyxl のインストールに失敗しました。' }
+    $pip = Invoke-Native $python @('-m', 'pip', 'install', '--quiet', 'openpyxl')
+    $pip.Output | ForEach-Object { Write-Log $_ }
+    if ($pip.ExitCode -ne 0) { Fail 'openpyxl のインストールに失敗しました。' }
+    if ((Invoke-Native $python @('-c', 'import openpyxl')).ExitCode -ne 0) {
+        Fail 'openpyxl を入れましたが読み込めません。Python の環境をご確認ください。'
+    }
 }
 
 # --- 保存先ドライブを待つ（ログオン直後は G: がまだ現れていないことがある） ---
@@ -154,9 +173,9 @@ if ((Test-Path -LiteralPath $target) -and -not $Force) {
 $argList = @($py, (Resolve-Path -LiteralPath $Source).Path, '-o', $OutDir, '--pages', "$Pages")
 if ($Date) { $argList += @('--date', $Date) }
 
-$output = & $python @argList 2>&1
-$output | ForEach-Object { Write-Log ([string] $_) }
-if ($LASTEXITCODE -ne 0) { Fail '変換に失敗しました。ログを確認してください。' }
+$run = Invoke-Native $python $argList
+$run.Output | ForEach-Object { Write-Log $_ }
+if ($run.ExitCode -ne 0) { Fail '変換に失敗しました。ログを確認してください。' }
 
 Write-Log "保存しました: $target" 'Green'
 if (-not $NoOpen -and -not $Quiet) { Start-Process explorer.exe $OutDir }
