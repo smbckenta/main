@@ -121,17 +121,20 @@ OWNER_FILLS = {
 }
 OWNER_PALETTE = ["E7E3D8", "E2E8F0", "F0E6E0", "E6EEE2", "EFE6EF", "E0EAEA"]
 
-# 「結果」ごとの色分け（地色, 文字色, 太字）
+# 「結果」ごとの色分け（地色, 文字色）。7 種すべて別の色にする
 RESULT_STYLES = {
-    "保守成約":   ("D9EAD3", "1E5F3F", True),
-    "リニュ成約": ("D9EAD3", "1E5F3F", True),
-    "新設成約":   ("D9EAD3", "1E5F3F", True),
-    "進捗中":     ("FCEFC7", "8A6100", True),
-    "保留":       ("FCEFC7", "8A6100", True),
-    "失注":       ("EAEAEA", "6B6B6B", False),
-    "解約":       ("F7D9D9", "A33A3A", True),
+    "保守成約":   ("CDE7C4", "1D5C2E"),   # 緑
+    "リニュ成約": ("CBDFF6", "18497C"),   # 青
+    "新設成約":   ("DED3F1", "4E3287"),   # 紫
+    "進捗中":     ("FBDFC2", "9A5200"),   # 橙
+    "保留":       ("FBF1BC", "836200"),   # 黄
+    "失注":       ("E4E4E4", "5F5F5F"),   # 灰
+    "解約":       ("F7CFCF", "9E2E2E"),   # 赤
 }
 
+BODY_BOLD = True            # 本文も太字にする（細字だと紙の上で読みにくいため）
+BOLD_WIDTH = 1.06           # 太字は少し幅を食うぶんの余裕
+BODY_FONT_COLOR = "1A1A1A"  # 真っ黒より少し柔らかい黒
 HEADER_FONT_COLOR = "FFFFFF"
 BAND_FILL = "EFF5FB"        # 1 行おきの薄い地色（横方向に目で追いやすくする）
 ZERO_FONT = "A0A0A0"        # ¥0 は控えめに
@@ -156,8 +159,8 @@ def page_size_in() -> tuple[float, float]:
 
 
 def char_px(font_size: float) -> float:
-    """半角 1 文字ぶんの幅（px）。"""
-    return font_size * (DPI / 72) * 0.5
+    """半角 1 文字ぶんの幅（px）。太字ぶんの余裕を含める。"""
+    return font_size * (DPI / 72) * 0.5 * (BOLD_WIDTH if BODY_BOLD else 1.0)
 
 
 def display_len(text) -> int:
@@ -419,14 +422,14 @@ def build(src_path: str, out_path: str, made_on: dt.date, target_pages: int) -> 
         ):
             cell = ws.cell(out_row, i, value)
             # 失注・解約の行は文字を薄くして、生きている契約を目立たせる
-            color = MUTED_FONT if result in MUTED_RESULTS else None
-            bold = label == "❸EVPT NP" and result not in MUTED_RESULTS
+            color = MUTED_FONT if result in MUTED_RESULTS else BODY_FONT_COLOR
+            bold = BODY_BOLD
             fill = band
 
             if label == "担当" and value in owner_colors:
                 fill = owner_colors[value]
             elif label == "結果" and result in RESULT_STYLES:
-                fill, color, bold = RESULT_STYLES[result]
+                fill, color = RESULT_STYLES[result]
             elif numfmt and "¥" in numfmt and value == 0:
                 color = ZERO_FONT                     # ¥0 は目立たせない
 

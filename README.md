@@ -214,7 +214,8 @@ user スコープの MCP サーバーは `~/.claude.json` に書かれるため�
 
 | スクリプト | 用途 | 手順書 |
 |---|---|---|
-| `scripts/Make-EvBankReport.ps1` | 上記をワンクリックで実行するラッパー（引数なしでダウンロードフォルダの最新ファイルを変換し、共有ドライブに保存して開く） | [`docs/ev-bank-report.md`](docs/ev-bank-report.md) |
+| `scripts/Install-EvBankReportTask.ps1` | 上記をタスクスケジューラに登録し、毎月 1 日とログオン時に自動で作成・保存させる（1 回だけ実行） | [`docs/ev-bank-report.md`](docs/ev-bank-report.md) |
+| `scripts/Make-EvBankReport.ps1` | 手で 1 回だけ実行するときのラッパー（引数なしで最新ファイルを変換し、共有ドライブに保存して開く） | [`docs/ev-bank-report.md`](docs/ev-bank-report.md) |
 | `scripts/make_ev_bank_report.py` | 「【EVPT】エレベーター特約店管理表」の `【成約済】EV案件 管理表` シートを、銀行提出用の A3 印刷 Excel に変換する | [`docs/ev-bank-report.md`](docs/ev-bank-report.md) |
 
 Claude Code からは `claude/skills/ev-bank-report/` のスキルが呼ばれるので、

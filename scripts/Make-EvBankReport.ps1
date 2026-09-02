@@ -3,74 +3,134 @@
     「【EVPT】エレベーター特約店管理表」を銀行提出用の A3 Excel にして共有ドライブへ保存します。
 
 .DESCRIPTION
-    ダウンロード済みの .xlsx を渡すだけで
-        G:\共有ドライブ\★Kevin\☆重要\f\EV関連\【EVPT】エレベーター特約店管理表YYMMDD.xlsx
-    に保存します（YYMMDD = 作成日）。ファイルを省略すると、ダウンロードフォルダにある
-    いちばん新しい 【EVPT】〜.xlsx を自動で拾います。
+    保存先の
+        G:\共有ドライブ\★Kevin\☆重要\f\EV関連
+    は Google ドライブ（共有ドライブ ★Kevin）のフォルダなので、ここへ保存すれば
+    そのままクラウドにも他の PC にも同期されます。
+
+    ファイル名は 【EVPT】エレベーター特約店管理表YYMMDD.xlsx（YYMMDD = 作成日）。
+
+    変換元を省略すると、次の順に「まだ変換していない最新の xlsx」を自動で探します。
+      1. 保存先フォルダ（EV関連）
+      2. ダウンロードフォルダ
+    末尾が 6 桁の数字のファイル（＝このスクリプトが作った提出用ファイル）は
+    変換元の候補から除きます。
 
 .EXAMPLE
     .\scripts\Make-EvBankReport.ps1
     .\scripts\Make-EvBankReport.ps1 -Source "$HOME\Downloads\管理表.xlsx" -Pages 4
+    .\scripts\Make-EvBankReport.ps1 -Quiet -Force      # タスクスケジューラ用
 #>
 [CmdletBinding()]
 param(
-    # 変換元。省略するとダウンロードフォルダの最新 xlsx を使います
+    # 変換元。省略すると保存先フォルダ→ダウンロードフォルダの順に最新ファイルを探します
     [string] $Source,
     # A3 で何ページに収めるか（少ないほど文字は小さくなります）
     [int]    $Pages = 5,
-    # 保存先フォルダ
+    # 保存先フォルダ（= Google ドライブの共有ドライブ上のフォルダ）
     [string] $OutDir = 'G:\共有ドライブ\★Kevin\☆重要\f\EV関連',
     # ファイル名の日付 YYMMDD。省略すると本日
     [string] $Date,
-    # 保存後にフォルダを開かない
-    [switch] $NoOpen
+    # 同じ日付のファイルが既にあっても作り直す
+    [switch] $Force,
+    # 保存後にフォルダを開かない（自動実行時はこちら）
+    [switch] $NoOpen,
+    # 画面出力を抑え、エラーでも例外を投げない（タスクスケジューラ用）
+    [switch] $Quiet
 )
 
 $ErrorActionPreference = 'Stop'
-$OutputEncoding = [Console]::OutputEncoding = [Text.Encoding]::UTF8
+try { $OutputEncoding = [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
-$script = Join-Path $PSScriptRoot 'make_ev_bank_report.py'
-if (-not (Test-Path -LiteralPath $script)) {
-    throw "変換スクリプトが見つかりません: $script"
+$logDir = Join-Path $env:LOCALAPPDATA 'EvBankReport'
+$null = New-Item -ItemType Directory -Path $logDir -Force -ErrorAction SilentlyContinue
+$logFile = Join-Path $logDir 'run.log'
+
+function Write-Log {
+    param([string] $Message, [string] $Color = 'Gray')
+    $line = '{0}  {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
+    Add-Content -LiteralPath $logFile -Value $line -Encoding UTF8
+    if (-not $Quiet) { Write-Host $Message -ForegroundColor $Color }
 }
+
+function Fail {
+    param([string] $Message)
+    Write-Log "エラー: $Message" 'Red'
+    if ($Quiet) { exit 1 } else { throw $Message }
+}
+
+# 提出用ファイル（末尾が 6 桁の数字）かどうか
+function Test-GeneratedReport {
+    param([string] $Name)
+    return [IO.Path]::GetFileNameWithoutExtension($Name) -match '\d{6}$'
+}
+
+$py = Join-Path $PSScriptRoot 'make_ev_bank_report.py'
+if (-not (Test-Path -LiteralPath $py)) { Fail "変換スクリプトが見つかりません: $py" }
 
 # --- Python を探す -------------------------------------------------------
 $python = $null
 foreach ($candidate in @('py', 'python', 'python3')) {
     if (Get-Command $candidate -ErrorAction SilentlyContinue) { $python = $candidate; break }
 }
-if (-not $python) { throw 'Python が見つかりません。https://www.python.org/ からインストールしてください。' }
-$pyArgs = if ($python -eq 'py') { @('-3', $script) } else { @($script) }
+if (-not $python) { Fail 'Python が見つかりません。https://www.python.org/ からインストールしてください。' }
+# py ランチャーだけ -3 を付ける
+$pyPrefix = if ($python -eq 'py') { @('-3') } else { @() }
 
 # openpyxl が無ければ入れる
-& $python @($pyArgs[0..($pyArgs.Length - 2)] + '-c', 'import openpyxl') 2>$null
+& $python @($pyPrefix + @('-c', 'import openpyxl')) 2>$null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host 'openpyxl をインストールします...' -ForegroundColor Yellow
-    & $python @($pyArgs[0..($pyArgs.Length - 2)] + '-m', 'pip', 'install', '--quiet', 'openpyxl')
+    Write-Log 'openpyxl をインストールします...' 'Yellow'
+    & $python @($pyPrefix + @('-m', 'pip', 'install', '--quiet', 'openpyxl'))
+    if ($LASTEXITCODE -ne 0) { Fail 'openpyxl のインストールに失敗しました。' }
 }
 
 # --- 変換元を決める ------------------------------------------------------
-if (-not $Source) {
-    $downloads = Join-Path $HOME 'Downloads'
-    $latest = Get-ChildItem -LiteralPath $downloads -Filter '*.xlsx' -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -like '*EVPT*' -and $_.Name -notlike '~$*' } |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-    if (-not $latest) {
-        throw "ダウンロードフォルダに 【EVPT】〜.xlsx が見つかりません。`n" +
-              "スプレッドシートを『ファイル > ダウンロード > Microsoft Excel (.xlsx)』で保存してから、" +
-              'もう一度実行してください。'
+function Find-Source {
+    foreach ($dir in @($OutDir, (Join-Path $HOME 'Downloads'))) {
+        if (-not (Test-Path -LiteralPath $dir)) { continue }
+        $hit = Get-ChildItem -LiteralPath $dir -Filter '*.xlsx' -File -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -like '*EVPT*' -and
+                $_.Name -notlike '~$*' -and
+                -not (Test-GeneratedReport $_.Name)
+            } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($hit) { return $hit.FullName }
     }
-    $Source = $latest.FullName
-    Write-Host "変換元: $Source" -ForegroundColor DarkGray
+    return $null
 }
-if (-not (Test-Path -LiteralPath $Source)) { throw "ファイルが見つかりません: $Source" }
+
+if (-not $Source) { $Source = Find-Source }
+if (-not $Source) {
+    Fail ("変換元の 【EVPT】〜.xlsx が見つかりません。`n" +
+          "スプレッドシートを『ファイル > ダウンロード > Microsoft Excel (.xlsx)』で保存してから、" +
+          'もう一度実行してください。')
+}
+if (-not (Test-Path -LiteralPath $Source)) { Fail "ファイルが見つかりません: $Source" }
+Write-Log "変換元: $Source" 'DarkGray'
+
+# --- 既に同じ日付のものがあれば作らない（-Force で上書き） ---------------
+$stamp = if ($Date) { $Date } else { Get-Date -Format 'yyMMdd' }
+$target = Join-Path $OutDir ("【EVPT】エレベーター特約店管理表{0}.xlsx" -f $stamp)
+if ((Test-Path -LiteralPath $target) -and -not $Force) {
+    $srcTime = (Get-Item -LiteralPath $Source).LastWriteTime
+    $dstTime = (Get-Item -LiteralPath $target).LastWriteTime
+    if ($dstTime -ge $srcTime) {
+        Write-Log "最新版が既にあります（変換元より新しい）: $target" 'DarkGray'
+        if (-not $NoOpen -and -not $Quiet) { Start-Process explorer.exe $OutDir }
+        return
+    }
+}
 
 # --- 実行 ----------------------------------------------------------------
-$argList = $pyArgs + @((Resolve-Path -LiteralPath $Source).Path, '-o', $OutDir, '--pages', $Pages)
+$argList = $pyPrefix + @($py, (Resolve-Path -LiteralPath $Source).Path, '-o', $OutDir, '--pages', $Pages)
 if ($Date) { $argList += @('--date', $Date) }
 
-& $python @argList
-if ($LASTEXITCODE -ne 0) { throw '変換に失敗しました。上のメッセージを確認してください。' }
+$output = & $python @argList 2>&1
+$output | ForEach-Object { Write-Log $_ }
+if ($LASTEXITCODE -ne 0) { Fail '変換に失敗しました。ログを確認してください。' }
 
-if (-not $NoOpen) { Start-Process explorer.exe $OutDir }
+Write-Log "保存しました: $target" 'Green'
+if (-not $NoOpen -and -not $Quiet) { Start-Process explorer.exe $OutDir }
