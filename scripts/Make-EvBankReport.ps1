@@ -78,11 +78,27 @@ if (-not $python) { Fail 'Python が見つかりません。https://www.python.o
 $pyPrefix = if ($python -eq 'py') { @('-3') } else { @() }
 
 # openpyxl が無ければ入れる
-& $python @($pyPrefix + @('-c', 'import openpyxl')) 2>$null
+# ※ 2>$null は Windows PowerShell 5.1 で NativeCommandError になることがあるので、
+#    2>&1 で変数に受けて捨てる
+$null = & $python @($pyPrefix + @('-c', 'import openpyxl')) 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Log 'openpyxl をインストールします...' 'Yellow'
-    & $python @($pyPrefix + @('-m', 'pip', 'install', '--quiet', 'openpyxl'))
+    $pipOut = & $python @($pyPrefix + @('-m', 'pip', 'install', '--quiet', 'openpyxl')) 2>&1
+    $pipOut | ForEach-Object { Write-Log ([string] $_) }
     if ($LASTEXITCODE -ne 0) { Fail 'openpyxl のインストールに失敗しました。' }
+}
+
+# --- 保存先ドライブを待つ（ログオン直後は G: がまだ現れていないことがある） ---
+$outRoot = [IO.Path]::GetPathRoot($OutDir)
+if ($outRoot -and -not (Test-Path -LiteralPath $outRoot)) {
+    Write-Log "保存先ドライブ $outRoot を待っています..." 'DarkGray'
+    for ($i = 0; $i -lt 36; $i++) {          # 5 秒 × 36 = 最大 3 分
+        Start-Sleep -Seconds 5
+        if (Test-Path -LiteralPath $outRoot) { break }
+    }
+    if (-not (Test-Path -LiteralPath $outRoot)) {
+        Fail "保存先ドライブ $outRoot が見つかりません。Google ドライブが起動しているか確認してください。"
+    }
 }
 
 # --- 変換元を決める ------------------------------------------------------

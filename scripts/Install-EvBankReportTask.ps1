@@ -68,7 +68,10 @@ $monthly = New-CimInstance -CimClass (Get-CimClass -ClassName MSFT_TaskMonthlyTr
         -Namespace Root/Microsoft/Windows/TaskScheduler) -ClientOnly
 $monthly.DaysOfMonth = $DayOfMonth
 $monthly.MonthsOfYear = 4095          # 全 12 か月
-$monthly.StartBoundary = '{0:yyyy-MM-dd}T{1:HH:mm:ss}' -f [datetime]::Today, [datetime]$At
+# 時刻の解釈は地域設定に左右されないよう自前で組み立てる
+$hh, $mm = ($At -split ':')
+$start = [datetime]::Today.AddHours([int] $hh).AddMinutes([int] $mm)
+$monthly.StartBoundary = $start.ToString('yyyy-MM-ddTHH:mm:ss')
 $monthly.Enabled = $true
 
 # ログオン時（PC を起動したとき）。同じ日付のファイルが既にあれば作成はスキップされます
@@ -83,7 +86,8 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 30) `
     -MultipleInstances IgnoreNew
 
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+$userId = if ($env:USERDOMAIN) { "$env:USERDOMAIN\$env:USERNAME" } else { $env:USERNAME }
+$principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType Interactive -RunLevel Limited
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers `
     -Settings $settings -Principal $principal -Force | Out-Null
