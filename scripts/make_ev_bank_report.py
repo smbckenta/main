@@ -99,21 +99,47 @@ EXCLUDE_START_MONTH = {"凛"}
 
 ERROR_TEXTS = {"#VALUE!", "#N/A", "#REF!", "#NAME?", "#DIV/0!", "#NULL!", "#NUM!"}
 
-# 「結果」ごとの色分け
-RESULT_FILLS = {
-    "保守成約":   "E8F3E4",
-    "リニュ成約": "E8F3E4",
-    "新設成約":   "E8F3E4",
-    "進捗中":     "FFF6DC",
-    "保留":       "FFF6DC",
-    "失注":       "F2F2F2",
-    "解約":       "FBE4E4",
+# 列のまとまり。見出しの色を分け、境目に太めの縦罫線を引く
+#   (グループ名, 先頭列の出力見出し, 見出しの地色)
+COLUMN_GROUPS = [
+    ("案件",   "成約Code", "1F3864"),
+    ("時期",   "開始月",   "2E5A8A"),
+    ("契約",   "提案内容", "2F6E6A"),
+    ("金額",   "仕切",     "1E5F3F"),
+    ("結果",   "結果",     "5A5F6E"),
+]
+
+# 担当ごとの色。ここに無い担当は OWNER_PALETTE から自動で割り当てます
+OWNER_FILLS = {
+    "小坂":           "DCE9F7",   # 青
+    "山内":           "E3F1DE",   # 緑
+    "河内山":         "FCE7D6",   # 橙
+    "ライクタイガー": "EAE1F5",   # 紫
+    "啓就":           "FBF0C9",   # 黄
+    "諸富":           "DDEFF0",   # 水
+    "上野":           "F9DFE6",   # 桃
+}
+OWNER_PALETTE = ["E7E3D8", "E2E8F0", "F0E6E0", "E6EEE2", "EFE6EF", "E0EAEA"]
+
+# 「結果」ごとの色分け（地色, 文字色, 太字）
+RESULT_STYLES = {
+    "保守成約":   ("D9EAD3", "1E5F3F", True),
+    "リニュ成約": ("D9EAD3", "1E5F3F", True),
+    "新設成約":   ("D9EAD3", "1E5F3F", True),
+    "進捗中":     ("FCEFC7", "8A6100", True),
+    "保留":       ("FCEFC7", "8A6100", True),
+    "失注":       ("EAEAEA", "6B6B6B", False),
+    "解約":       ("F7D9D9", "A33A3A", True),
 }
 
-HEADER_FILL = "1F4E79"
 HEADER_FONT_COLOR = "FFFFFF"
-BAND_FILL = "F7F9FC"
-GRID = Side(style="thin", color="9DB2C6")
+BAND_FILL = "EFF5FB"        # 1 行おきの薄い地色（横方向に目で追いやすくする）
+ZERO_FONT = "A0A0A0"        # ¥0 は控えめに
+MUTED_FONT = "8A8A8A"       # 失注・解約の行は文字を落ち着かせる
+MUTED_RESULTS = {"失注", "解約"}
+GRID = Side(style="thin", color="A8BACD")
+GROUP_LINE = Side(style="medium", color="53708C")   # 列グループの境目
+YEAR_LINE = Side(style="medium", color="53708C")    # 開始年が変わる区切り
 BORDER = Border(left=GRID, right=GRID, top=GRID, bottom=GRID)
 
 # Excel の列幅 1 単位 = 既定フォント(Calibri 11)の数字幅 7px。px = width*7 + 5
@@ -331,41 +357,91 @@ def build(src_path: str, out_path: str, made_on: dt.date, target_pages: int) -> 
     ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[2].height = lay["meta_h"]
 
+    # --- 列グループ（見出しの色分けと縦罫線の位置）
+    labels = [c[0] for c in COLUMNS]
+    group_starts, group_fill = {}, {}
+    current = COLUMN_GROUPS[0][2]
+    for _name, first_label, color in COLUMN_GROUPS:
+        if first_label in labels:
+            group_starts[labels.index(first_label) + 1] = True
+    for i, label in enumerate(labels, start=1):
+        for _name, first_label, color in COLUMN_GROUPS:
+            if label == first_label:
+                current = color
+        group_fill[i] = current
+
+    def edges(col: int, top: Side, bottom: Side) -> Border:
+        """列グループの境目だけ縦罫線を太くする。"""
+        return Border(
+            left=GROUP_LINE if col in group_starts and col > 1 else GRID,
+            right=GROUP_LINE if col + 1 in group_starts else GRID,
+            top=top, bottom=bottom,
+        )
+
     # --- 見出し行
     hrow = 3
-    head_fill = PatternFill("solid", fgColor=HEADER_FILL)
-    for i, (label, *_r) in enumerate(COLUMNS, start=1):
+    for i, label in enumerate(labels, start=1):
         cell = ws.cell(hrow, i, label)
         cell.font = Font(name=FONT_NAME, size=fs, bold=True, color=HEADER_FONT_COLOR)
-        cell.fill = head_fill
+        cell.fill = PatternFill("solid", fgColor=group_fill[i])
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = BORDER
+        cell.border = edges(i, GROUP_LINE, GROUP_LINE)
     ws.row_dimensions[hrow].height = lay["head_h"]
 
     # --- 明細
+    owner_idx = labels.index("担当")
+    start_idx = labels.index("開始月")
+    owner_colors = dict(OWNER_FILLS)
+    spare = iter(OWNER_PALETTE)
+    for values in rows:                       # 未登録の担当にも色を用意する
+        owner = values[owner_idx]
+        if owner and owner not in owner_colors:
+            owner_colors[owner] = next(spare, "EDEDED")
+
+    def year_key(value):
+        return value.year if isinstance(value, (dt.datetime, dt.date)) else str(value or "")
+
     out_row = hrow
+    prev_year = object()
     for n, values in enumerate(rows):
         out_row += 1
         result = values[result_idx]
-        band = BAND_FILL if n % 2 else None
+        # 開始年が変わる行には区切り線を引く（年ごとのまとまりが分かる）
+        this_year = year_key(values[start_idx])
+        new_block = this_year != prev_year
+        if new_block:
+            prev_year = this_year
+        band = BAND_FILL if n % 2 else None      # 1 行おきの縞
+        top = YEAR_LINE if new_block and n else GRID
+
         for i, (value, (label, _s, _cap, numfmt, wrap, halign)) in enumerate(
             zip(values, COLUMNS), start=1
         ):
             cell = ws.cell(out_row, i, value)
-            cell.font = Font(name=FONT_NAME, size=fs)
+            # 失注・解約の行は文字を薄くして、生きている契約を目立たせる
+            color = MUTED_FONT if result in MUTED_RESULTS else None
+            bold = label == "❸EVPT NP" and result not in MUTED_RESULTS
+            fill = band
+
+            if label == "担当" and value in owner_colors:
+                fill = owner_colors[value]
+            elif label == "結果" and result in RESULT_STYLES:
+                fill, color, bold = RESULT_STYLES[result]
+            elif numfmt and "¥" in numfmt and value == 0:
+                color = ZERO_FONT                     # ¥0 は目立たせない
+
+            cell.font = Font(name=FONT_NAME, size=fs, bold=bold, color=color)
             # 大きく超過する長文だけ折り返し、それ以外は 1 行のまま自動縮小
             do_wrap = line_count(as_text(value, numfmt), lay["caps"][i - 1], wrap) > 1
             cell.alignment = Alignment(
                 horizontal=halign, vertical="center",
                 wrap_text=do_wrap, shrink_to_fit=not do_wrap,
             )
-            cell.border = BORDER
+            cell.border = edges(i, top, GRID)
+            if fill:
+                cell.fill = PatternFill("solid", fgColor=fill)
             if numfmt and isinstance(value, (int, float, dt.datetime, dt.date)):
                 cell.number_format = numfmt
-            if label == "結果" and result in RESULT_FILLS:
-                cell.fill = PatternFill("solid", fgColor=RESULT_FILLS[result])
-            elif band:
-                cell.fill = PatternFill("solid", fgColor=band)
         ws.row_dimensions[out_row].height = lay["row_heights"][n]
 
     # --- 列幅
@@ -409,12 +485,25 @@ def build(src_path: str, out_path: str, made_on: dt.date, target_pages: int) -> 
 
 # ---------------------------------------------------------------- CLI
 def resolve_out_dir(requested: str | None) -> str:
+    """保存先を決める。既定は共有ドライブで、無ければ作りにいく。"""
     if requested:
+        os.makedirs(requested, exist_ok=True)
         return requested
-    if os.path.isdir(DEFAULT_OUT_DIR):
-        return DEFAULT_OUT_DIR
+
+    # Windows 以外で "G:\..." を渡すと、カレントに変な名前のフォルダができてしまう
+    windows_path = re.match(r"^[A-Za-z]:[\\/]", DEFAULT_OUT_DIR) is not None
+    if not windows_path or os.name == "nt":
+        try:
+            os.makedirs(DEFAULT_OUT_DIR, exist_ok=True)   # 無ければ作る
+            return DEFAULT_OUT_DIR
+        except OSError as err:
+            print(f"※ 既定の保存先を使えません（{err}）", file=sys.stderr)
+    else:
+        print("※ Windows ではないため既定の保存先を使えません", file=sys.stderr)
+
     print(
-        f"※ 既定の保存先が見つからないためカレントに保存します: {DEFAULT_OUT_DIR}",
+        f"※ カレントフォルダに保存します。共有ドライブに置く場合は"
+        f' -o "{DEFAULT_OUT_DIR}" を付けて実行してください。',
         file=sys.stderr,
     )
     return os.getcwd()
@@ -448,7 +537,6 @@ def main() -> None:
     globals()["MAX_LINES"] = args.lines
 
     out_dir = resolve_out_dir(args.out_dir)
-    os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"{FILE_STEM}{made_on.strftime('%y%m%d')}.xlsx")
 
     info = build(args.src, out_path, made_on, args.pages)

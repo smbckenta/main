@@ -20,7 +20,7 @@ description: Googleスプレッドシート「【EVPT】エレベーター特約
 | スプレッドシート | 【EVPT】エレベーター特約店管理表 |
 | ファイルID | `13rlp9ntARMDjD1f8QZUmMhSJ3uWmCAu0eM1vXrZpXXg` |
 | シート | `【成約済】EV案件 管理表`（gid=21568204） |
-| 保存先 | `G:\共有ドライブ\★Kevin\☆重要\f\EV関連` |
+| 保存先 | `G:\共有ドライブ\★Kevin\☆重要\f\EV関連`（無ければ自動で作成） |
 | ファイル名 | `【EVPT】エレベーター特約店管理表YYMMDD.xlsx`（YYMMDD＝作成日） |
 
 ## 手順
@@ -30,9 +30,15 @@ description: Googleスプレッドシート「【EVPT】エレベーター特約
    - Claude から：Google Drive コネクタの `download_file_content` に
      `exportMimeType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
      を指定してダウンロードし、base64 をデコードして保存する。
-2. 変換スクリプトを実行する。
+2. 変換スクリプトを実行する。PowerShell のラッパーは**引数なし**でも動く
+   （ダウンロードフォルダの最新 【EVPT】〜.xlsx を自動で拾い、保存先を開く）。
+
+   ```powershell
+   .\scripts\Make-EvBankReport.ps1
+   ```
 
    ```bash
+   # Python を直接叩く場合
    python scripts/make_ev_bank_report.py <ダウンロードした.xlsx>
    ```
 
@@ -57,8 +63,10 @@ description: Googleスプレッドシート「【EVPT】エレベーター特約
   `--pages`（既定 5）に収まる範囲で列幅と文字サイズを自動決定。
   現データ 262 件なら 5 ページ・紙の上で約 9pt
 - **A3 横・横1ページ幅**の印刷設定。見出し行は全ページで繰り返す
+- **見やすさの工夫**：担当ごとの色分け／列グループごとの見出し色と太い縦罫線／
+  開始年が変わる行の区切り線／1行おきの薄い縞／`結果` のチップ風色分け／
+  失注・解約の行は文字を薄く／`❸EVPT NP` を太字／`¥0` を薄いグレー
 - 数式は計算結果の値に確定させ、`#VALUE!` などのエラー表示は空欄にする
-- `結果` の値で色分け（成約＝緑／進捗中・保留＝黄／失注＝灰／解約＝赤）
 
 ## 対象行の決め方
 
@@ -82,6 +90,9 @@ description: Googleスプレッドシート「【EVPT】エレベーター特約
 | 文字サイズの上下限 | `FONT_MIN` / `FONT_MAX` |
 | 列幅の探索範囲 | `WIDTH_FACTOR_MIN` / `WIDTH_FACTOR_MAX` |
 | 折り返しの判定 | `WRAP_THRESHOLD` / `MAX_LINES` |
+| 担当ごとの色 | `OWNER_FILLS` / `OWNER_PALETTE` |
+| 列グループと見出し色 | `COLUMN_GROUPS` |
+| `結果` の色分け | `RESULT_STYLES` |
 | A3 の向き | `ORIENTATION` |
 | 列の取捨と列幅の配分 | `COLUMNS`（幅は「半角何文字ぶん」で指定） |
 | 除外する `開始月` の値 | `EXCLUDE_START_MONTH` |
