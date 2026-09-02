@@ -69,11 +69,21 @@ $py = Join-Path $PSScriptRoot 'make_ev_bank_report.py'
 if (-not (Test-Path -LiteralPath $py)) { Fail "変換スクリプトが見つかりません: $py" }
 
 # --- Python を探す -------------------------------------------------------
+# Microsoft Store の「アプリ実行エイリアス」は python.exe という名前だけの
+# ダミーで、実行しても Store が開くだけ。実際に動くものだけを採用する。
 $python = $null
 foreach ($candidate in @('py', 'python', 'python3')) {
-    if (Get-Command $candidate -ErrorAction SilentlyContinue) { $python = $candidate; break }
+    if (-not (Get-Command $candidate -ErrorAction SilentlyContinue)) { continue }
+    $probe = & $candidate '-c' 'print(1)' 2>&1
+    if ($LASTEXITCODE -eq 0 -and (($probe -join '') -match '1')) { $python = $candidate; break }
+    Write-Log "$candidate は実行できないため飛ばします（Microsoft Store のダミーの可能性）" 'DarkGray'
 }
-if (-not $python) { Fail 'Python が見つかりません。https://www.python.org/ からインストールしてください。' }
+if (-not $python) {
+    Fail ("使える Python が見つかりません。PowerShell で次を実行してから、" +
+          "PowerShell を閉じて開き直してください。`n" +
+          '  winget install -e --id Python.Python.3.12')
+}
+Write-Log "Python: $((Get-Command $python).Source)" 'DarkGray'
 # py ランチャーだけ -3 を付ける
 $pyPrefix = if ($python -eq 'py') { @('-3') } else { @() }
 
