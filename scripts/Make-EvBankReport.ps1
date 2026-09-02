@@ -40,7 +40,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-try { $OutputEncoding = [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
+# コンソールと Python の出力を UTF-8 でそろえる（日本語の文字化け対策）
+try {
+    $OutputEncoding = [Text.Encoding]::UTF8
+    [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
+} catch { }
 
 $logDir = Join-Path $env:LOCALAPPDATA 'EvBankReport'
 $null = New-Item -ItemType Directory -Path $logDir -Force -ErrorAction SilentlyContinue
@@ -60,7 +64,12 @@ function Write-Log {
 function Invoke-Native {
     param([string] $Exe, [string[]] $Arguments)
     $prev = $ErrorActionPreference
+    $prevUtf8 = $env:PYTHONUTF8
+    $prevIo = $env:PYTHONIOENCODING
     $ErrorActionPreference = 'Continue'
+    # 日本語が文字化けしないよう、Python 側の出力を UTF-8 にそろえる
+    $env:PYTHONUTF8 = '1'
+    $env:PYTHONIOENCODING = 'utf-8'
     try {
         $out = & $Exe @Arguments 2>&1
         return [pscustomobject]@{
@@ -69,6 +78,8 @@ function Invoke-Native {
         }
     } finally {
         $ErrorActionPreference = $prev
+        $env:PYTHONUTF8 = $prevUtf8
+        $env:PYTHONIOENCODING = $prevIo
     }
 }
 
