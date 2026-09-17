@@ -329,3 +329,44 @@ th.num {
   margin-bottom: 3px;
   white-space: nowrap;
 }
+
+/* ---------------- 資料の解析中の進み具合 ---------------- */
+
+.ingest-progress {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 4px solid #1f4e79;
+  border-radius: 6px;
+  background: #f4f8fc;
+}
+
+.ingest-progress-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.ingest-bar {
+  height: 8px;
+  margin: 8px 0 6px;
+  border-radius: 4px;
+  background: #dbe5ef;
+  overflow: hidden;
+}
+
+.ingest-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1f4e79, #4a86c5);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.ingest-progress-file {
+  font-size: 13px;
+  /* 長いファイル名で折り返して高さが変わらないようにする */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

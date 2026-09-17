@@ -110,3 +110,53 @@ describe("印刷速度のキャッシュ", () => {
     expect(fetched).toBe(0);
   });
 });
+
+describe("読み違えた速度の取り直し", () => {
+  it("機種DBに「4枚/分」が残っていても、それを答えにしない", async () => {
+    const { upsertDevice } = await import("../store");
+    const { fillFleetSpecs } = await import("./fleet-specs");
+    // 仕様ページの読み違いで入ってしまった値（「A4ヨコ 25枚/分」の A4）
+    await upsertDevice({
+      maker: "TOSHIBA",
+      model: "2515AC",
+      ppmColor: 4,
+      ppmMono: 4,
+      source: { method: "web" },
+    });
+
+    const fleet = {
+      enabled: true,
+      leaseTerm: 72,
+      units: [
+        {
+          id: "u1",
+          location: "津南",
+          current: {
+            makerText: "東芝",
+            modelText: "東芝コピー 2515AC",
+            // 画面にも読み違えた値が入っている状態
+            ppm: 4,
+            monthlyLease: 0,
+            minCharge: 0,
+            maintenanceMonthly: 0,
+            lines: [],
+          },
+          proposal: {
+            makerText: "",
+            modelText: "",
+            monthlyLease: 0,
+            minCharge: 0,
+            maintenanceMonthly: 0,
+            lines: [],
+          },
+        },
+      ],
+    };
+
+    // インターネットにも出られない状況（ここでは404を返す）
+    const result = await fillFleetSpecs(fleet, { fetchSpec: true });
+    // 間違った 4 を残さず、「分からない」として扱う
+    expect(result.fleet.units[0].current.ppm).toBeUndefined();
+    expect(result.missing).toEqual(["津南"]);
+  });
+});

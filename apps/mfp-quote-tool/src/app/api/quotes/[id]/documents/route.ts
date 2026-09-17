@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getQuote, saveQuote } from "@/lib/store";
 import { calcQuoteAll } from "@/lib/calc-context";
 import { distinctMachines } from "@/lib/fleet";
-import { ingestDocuments, type DocRole } from "@/lib/ingest";
+import { ingestDocuments, type DocRole, type IngestProgress } from "@/lib/ingest";
+import { ndjsonResponse } from "@/lib/ingest-stream";
 import { saveUpload } from "@/lib/uploads";
 import type { CurrentMachine, Quote } from "@/lib/types";
 
@@ -100,8 +101,9 @@ export async function POST(req: Request, { params }: Ctx) {
     })),
   );
 
-  try {
-    const result = await ingestDocuments(inputs);
+  // 解析の中身は同じで、進み具合を流すかどうかだけが違う
+  const run = async (onProgress?: (p: IngestProgress) => void) => {
+    const result = await ingestDocuments(inputs, { onProgress });
 
     // 読み取ったファイルそのものを案件に残す（あとで原本を開き直せるように）
     const stored = await Promise.all(
@@ -127,11 +129,19 @@ export async function POST(req: Request, { params }: Ctx) {
     // 台の一覧は、この回に読んだ分だけでなく案件に溜まった読み取り全部から数える。
     // 販売店の請求書とメーカーの明細を別々に読ませても、機番で1台にまとまる。
     const machines = distinctMachines(saved.ingest?.counter ?? []);
-    return NextResponse.json({
+    return {
       quote: saved,
       ...calc,
       ingest: { ...result, machines: machines.length > 1 ? machines : undefined },
-    });
+    };
+  };
+
+  if (new URL(req.url).searchParams.get("stream") === "1") {
+    return ndjsonResponse((emit) => run((progress) => emit({ type: "progress", progress })));
+  }
+
+  try {
+    return NextResponse.json(await run());
   } catch (err) {
     return NextResponse.json(
       { error: `解析に失敗しました: ${(err as Error).message}` },

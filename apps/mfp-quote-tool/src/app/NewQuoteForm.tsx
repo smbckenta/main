@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import AiStatusBanner from "./AiStatusBanner";
+import IngestProgressBar from "./IngestProgressBar";
+import { postWithProgress } from "./ingest-progress";
 import { useState } from "react";
 import { ROLE_LABELS } from "@/lib/doc-roles";
 import { pagesAverageNote } from "@/lib/labels";
-import type { IngestResult } from "@/lib/ingest";
+import type { IngestProgress, IngestResult } from "@/lib/ingest";
 
 /** リース契約書・印刷明細をアップロードして案件を新規作成する */
 export default function NewQuoteForm() {
@@ -15,6 +17,8 @@ export default function NewQuoteForm() {
   const [title, setTitle] = useState("複合機入替のご提案");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<IngestResult | null>(null);
+  /** 解析中の進み具合（何ファイル目まで終わったか） */
+  const [progress, setProgress] = useState<IngestProgress | null>(null);
   const [error, setError] = useState("");
 
   async function analyze() {
@@ -24,17 +28,17 @@ export default function NewQuoteForm() {
     }
     setBusy(true);
     setError("");
+    setProgress(null);
     try {
       const form = new FormData();
       for (const f of Array.from(files)) form.append("files", f);
-      const res = await fetch("/api/ingest", { method: "POST", body: form });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "解析に失敗しました。");
-      setResult(json as IngestResult);
+      // 何ファイル目まで終わったかを受け取りながら送る
+      setResult(await postWithProgress<IngestResult>("/api/ingest", form, setProgress));
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -109,13 +113,18 @@ export default function NewQuoteForm() {
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <button onClick={analyze} disabled={busy}>
-          {busy ? "解析中…（1ファイルあたり10〜60秒ほどかかります）" : "資料を解析"}
+          {busy
+            ? progress
+              ? `解析中… ${progress.index}/${progress.total} ファイル目`
+              : "解析中…（1ファイルあたり10〜60秒ほどかかります）"
+            : "資料を解析"}
         </button>
         <button className="secondary" onClick={create} disabled={busy}>
           {result ? "この内容で案件を作成" : "空の案件を作成"}
         </button>
       </div>
 
+      {busy && <IngestProgressBar progress={progress} />}
       {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
 
       {result && (

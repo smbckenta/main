@@ -146,9 +146,46 @@ export function mergeChargeLines(readings: CounterReading[]): CurrentChargeLine[
   });
 }
 
+/**
+ * 解析の進み具合。
+ *
+ * 資料が何十枚もあると、AIの読み取りだけで数分かかる。
+ * 画面が黙ったままだと固まったように見えるので、
+ * 「何ファイル目を、いま何をしているか」を逐一知らせる。
+ */
+export interface IngestProgress {
+  /** いま処理しているファイルの番号（1始まり） */
+  index: number;
+  /** 全ファイル数 */
+  total: number;
+  /** ファイル名 */
+  name: string;
+  /** いまの作業 */
+  phase: "start" | "extract" | "ai" | "ocr" | "parse" | "done";
+  /** 画面にそのまま出せる説明 */
+  message: string;
+  /** 読み取りを終えたファイル数 */
+  completed: number;
+}
+
+const PHASE_TEXT: Record<IngestProgress["phase"], string> = {
+  start: "準備しています",
+  extract: "ファイルを開いています",
+  ai: "AIで読み取っています",
+  ocr: "文字起こし（OCR）で読み取っています",
+  parse: "読み取った内容を整理しています",
+  done: "完了",
+};
+
+export interface IngestOptions {
+  /** 解析の進み具合を受け取る（画面に出すため） */
+  onProgress?: (progress: IngestProgress) => void;
+}
+
 /** アップロードされた資料をまとめて解析し、現行機情報を組み立てる */
 export async function ingestDocuments(
   inputs: { name: string; buffer: Buffer; mime?: string; role?: DocRole }[],
+  options: IngestOptions = {},
 ): Promise<IngestResult> {
   const settings = await getSettings();
   const useAi = await isAiReady(settings.ai);
@@ -172,7 +209,21 @@ export async function ingestDocuments(
     estimatedUsd: 0,
   };
 
-  for (const input of inputs) {
+  const total = inputs.length;
+  /** 進み具合を知らせる。1ファイルにつき何度も呼ぶ */
+  const report = (index: number, name: string, phase: IngestProgress["phase"]) =>
+    options.onProgress?.({
+      index,
+      total,
+      name,
+      phase,
+      completed: phase === "done" ? index : index - 1,
+      message: `${index}/${total} ファイル目　${name}　${PHASE_TEXT[phase]}`,
+    });
+
+  for (const [at, input] of inputs.entries()) {
+    const no = at + 1;
+    report(no, input.name, "extract");
     // AIで読む場合、OCRは時間がかかるだけなので走らせない
     // （PDFの文字レイヤーは軽いので、AIを使う場合も抽出しておく）
     let doc = await extractDocument(input.name, input.buffer, input.mime, { ocr: !useAi });
@@ -181,6 +232,7 @@ export async function ingestDocuments(
 
     let ai: AiDocument | undefined;
     if (useAi && aiTarget) {
+      report(no, input.name, "ai");
       try {
         const result = await analyzeDocumentWithAi({
           name: input.name,
@@ -205,10 +257,12 @@ export async function ingestDocuments(
           `【重要】${input.name}: AIでの読み取りに失敗し、文字起こし（OCR）で読み取りました。数字が合っているか必ずご確認ください。理由：${reason}`,
         );
         // AIが使えないときは従来どおりOCRで読む
+        report(no, input.name, "ocr");
         doc = await extractDocument(input.name, input.buffer, input.mime, { ocr: true });
       }
     }
 
+    report(no, input.name, "parse");
     const aiLines = ai?.transcript?.filter((l) => l.trim()) ?? [];
     const role =
       input.role && input.role !== "unknown"
@@ -240,11 +294,12 @@ export async function ingestDocuments(
       if (!lease && !ai.counters.length) {
         warnings.push(`${input.name}: AIで読み取れる内容が見つかりませんでした。原本をご確認ください。`);
       }
+      report(no, input.name, "done");
       continue;
     }
 
-    if (!doc.lines.length) continue;
-    parseWithRules(doc, role, collected);
+    if (doc.lines.length) parseWithRules(doc, role, collected);
+    report(no, input.name, "done");
   }
 
   const leaseReadings = collected.lease;

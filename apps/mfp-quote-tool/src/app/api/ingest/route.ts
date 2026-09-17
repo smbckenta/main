@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ingestDocuments, type DocRole } from "@/lib/ingest";
+import { ndjsonResponse } from "@/lib/ingest-stream";
 
 export const runtime = "nodejs";
 // 写真・スキャンPDFのOCRは1ページ数秒かかるため長めに取る
@@ -22,6 +23,14 @@ export async function POST(req: Request) {
       role: roles[i],
     })),
   );
+
+  // 何十枚も読ませると数分かかる。画面が固まったように見えないよう、
+  // 進み具合を流しながら解析する（?stream=1）
+  if (new URL(req.url).searchParams.get("stream") === "1") {
+    return ndjsonResponse((emit) =>
+      ingestDocuments(inputs, { onProgress: (progress) => emit({ type: "progress", progress }) }),
+    );
+  }
 
   try {
     return NextResponse.json(await ingestDocuments(inputs));

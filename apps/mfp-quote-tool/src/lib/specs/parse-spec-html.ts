@@ -51,18 +51,55 @@ const LABELS = {
   price: /(希望小売価格|標準価格|メーカー希望)/,
 } as const;
 
-/** "モノクロ 30枚/分、カラー 30枚/分" のような値から両方の数値を取り出す */
-function splitMonoColor(text: string): { mono?: number; color?: number } {
+/**
+ * 用紙サイズの表記を消す。
+ *
+ * 仕様表の値は「A4ヨコ：25枚/分」のように用紙サイズから始まることが多い。
+ * 先頭から数字を拾うと「A4」の4を速度として読んでしまうため、
+ * 数字を探す前に必ず落とす（実際にこれで25枚機が4枚機として出ていた）。
+ */
+const stripPaperSize = (s: string): string =>
+  s.replace(/\b(?:SRA|[AB])\s?[0-9](?:ノビ|ワイド)?\s*(?:タテ|ヨコ|縦|横|判|サイズ)?/gi, " ");
+
+/** 単位（枚/分・秒など）が付いた数値だけを拾う */
+function withUnit(text: string, unit: RegExp): number | undefined {
+  const m = text.match(new RegExp(`([\\d.]+)\\s*(?:${unit.source})`));
+  const n = m ? Number(m[1]) : undefined;
+  return n !== undefined && Number.isFinite(n) ? n : undefined;
+}
+
+/** 速度の単位（枚/分・ページ/分・ppm） */
+const SPEED_UNIT = /枚\s*[/／]\s*分|ページ\s*[/／]\s*分|面\s*[/／]\s*分|ppm/i;
+/** 秒数の単位 */
+const SECOND_UNIT = /秒/;
+
+/**
+ * "モノクロ 30枚/分、カラー 30枚/分" のような値から両方の数値を取り出す。
+ *
+ * 単位の付いた数値を最優先で拾う。単位が無い書き方のときだけ、
+ * 用紙サイズを落としたうえで最初の数値を使う。
+ */
+function splitMonoColor(text: string, unit: RegExp): { mono?: number; color?: number } {
   const s = toHalfWidth(text);
-  const color = s.match(/(?:フルカラー|カラー)[^0-9]{0,8}([\d.]+)/);
-  const mono = s.match(/(?:モノクロ|白黒|ブラック)[^0-9]{0,8}([\d.]+)/);
-  const any = s.match(/([\d.]+)/);
-  const fallback = any ? Number(any[1]) : undefined;
+  const pick = (label: RegExp): number | undefined => {
+    // 「カラー：25枚/分」のように、区分名のあとに続く値
+    const at = s.search(label);
+    if (at < 0) return undefined;
+    const after = stripPaperSize(s.slice(at));
+    return withUnit(after, unit) ?? withUnit(after, /(?:)/);
+  };
+
+  const cleaned = stripPaperSize(s);
+  const fallback = withUnit(cleaned, unit) ?? withUnit(cleaned, /(?:)/);
   return {
-    mono: mono ? Number(mono[1]) : fallback,
-    color: color ? Number(color[1]) : fallback,
+    mono: pick(/モノクロ|白黒|ブラック/) ?? fallback,
+    color: pick(/フルカラー|カラー/) ?? fallback,
   };
 }
+
+/** ありえない値は読み違えとみなして捨てる（数字が出ているほうが誤解を招く） */
+const inRange = (n: number | undefined, min: number, max: number): number | undefined =>
+  n !== undefined && Number.isFinite(n) && n >= min && n <= max ? n : undefined;
 
 /** 仕様表から比較表に使うスペックを組み立てる */
 export function specFromTable(
@@ -76,23 +113,24 @@ export function specFromTable(
 
   const ppm = find(LABELS.ppm);
   if (ppm) {
-    const { mono, color } = splitMonoColor(ppm);
-    spec.ppmMono = mono;
-    spec.ppmColor = color;
+    const { mono, color } = splitMonoColor(ppm, SPEED_UNIT);
+    // 複合機の速度は概ね10〜200枚/分。外れた値は読み違えとみなして捨てる
+    spec.ppmMono = inRange(mono, 5, 250);
+    spec.ppmColor = inRange(color, 5, 250);
     spec.extra["連続コピー速度"] = ppm;
   }
 
   const fc = find(LABELS.firstCopy);
   if (fc) {
-    const { mono, color } = splitMonoColor(fc);
-    spec.firstCopyMonoSec = mono;
-    spec.firstCopyColorSec = color;
+    const { mono, color } = splitMonoColor(fc, SECOND_UNIT);
+    spec.firstCopyMonoSec = inRange(mono, 0.5, 60);
+    spec.firstCopyColorSec = inRange(color, 0.5, 60);
     spec.extra["ファーストコピータイム"] = fc;
   }
 
   const warm = find(LABELS.warmup);
   if (warm) {
-    spec.warmupSec = parseNumber(warm);
+    spec.warmupSec = inRange(withUnit(toHalfWidth(warm), SECOND_UNIT) ?? parseNumber(warm), 0.5, 600);
     spec.extra["ウォームアップタイム"] = warm;
   }
 

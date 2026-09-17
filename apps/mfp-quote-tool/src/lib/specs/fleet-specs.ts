@@ -15,15 +15,30 @@ import type { Fleet } from "../types";
  * インターネットに出ない。
  */
 
+/** メーカー名（社名の書き方はばらつくので、続く語ごと落とす） */
+const MAKER_PREFIX =
+  /^(?:株式会社\s*)?(RICOH|CANON|KYOCERA|SHARP|TOSHIBA|KONICA\s*MINOLTA|FUJI\s*XEROX|FUJIFILM|XEROX|リコージャパン|リコー|キヤノン|キャノン|京セラ|シャープ|東芝テック|東芝|コニカミノルタ|富士フイルム|ゼロックス)(?:\s*(?:ジャパン|テック|ドキュメントソリューションズ?))?\s*(?:株式会社|\(株\)|（株）)?\s*(?:コピー|複写機|複合機|プリンター?)?\s*/i;
+
 /** メーカー名と括弧書きを落とし、機種DBで引ける型番だけにする */
 export function cleanModelText(text: string): string {
   return text
-    .replace(/^(RICOH|CANON|KYOCERA|SHARP|TOSHIBA|KONICA\s*MINOLTA|FUJI\s*XEROX|FUJIFILM|リコー|キヤノン|キャノン|京セラ|シャープ|東芝|コニカミノルタ|富士フイルム|ゼロックス)\s*/i, "")
+    .replace(MAKER_PREFIX, "")
     // 「IM C4500（[302B]IMC4500)」のような括弧書きは製品コード。型番の後ろで切る
     .split(/[（(【[]/)[0]
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * 複合機として筋の通る印刷速度か。
+ *
+ * 機種DBには、仕様ページの読み違いで「4枚/分」のような値が
+ * 入ってしまったことがある（「A4ヨコ 25枚/分」の A4 を拾っていた）。
+ * そのまま比較表に出すと実機と違う数字がお客様に渡るので、
+ * 筋の通らない値は「分からない」として扱い、取り直す。
+ */
+export const plausiblePpm = (ppm: number | undefined): number | undefined =>
+  ppm !== undefined && Number.isFinite(ppm) && ppm >= 10 && ppm <= 250 ? ppm : undefined;
 
 export interface FleetSpecResult {
   fleet: Fleet;
@@ -46,24 +61,37 @@ export async function fillFleetSpecs(
   const units = [...fleet.units];
 
   for (const [i, unit] of units.entries()) {
-    if (unit.current.ppm && !options.forceRefresh) continue;
+    // 画面に入っている値も筋を確かめる。読み違えた「4枚/分」が
+    // すでに入っている台は、入っていないものとして取り直す
+    const current = plausiblePpm(unit.current.ppm);
+    if (current && !options.forceRefresh) continue;
     const model = cleanModelText(unit.current.modelText ?? "");
     if (model.length < 3) continue;
 
     const label = unit.location || model;
     const cached = await findDeviceByModel(model);
-    const ppmOf = (d?: { ppmColor?: number; ppmMono?: number }) => d?.ppmColor ?? d?.ppmMono;
+    // 読み違えた値が機種DBに残っていることがあるので、ここでも筋を確かめる
+    const ppmOf = (d?: { ppmColor?: number; ppmMono?: number }) =>
+      plausiblePpm(d?.ppmColor) ?? plausiblePpm(d?.ppmMono);
 
     let ppm = options.forceRefresh ? undefined : ppmOf(cached);
     let origin: "local" | "web" = "local";
     if (!ppm && options.fetchSpec !== false) {
-      // 取得できた仕様は機種DBに保存される（次からはローカルで当たる）
-      const looked = await lookupSpec(model, undefined, { forceRefresh: options.forceRefresh });
+      // 機種DBに筋の通らない値が残っている場合は取り直す。
+      // そのままだと、おかしな値がキャッシュから何度も返ってくる
+      const stale = Boolean(cached) && !ppmOf(cached);
+      const looked = await lookupSpec(model, undefined, {
+        forceRefresh: options.forceRefresh || stale,
+      });
       ppm = ppmOf(looked.device);
       origin = looked.origin === "web" ? "web" : "local";
     }
 
     if (!ppm) {
+      // 読み違えた値が画面に残らないように消す
+      if (unit.current.ppm !== undefined && !current) {
+        units[i] = { ...unit, current: { ...unit.current, ppm: undefined } };
+      }
       missing.push(label);
       continue;
     }

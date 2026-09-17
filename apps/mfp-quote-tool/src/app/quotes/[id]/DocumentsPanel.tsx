@@ -2,6 +2,9 @@
 
 import { useRef, useState } from "react";
 import AiStatusBanner from "@/app/AiStatusBanner";
+import IngestProgressBar from "@/app/IngestProgressBar";
+import { postWithProgress } from "@/app/ingest-progress";
+import type { IngestProgress } from "@/lib/ingest";
 import { ROLE_LABELS, type DocRole } from "@/lib/doc-roles";
 import type { CounterReading, CurrentCalc, ProposalCalc, Quote, ServiceArea } from "@/lib/types";
 
@@ -48,6 +51,8 @@ export default function DocumentsPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
+  /** 解析中の進み具合（何ファイル目まで終わったか） */
+  const [progress, setProgress] = useState<IngestProgress | null>(null);
   const picker = useRef<HTMLInputElement>(null);
 
   const files = quote.ingest?.files ?? [];
@@ -56,21 +61,26 @@ export default function DocumentsPanel({
     setBusy(true);
     setError("");
     setWarnings([]);
+    setProgress(null);
     try {
       const form = new FormData();
       for (const f of Array.from(list)) {
         form.append("files", f);
         form.append("roles", role);
       }
-      const res = await fetch(`/api/quotes/${quote.id}/documents`, { method: "POST", body: form });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "解析に失敗しました。");
+      // 何ファイル目まで終わったかを受け取りながら送る
+      const json = await postWithProgress<Parameters<typeof onResult>[0]>(
+        `/api/quotes/${quote.id}/documents`,
+        form,
+        setProgress,
+      );
       onResult(json);
       setWarnings(json.ingest?.warnings ?? []);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+      setProgress(null);
       if (picker.current) picker.current.value = "";
     }
   }
@@ -111,7 +121,12 @@ export default function DocumentsPanel({
         </div>
       </div>
 
-      {busy && <p className="spinner">読み取っています… 写真やスキャンPDFは1ファイル数十秒かかることがあります。</p>}
+      {busy &&
+        (progress ? (
+          <IngestProgressBar progress={progress} />
+        ) : (
+          <p className="spinner">読み取りを開始しています…</p>
+        ))}
       {error && <p className="error">{error}</p>}
       {warnings.map((w, i) => (
         <p key={i} className="warn">
