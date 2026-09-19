@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# 実データ（顧客情報を含むため既定でコミットしない）
+data/quotes/
+data/uploads/
+data/settings.json
+
+# 機種スペックDBは共有資産なのでコミットする（data/devices.json）
+.chromium-installed
+
+# 認証情報（AI読み取り用のAPIキー）
+data/api-key.txt
+
+# 削除した案件の退避先と削除履歴（顧客情報を含む）
+data/quotes-deleted/
+data/deletion-log.json
