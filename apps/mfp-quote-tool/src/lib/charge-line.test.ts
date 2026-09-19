@@ -201,9 +201,9 @@ describe("比較表への出し方", () => {
     // 段の内訳（1〜1,000枚 3円 / 1,001〜2,000枚 2.6円）
     expect(html).toContain("1〜1,000枚");
     expect(html).toContain("1,001〜2,000枚");
-    // 控除と実効単価を併記する
-    expect(html).toContain("控除 28枚");
-    expect(html).toContain("実効 2.84円");
+    // 控除は独立した行で引く（明細と同じ見せ方）
+    expect(html).toContain("控除");
+    expect(html).toContain("▲28枚");
   });
 
   it("各社同時比較では、現状の単価は実効単価で並べる（名目や0円にしない）", () => {

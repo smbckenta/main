@@ -114,8 +114,7 @@ describe("控除の書き方（比較表）", () => {
   it("比較表に、現行だけ控除がかかっている旨を書く", () => {
     const { q, current, calc } = render();
     const html = renderCompareHtml(q, current, calc, DEFAULT_SETTINGS);
-    expect(html).toContain("控除（2%）");
-    expect(html).toContain("ブラック 980枚");
+    expect(html).toContain("控除");
     expect(html).toContain("ご提案する複合機には控除がございません");
   });
 

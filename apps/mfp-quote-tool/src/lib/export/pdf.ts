@@ -84,7 +84,7 @@ export interface PdfPageOptions {
 const PAPER_MM = { A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 } };
 const MM_TO_PX = 96 / 25.4;
 /** 縮小の下限。これより小さくすると紙で読めなくなる */
-const MIN_FIT = 0.5;
+const MIN_FIT = 0.45;
 
 /**
  * 中身が1枚に収まるまで --fit を下げる。

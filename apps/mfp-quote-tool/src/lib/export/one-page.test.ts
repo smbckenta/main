@@ -63,18 +63,16 @@ const proposal: Proposal = {
 };
 
 describe("比較表の行数の見積り", () => {
-  it("明細が無ければ伸び縮みしない（ブラック・フルカラー・2色の3行で固定）", () => {
+  it("明細が無ければ伸び縮みしない（3行で固定なので0行）", () => {
     expect(compareRowCount(calcCurrent(quoteWith([]), 0.1))).toBe(0);
-    expect(fitCompare(0)).toBe(1);
   });
 
-  it("段が1つの区分は1行、2つ以上ある区分は段の数だけ行が増える", () => {
-    // 1,500枚（控除後1,470枚）は 1-1000 と 1001-2000 の2段に分かれる。
-    // 段が分かれる区分は、見出し1行＋段2行の計3行になる
-    const twoBands = { ...chargeLine(0, 3), pages: 1_500 };
-    // 800枚は1段に収まるので、見出しの1行だけ
+  it("明細があれば、帯ごとに1行、控除がある区分はさらに1行", () => {
+    // 800枚は1段に収まる → 帯1行 ＋ 控除1行 = 2行
     const oneBand = { ...chargeLine(1, 3), pages: 800 };
-    expect(compareRowCount(calcCurrent(quoteWith([oneBand, twoBands]), 0.1))).toBe(4);
+    // 1,500枚は 1-1000 と 1001-2000 の2段 → 帯2行 ＋ 控除1行 = 3行
+    const twoBands = { ...chargeLine(0, 3), pages: 1_500 };
+    expect(compareRowCount(calcCurrent(quoteWith([oneBand, twoBands]), 0.1))).toBe(5);
   });
 });
 
@@ -90,7 +88,7 @@ describe("行数に応じた縮小", () => {
   });
 
   it("読めなくなる手前で止める", () => {
-    expect(fitCompare(500)).toBe(0.5);
+    expect(fitCompare(500)).toBe(0.45);
   });
 
   it("各社を横並びにした比較表は、列が増えるぶん少し余計に縮める", () => {
@@ -105,8 +103,10 @@ describe("画面に出るHTML", () => {
 
   it("削減額を赤で出す指定が入っている", () => {
     const html = renderCompareHtml(q, current, calc, DEFAULT_SETTINGS);
-    expect(html).toMatch(/\.save\s*\{[^}]*color:\s*#d0021b/);
-    expect(html).toContain('class="save-total"');
+    // 合計合算削減金額は赤で大きく出す
+    expect(html).toMatch(/\.save-summary \.save \{ color: #c00000; \}/);
+    // カウンター削減額は黄色地に赤字
+    expect(html).toContain('class="save-value"');
   });
 
   it("行が多い比較表には縮小の指定が入る", () => {

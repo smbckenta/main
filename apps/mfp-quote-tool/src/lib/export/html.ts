@@ -1,6 +1,7 @@
 import type {
   ChargeLineCalc,
   CurrentCalc,
+  CurrentChargeLine,
   Fleet,
   FleetCalc,
   FleetSideCalc,
@@ -37,13 +38,14 @@ const CSS = `
   body {
     font-family: ${FONT_STACK};
     color: var(--ink);
-    font-size: 9.5pt;
+    /* A4に刷って読む紙なので、画面で見るより大きめに取る */
+    font-size: 11pt;
     margin: 0;
-    line-height: 1.35;
+    line-height: 1.45;
   }
 
   h1 {
-    font-size: 19pt;
+    font-size: 21pt;
     letter-spacing: 0.4em;
     text-align: center;
     color: var(--accent);
@@ -61,7 +63,7 @@ const CSS = `
     border-radius: 2px;
   }
   h2 {
-    font-size: 15pt;
+    font-size: 16.5pt;
     letter-spacing: 0.35em;
     text-align: center;
     color: var(--accent);
@@ -73,7 +75,8 @@ const CSS = `
 
   table { border-collapse: collapse; width: 100%; }
   .grid { border: 1px solid var(--line); }
-  .grid th, .grid td { border: 1px solid var(--line-soft); padding: 2.5px 6px; }
+  /* 余白は em で取る。字の大きさを変えたときに行の詰まり具合が変わらない */
+  .grid th, .grid td { border: 1px solid var(--line-soft); padding: 0.34em 0.55em; }
   .grid thead th {
     background: var(--accent);
     color: #fff;
@@ -83,16 +86,16 @@ const CSS = `
   }
   .grid tbody th { background: var(--accent-soft); font-weight: 600; }
   .grid tbody tr:nth-child(even) td { background: #f7fafc; }
-  .plain td { padding: 0 2px; vertical-align: top; line-height: 1.5; }
+  .plain td { padding: 0.1em 2px; vertical-align: top; line-height: 1.55; }
 
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .center { text-align: center; }
-  .small { font-size: 8.5pt; }
+  .small { font-size: 0.84em; }
   .muted { color: #5b6b7c; }
 
   .head { display: flex; justify-content: space-between; align-items: flex-start; }
   .customer {
-    font-size: 13.5pt;
+    font-size: 15pt;
     font-weight: 600;
     border-bottom: 2px solid var(--accent);
     min-width: 260px;
@@ -103,14 +106,14 @@ const CSS = `
   .company {
     text-align: left;
     max-width: 56%;
-    font-size: 8.5pt;
+    font-size: 9.5pt;
     line-height: 1.4;
     border-left: 3px solid var(--accent);
     padding: 0 0 0 9px;
   }
-  .company .name { font-size: 11.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
+  .company .name { font-size: 12.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
   .company .logo { display: block; width: 215px; max-height: 42px; object-fit: contain; object-position: left center; margin-bottom: 2px; }
-  .company .offices { margin-top: 2px; font-size: 7.8pt; }
+  .company .offices { margin-top: 2px; font-size: 8.6pt; }
   .company .offices div { display: flex; gap: 6px; }
   .company .offices .office-name { font-weight: 600; white-space: nowrap; color: var(--accent); }
   .brand { display: flex; align-items: center; gap: 10px; }
@@ -128,9 +131,9 @@ const CSS = `
     border-left: 5px solid var(--accent);
     border-radius: 3px;
   }
-  .lease-box .label { font-weight: 700; font-size: 11pt; color: var(--accent); letter-spacing: 0.08em; }
-  .lease-box .value { font-size: 17pt; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
-  .lease-box .value::before { content: "¥"; font-size: 13pt; margin-right: 2px; color: var(--accent); }
+  .lease-box .label { font-weight: 700; font-size: 12.5pt; color: var(--accent); letter-spacing: 0.08em; }
+  .lease-box .value { font-size: 19pt; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
+  .lease-box .value::before { content: "¥"; font-size: 14.5pt; margin-right: 2px; color: var(--accent); }
 
   .section {
     margin-top: 8px;
@@ -141,7 +144,7 @@ const CSS = `
   }
   .notes {
     margin-top: 8px;
-    font-size: 8pt;
+    font-size: 0.86em;
     line-height: 1.4;
     white-space: pre-wrap;
     background: #f7fafc;
@@ -170,60 +173,199 @@ const CSS = `
   .save-total .save { font-size: 1.25em; }
   .page-break { page-break-before: always; }
 
-  /* 比較表の削減効果。商談でいちばん見る表なので、他より一段大きく出す */
-  .effect { margin-top: 14px; border: 2px solid #b3001b; }
-  .effect thead th {
-    background: #b3001b;
-    color: #fff;
-    font-size: 1.28em;
-    letter-spacing: 0.1em;
-    padding: 0.45em 0.6em;
-    border-color: #b3001b;
-  }
-  .effect .effect-rate th { background: #fdeaec; color: #7a0013; font-size: 1.05em; padding: 0.3em 0.6em; }
-  .effect .effect-value th { background: #fdeaec; color: #7a0013; font-weight: 700; }
-  .effect .effect-value td {
-    background: #fff !important;
-    color: #d0021b;
-    font-weight: 700;
-    font-size: 1.72em;
-    letter-spacing: 0.01em;
-    padding: 0.18em 0.5em;
-  }
-  .effect .effect-value td::before { content: "¥"; font-size: 0.62em; margin-right: 0.15em; }
-  .effect-note { margin-top: 5px; font-size: 0.98em; color: #7a0013; }
-  /* 合計合算削減金額の表。下の削減効果と幅を揃えて、目線が縦に流れるようにする */
-  .save-summary th { font-size: 1.05em; }
-  .effect-note b { color: #b3001b; }
+
 `;
 
 /**
- * 比較表を1枚に収めるための縮小。
+ * 見積書（A4たて1枚）。
  *
- * 明細の区分や段が増えると行が伸びて2枚目にこぼれる。表を切って
- * 2枚にすると、お客様は「現状」と「提案」を並べて見られなくなるので、
- * Excelの「1ページに収める」と同じように、字と余白を一緒に縮めて1枚に収める。
+ * 明細が増えても1枚に収める。金額を並べた紙なので、
+ * 2枚目に合計だけが続くと見落とされる。
+ */
+const QUOTE_CSS = `
+  body.quote { font-size: calc(11pt * var(--fit, 1)); }
+  body.quote h1 { font-size: calc(21pt * var(--fit, 1)); }
+  body.quote .customer { font-size: calc(15pt * var(--fit, 1)); }
+  body.quote .company { font-size: calc(9.5pt * var(--fit, 1)); }
+  body.quote .company .name { font-size: calc(12.5pt * var(--fit, 1)); }
+  body.quote .company .offices { font-size: calc(8.6pt * var(--fit, 1)); }
+  body.quote .company .logo { width: calc(215px * var(--fit, 1)); max-height: calc(42px * var(--fit, 1)); }
+  body.quote .brand img { height: calc(44px * var(--fit, 1)); }
+  body.quote .lease-box { margin: 0.6em 0 0.5em; padding: 0.4em 0.9em; }
+  body.quote .lease-box .label { font-size: calc(12.5pt * var(--fit, 1)); }
+  body.quote .lease-box .value { font-size: calc(19pt * var(--fit, 1)); }
+  body.quote .lease-box .value::before { font-size: calc(14.5pt * var(--fit, 1)); }
+  body.quote .section { margin-top: 0.6em; }
+  body.quote .notes { font-size: 0.86em; margin-top: 0.7em; padding: 0.5em 0.8em; }
+`;
+
+/**
+ * 見積書の、行数で伸び縮みする部分の行数。
+ * 機器の明細・カウンター単価・リースシミュレーションが縦に伸びる。
+ */
+export function quoteRowCount(calc: ProposalCalc): number {
+  const items = calc.proposal.items.length;
+  // カウンターは区分3つ＋最低基本料金、リースシミュレーションは3行で固定
+  return items + 4 + 3;
+}
+
+/**
+ * 見積書の縮小率。
  *
- * 大きさに関わる指定はすべて em か var(--fit) 経由にしてある。
- * ここを pt や px で書くと、その部分だけ縮まずに行だけが潰れてしまう。
+ * 実測（A4たて・印刷幅190mm）：
+ *   行数で変わらない部分 約740px ／ 明細1行あたり 約32.3px
+ *   （8行998px ／ 12行1,127px ／ 15行1,224px ／ 19行1,353px）
+ */
+export function fitQuote(rowCount: number): number {
+  const scale = QUOTE_BUDGET_PX / (QUOTE_BLOCK_PX + QUOTE_ROW_PX * rowCount);
+  if (scale >= 0.98) return 1;
+  return Math.max(0.55, Math.round(scale * 1_000) / 1_000);
+}
+
+const QUOTE_BUDGET_PX = 1_020;
+const QUOTE_BLOCK_PX = 740;
+const QUOTE_ROW_PX = 32.3;
+
+/**
+ * 比較表（A4たて1枚）。
+ *
+ * 行を詰めて情報を詰め込むより、余白を広く取って読めることを優先する。
+ * 営業がお客様の前で開き、指さしながら説明する紙だから。
+ * 行が増えて1枚に入らないときだけ、--fit で字と余白を一緒に縮める。
  */
 const COMPARE_CSS = `
-  body.compare { font-size: calc(9.5pt * var(--fit, 1)); }
-  body.compare h2 {
-    font-size: calc(15pt * var(--fit, 1));
-    margin: calc(16px * var(--fit, 1)) 0 calc(10px * var(--fit, 1));
-    padding-bottom: calc(6px * var(--fit, 1));
+  body.compare {
+    font-size: calc(10.5pt * var(--fit, 1));
+    line-height: 1.4;
   }
-  body.compare .grid th, body.compare .grid td { padding: 0.26em 0.63em; }
-  body.compare .small { font-size: 0.9em; }
-  body.compare .notes { font-size: 0.86em; margin-top: 0.8em; padding: 0.5em 0.85em; }
+  body.compare h2 {
+    font-size: calc(19pt * var(--fit, 1));
+    letter-spacing: 0.5em;
+    border-bottom: none;
+    margin: calc(10px * var(--fit, 1)) 0 calc(2px * var(--fit, 1));
+    padding: 0;
+  }
+  body.compare .compare-makers {
+    text-align: center;
+    font-size: 1.28em;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.9em;
+  }
   body.compare .customer { font-size: calc(13.5pt * var(--fit, 1)); min-width: 0; }
   body.compare .company { font-size: calc(8.5pt * var(--fit, 1)); }
-  body.compare .company .name { font-size: calc(11.5pt * var(--fit, 1)); }
-  body.compare .company .offices { font-size: calc(7.8pt * var(--fit, 1)); }
-  body.compare .company .logo { width: calc(215px * var(--fit, 1)); max-height: calc(42px * var(--fit, 1)); }
-  body.compare .brand img { height: calc(44px * var(--fit, 1)); }
-  body.compare .effect { margin-top: 0.9em; }
+  body.compare .company .name { font-size: calc(11pt * var(--fit, 1)); }
+  body.compare .company .offices { display: none; }
+  body.compare .company .logo { width: calc(180px * var(--fit, 1)); max-height: calc(34px * var(--fit, 1)); }
+  body.compare .brand img { height: calc(36px * var(--fit, 1)); }
+  body.compare .notes { font-size: 0.85em; margin-top: 0.7em; padding: 0.5em 0.8em; }
+
+  /* 月間印刷枚数（左上の小さな表） */
+  .pages-box { width: auto; margin: 0 0 0.9em; border-collapse: collapse; }
+  .pages-box thead th {
+    text-align: left;
+    font-size: 0.95em;
+    font-weight: 700;
+    padding: 0 0 0.25em 0.2em;
+    border: none;
+  }
+  .pages-box td { border: 1px solid #333; padding: 0.42em 0.7em; }
+  .pages-box .pages-name { font-weight: 700; border: none; padding-left: 0.2em; }
+  .pages-box .pages-value { background: #f9cb9c; text-align: right; font-weight: 700; min-width: 110px; }
+  .pages-box .pages-unit { border: none; padding-left: 0.5em; }
+
+  /* 本表 */
+  .cmp { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .cmp th, .cmp td { border: 1px solid #333; padding: 0.42em 0.55em; }
+  .cmp thead th {
+    background: #d9ead3;
+    font-weight: 700;
+    text-align: center;
+    font-size: 1.05em;
+    padding: 0.5em;
+  }
+  .cmp thead th.save-head { color: #c00000; }
+  .cmp tbody th {
+    background: #eef3e7;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.96em;
+    word-break: break-word;
+  }
+  .cmp .unit-cell { border-right: none; white-space: nowrap; font-size: 0.95em; }
+  .cmp .unit-value {
+    display: inline-block;
+    min-width: 3.2em;
+    padding: 0 0.3em;
+    margin: 0 0.15em;
+    background: #f9cb9c;
+    text-align: right;
+    font-weight: 700;
+  }
+  .cmp td.num { border-left: none; }
+  .cmp .save-col { text-align: right; padding: 0.2em 0.4em; }
+  .cmp .row-sum th, .cmp .row-sum td { font-weight: 700; }
+  .cmp .row-total th { background: #cfe3c4; font-size: 1.05em; }
+  .cmp .row-total td { font-weight: 700; font-size: 1.12em; background: #f4f9f1; }
+
+  /* カウンター削減額（表の中でいちばん目を引かせる） */
+  .cmp .save-label {
+    background: #d9ead3;
+    border: 1px solid #333;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.86em;
+    padding: 0.1em;
+  }
+  .cmp .save-value {
+    background: #ffff00;
+    border: 1px solid #333;
+    border-top: none;
+    color: #c00000;
+    font-weight: 700;
+    text-align: right;
+    padding: 0.18em 0.5em;
+  }
+
+  /* 合計合算削減金額（3段） */
+  .save-summary { width: 100%; border-collapse: collapse; margin-top: 0.9em; }
+  .save-summary th, .save-summary td { border: 1px solid #333; padding: 0.42em 0.8em; }
+  .save-summary th {
+    background: #d9ead3;
+    width: 52%;
+    text-align: center;
+    font-size: 1.24em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .save-summary .yen { width: 8%; font-size: 1.24em; font-weight: 700; color: #c00000; }
+  .save-summary td.num { font-size: 1.62em; font-weight: 700; letter-spacing: 0.02em; }
+  .save-summary .save { color: #c00000; }
+  .save-summary .cut { color: #1f4e79; }
+
+  /* 年間売上高に換算した効果（左に一言、右に表） */
+  .effect-block {
+    display: flex;
+    align-items: center;
+    gap: 1.4em;
+    margin-top: 0.9em;
+  }
+  .effect-block .effect-note {
+    flex: 1;
+    color: #c00000;
+    font-weight: 700;
+    font-size: 1.14em;
+    line-height: 1.6;
+    text-align: center;
+  }
+  .effect { width: 58%; border-collapse: collapse; border: 1px solid #333; }
+  .effect th, .effect td { border: 1px solid #333; padding: 0.35em 0.5em; text-align: center; }
+  .effect .effect-title { background: #ddeaf6; font-size: 1.16em; font-weight: 700; letter-spacing: 0.04em; }
+  .effect .effect-rate-head { background: #f2f2f2; font-size: 0.9em; }
+  .effect .rate-20 { background: #ff0000; color: #fff; font-weight: 700; }
+  .effect .rate-10 { background: #70ad47; color: #fff; font-weight: 700; }
+  .effect .rate-5 { background: #00b0f0; color: #fff; font-weight: 700; }
+  .effect .effect-side { background: #f2f2f2; font-weight: 700; font-size: 0.9em; width: 16%; }
+  .effect .effect-value { font-size: 1.32em; font-weight: 700; font-style: italic; text-align: right; }
 `;
 
 const esc = (s: unknown): string =>
@@ -447,7 +589,10 @@ export function renderQuoteHtml(
 ※　PC設定台数は${pcSetupNote(calc)}
 ${p.note ? `※　${esc(p.note)}` : ""}</div>
   `;
-  return page(`見積書_${quote.customerName}_${makerJp(p.maker)}`, body);
+  return page(`見積書_${quote.customerName}_${makerJp(p.maker)}`, body, {
+    css: `${QUOTE_CSS}\n  body.quote { --fit: ${fitQuote(quoteRowCount(calc))}; }`,
+    bodyClass: "quote",
+  });
 }
 
 function pcSetupNote(calc: ProposalCalc): string {
@@ -526,6 +671,15 @@ function tieredCounterRows(lines: ChargeLineCalc[], calc: ProposalCalc): string 
 }
 
 /** 比較表（現状 vs 1提案）— 既存Excelの比較表と同じ並び */
+/**
+ * 比較表（現状 vs 1提案）。
+ *
+ * A4たて1枚に、余白を広く取って刷る。営業がお客様の前で開いて
+ * 指さしながら説明する紙なので、行を詰めるより読める大きさを優先する。
+ *
+ * カウンターの内訳は「帯ごとの金額」と「控除」を別の行に分けて出す。
+ * 控除後の枚数で1行にまとめると、なぜその金額になるのかが辿れない。
+ */
 export function renderCompareHtml(
   quote: Quote,
   current: CurrentCalc,
@@ -537,157 +691,255 @@ export function renderCompareHtml(
   const d = calc.device;
   const cd = calc.currentDevice;
 
-  const specRow = (
-    label: string,
-    left: string | number | undefined,
-    leftUnit: string,
-    right: string | number | undefined,
-    rightUnit: string,
-  ) => `<tr>
-      <th style="text-align:left">${esc(label)}</th>
-      <td class="num">${left === undefined ? "－" : `${left}${leftUnit}`}</td>
-      <td class="num">${right === undefined ? "－" : `${right}${rightUnit}`}</td>
-      <td></td>
-    </tr>`;
+  /** 4列（区分・現状・提案・削減額）の1行 */
+  const row = (label: string, left: string, right: string, save = "", cls = "") =>
+    `<tr${cls ? ` class="${cls}"` : ""}><th>${esc(label)}</th>${left}${right}<td class="save-col">${save}</td></tr>`;
 
-  const counterRow = (
-    label: string,
-    leftUnit: number,
-    leftAmount: number,
-    rightUnit: number,
-    rightAmount: number,
-  ) => `<tr>
-      <th style="text-align:left">${esc(label)}</th>
-      <td class="num">単価：${unitYen(leftUnit)}　${n(leftAmount)}</td>
-      <td class="num">単価：${unitYen(rightUnit)}　${n(rightAmount)}</td>
-      <td></td>
-    </tr>`;
+  /** 値がどちらにも無い行は出さない（空欄が並ぶと表が間延びする） */
+  let specRows = 0;
+  const specRow = (label: string, left: number | undefined, right: number | undefined, unit: string) =>
+    left === undefined && right === undefined
+      ? ""
+      : (specRows++,
+        row(
+          label,
+          `<td class="num" colspan="2">${left === undefined ? "－" : `${left} ${unit}`}</td>`,
+          `<td class="num" colspan="2">${right === undefined ? "－" : `${right} ${unit}`}</td>`,
+        ));
 
-  const diff = (v: number) =>
-    v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
+  /** 単価つきの金額セル（単価：[  3.0 ]円　3,000） */
+  const priced = (unit: number | undefined, amount: number | undefined) =>
+    unit === undefined
+      ? `<td class="unit-cell"></td><td class="num">${amount === undefined ? "" : n(amount)}</td>`
+      : `<td class="unit-cell">単価：<span class="unit-value">${unitDigits(unit)}</span>円</td>` +
+        `<td class="num">${amount === undefined ? "" : n(amount)}</td>`;
 
-  /**
-   * カウンターの行。
-   * 逓減単価（段階単価）の明細を読み取っている場合は、
-   * 区分ごと・段ごとに行を増やして内訳をそのまま見せる。
-   * 一律単価に均してしまうと「なぜこの金額か」を説明できなくなるため。
-   */
-  const counterRows = current.chargeLines?.length
-    ? tieredCounterRows(current.chargeLines, calc)
-    : `${counterRow("ブラック", c.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount)}
-      ${counterRow("フルカラー", c.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount)}
-      ${counterRow("2色カラー", c.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount)}`;
+  const blank = `<td class="unit-cell"></td><td class="num"></td>`;
+  const money = (v: number) => `<td class="unit-cell"></td><td class="num">${n(v)}</td>`;
 
-  const ded = current.counter.deduction;
+  const counterRows = counterCompareRows(current, calc, c, priced, blank, row);
+  const saveCell = (v: number) =>
+    `<div class="save-label">カウンター削減額</div><div class="save-value">${
+      v < 0 ? `▲　${n(Math.abs(v))}` : v > 0 ? `+　${n(v)}` : "±0"
+    }</div>`;
 
   const body = `
   ${brandBar(settings, logo, quote, calc.proposal.quoteNo)}
   <h2>比 較 表</h2>
-  <div class="center" style="margin-bottom:8px">
-    （ ${esc(c.makerText || "現行")} ➡ ${esc(makerJp(calc.proposal.maker))} ）
-  </div>
+  <div class="compare-makers">（　${esc(c.makerText || "現行")}　➡　${esc(makerJp(calc.proposal.maker))}　）</div>
 
-  <table class="grid" style="width:60%;margin-bottom:10px">
-    <thead><tr><th colspan="2">月間印刷枚数${esc(pagesAverageNote(c))}</th></tr></thead>
-    <tbody>
-      <tr><td>ブラック</td><td class="num">${n(c.monoPages)} 枚</td></tr>
-      <tr><td>フルカラー</td><td class="num">${n(c.colorPages)} 枚</td></tr>
-      <tr><td>2色カラー</td><td class="num">${n(c.twoColorPages)} 枚</td></tr>
-    </tbody>
+  <table class="pages-box">
+    <thead><tr><th colspan="3">月間印刷枚数${esc(pagesAverageNote(c))}</th></tr></thead>
+    <tbody>${pagesRows(current, c)}</tbody>
   </table>
-  ${
-    ded
-      ? `<div class="notes">※　現行のカウンター明細には控除（${
-          Math.round(ded.rate * 1000) / 10
-        }%）があり、現行側は控除後の枚数 ブラック ${n(ded.billable.mono)}枚 ／ フルカラー ${n(
-          ded.billable.color,
-        )}枚${ded.twoColor ? ` ／ 2色カラー ${n(ded.billable.twoColor)}枚` : ""} で計算しています（合計 ▲${n(
-          ded.total,
-        )}枚）。
-　　ご提案する複合機には控除がございませんので、提案側は上記の印刷枚数そのままで計算しております。</div>`
-      : ""
-  }
 
-  <table class="grid">
-    <thead><tr>
-      <th style="width:26%"></th>
-      <th style="width:27%">現状利用状況</th>
-      <th style="width:27%">導入提案予測</th>
-      <th>削減額</th>
-    </tr></thead>
+  <table class="cmp">
+    <colgroup>
+      <col style="width:23%" /><col style="width:13%" /><col style="width:19%" />
+      <col style="width:13%" /><col style="width:19%" /><col style="width:13%" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th></th>
+        <th colspan="2">現状利用状況</th>
+        <th colspan="2">導入提案予測</th>
+        <th class="save-head">削減額</th>
+      </tr>
+    </thead>
     <tbody>
-      <tr><th style="text-align:left">メーカー</th><td>${esc(c.makerText || "－")}</td><td>${esc(makerJp(calc.proposal.maker))}</td><td></td></tr>
-      <tr><th style="text-align:left">機種</th><td>${esc(c.modelText || "－")}</td><td>${esc(calc.proposal.modelText)}</td><td></td></tr>
-      ${specRow("ウォームタイム", cd?.warmupSec, "秒以下", d?.warmupSec, "秒以下")}
-      ${specRow("ファーストコピー（モノクロ）", cd?.firstCopyMonoSec, "秒", d?.firstCopyMonoSec, "秒")}
-      ${specRow("ファーストコピー（カラー）", cd?.firstCopyColorSec, "秒", d?.firstCopyColorSec, "秒")}
-      ${specRow("連続コピー速度（モノクロ）", cd?.ppmMono, "枚/分", d?.ppmMono, "枚/分")}
-      ${specRow("連続コピー速度（カラー）", cd?.ppmColor, "枚/分", d?.ppmColor, "枚/分")}
-      <tr>
-        <th style="text-align:left">リース料　①</th>
-        <td class="num">${current.leaseUnknown ? "－（不明）" : n(current.monthlyLease)}</td>
-        <td class="num">${n(calc.monthlyLease)}${calc.counterOnly ? '<span class="small muted">（参考）</span>' : ""}</td>
-        <td class="num">${calc.counterOnly ? "－" : diff(calc.monthlyLease - current.monthlyLease)}</td>
-      </tr>
+      ${row("メーカー", `<td class="center" colspan="2">${esc(c.makerText || "－")}</td>`, `<td class="center" colspan="2">${esc(makerJp(calc.proposal.maker))}</td>`)}
+      ${row("機種", `<td class="center" colspan="2">${esc(c.modelText || "－")}</td>`, `<td class="center" colspan="2">${esc(calc.proposal.modelText)}</td>`)}
+      ${specRow("ウォームタイム", cd?.warmupSec, d?.warmupSec, "秒以下")}
+      ${specRow("ファーストコピー（モノクロ）", cd?.firstCopyMonoSec, d?.firstCopyMonoSec, "秒")}
+      ${specRow("ファーストコピー（カラー）", cd?.firstCopyColorSec, d?.firstCopyColorSec, "秒")}
+      ${specRow("連続コピー速度（モノクロ）", cd?.ppmMono, d?.ppmMono, "枚/分")}
+      ${specRow("連続コピー速度（カラー）", cd?.ppmColor, d?.ppmColor, "枚/分")}
+      ${row(
+        "リース料　①",
+        current.leaseUnknown ? `<td class="unit-cell"></td><td class="num">－（不明）</td>` : money(current.monthlyLease),
+        calc.counterOnly ? `<td class="unit-cell"></td><td class="num">${n(calc.monthlyLease)}<span class="small muted">（参考）</span></td>` : money(calc.monthlyLease),
+      )}
       ${counterRows}
-      <tr>
-        <th style="text-align:left">最低基本料金</th>
-        <td class="num">${n(c.units.minCharge)}</td>
-        <td class="num">${n(calc.units.minCharge)}</td>
-        <td></td>
-      </tr>
-      <tr>
-        <th style="text-align:left">カウンター請求合計　②</th>
-        <td class="num">${n(current.counter.total)}</td>
-        <td class="num">${n(calc.counter.total)}</td>
-        <td class="num">${diff(calc.counter.total - current.counter.total)}</td>
-      </tr>
+      ${row("最低基本料金", c.units.minCharge ? money(c.units.minCharge) : blank, calc.units.minCharge ? money(calc.units.minCharge) : blank)}
+      ${row(
+        "カウンター請求合計　②",
+        money(current.counter.total),
+        money(calc.counter.total),
+        saveCell(calc.counter.total - current.counter.total),
+        "row-sum",
+      )}
       ${
         calc.counterOnly
           ? ""
-          : `<tr class="sum-row">
-        <th style="text-align:left">ランニングコスト ①+②</th>
-        <td class="num">${n(current.monthlyLease + current.counter.total)}</td>
-        <td class="num">${n(calc.monthlyLease + calc.counter.total)}</td>
-        <td class="num">${diff(calc.monthlyLease + calc.counter.total - current.monthlyLease - current.counter.total)}</td>
-      </tr>`
+          : row(
+              "ランニングコスト ①+②",
+              money(current.monthlyLease + current.counter.total),
+              money(calc.monthlyLease + calc.counter.total),
+            )
       }
-      <tr>
-        <th style="text-align:left">保守料金</th>
-        <td class="num">${n(current.maintenanceMonthly)}</td>
-        <td class="num">${n(calc.maintenanceMonthly)}</td>
-        <td></td>
-      </tr>
-      <tr>
-        <th style="text-align:left">消費税</th>
-        <td class="num">${n(current.tax)}</td>
-        <td class="num">${n(calc.counterOnly ? Math.round(calc.comparable - calc.counter.total - calc.maintenanceMonthly) : calc.runningTax)}</td>
-        <td></td>
-      </tr>
-      <tr class="total-row">
-        <th style="text-align:left">　${calc.counterOnly ? "カウンター月間経費" : "月間経費"}</th>
-        <td class="num">${n(current.comparable)}</td>
-        <td class="num">${n(calc.comparable)}</td>
-        <td class="num">${diff(calc.diffMonthly)}</td>
-      </tr>
+      ${row("保守料金", current.maintenanceMonthly ? money(current.maintenanceMonthly) : blank, calc.maintenanceMonthly ? money(calc.maintenanceMonthly) : blank)}
+      ${row(
+        "消費税",
+        money(current.tax),
+        money(calc.counterOnly ? Math.round(calc.comparable - calc.counter.total - calc.maintenanceMonthly) : calc.runningTax),
+      )}
+      ${row(
+        calc.counterOnly ? "カウンター月間経費" : "月間経費",
+        money(current.comparable),
+        money(calc.comparable),
+        "",
+        "row-total",
+      )}
     </tbody>
   </table>
 
-  <table class="grid save-summary" style="width:78%;margin-top:14px">
+  <table class="save-summary">
     <tbody>
-      <tr class="save-total"><th style="text-align:left">合計合算削減金額　（単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
-      <tr class="save-total"><th style="text-align:left">合計合算削減金額　（年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
-      <tr class="save-total"><th style="text-align:left">合計合算削減金額　（${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
+      ${saveRow("合計合算削減金額　（単月）", calc.diffMonthly)}
+      ${saveRow("合計合算削減金額　（年間）", calc.diffYearly)}
+      ${saveRow(`合計合算削減金額　（${calc.leaseYears}年間）`, calc.diffLeaseTerm)}
     </tbody>
   </table>
 
+  ${deductionNote(current, c.chargeLines)}
   ${counterOnlyNote(calc)}
-  ${salesEffectTable(calc.diffYearly)}
+  ${salesEffectBlock(calc.diffYearly)}
   `;
   return page(`比較表_${quote.customerName}_${makerJp(calc.proposal.maker)}`, body, {
     css: `${COMPARE_CSS}\n  body.compare { --fit: ${fitCompare(compareRowCount(current))}; }`,
     bodyClass: "compare",
   });
+}
+
+/**
+ * 現行だけ控除がかかっていることの注記。
+ *
+ * 表の「控除」行で引いてはいるが、なぜ提案側に控除の行が無いのかは
+ * 書いておかないと伝わらない。ここを黙っていると、提案側を
+ * 少なく見せているように受け取られかねない。
+ */
+function deductionNote(current: CurrentCalc, source?: CurrentChargeLine[]): string {
+  const lines = (current.chargeLines ?? []).filter((l) => l.deduction > 0);
+  const flat = current.counter.deduction;
+  if (!lines.length && !flat) return "";
+
+  // 率は明細に書かれている値をそのまま出す。
+  // 控除枚数は切り上げなので、枚数から割り戻すと 3% が 3.8% になってしまう
+  const rateOf = (name: string) => source?.find((x) => x.name === name)?.deductionRate;
+  const pct = (rate: number | undefined) => (rate === undefined ? "" : `${Math.round(rate * 1000) / 10}%`);
+  const detail = lines.length
+    ? lines.map((l) => `${l.name} ${pct(rateOf(l.name))}（▲${n(l.deduction)}枚）`).join("　／　")
+    : `${pct(flat?.rate)}（合計 ▲${n(flat?.total ?? 0)}枚）`;
+
+  return `<div class="notes">※　現行のカウンター明細には控除（${esc(detail)}）があり、上表の「控除」の行で差し引いています。
+　　ご提案する複合機には控除がございませんので、提案側は上記の印刷枚数そのままで計算しております。</div>`;
+}
+
+/** 単価は明細と同じ「3.0」「16.8」の書き方にそろえる（整数でも小数第1位まで） */
+const unitDigits = (unit: number): string =>
+  Math.round(unit * 10) === unit * 10 ? unit.toFixed(1) : unit.toFixed(2);
+
+/** 月間印刷枚数の行。明細を読み取っていれば、その区分名をそのまま使う */
+function pagesRows(current: CurrentCalc, c: Quote["current"]): string {
+  const cell = (label: string, pages: number) =>
+    `<tr><td class="pages-name">${esc(label)}</td><td class="pages-value">${n(pages)}</td><td class="pages-unit">枚</td></tr>`;
+  if (current.chargeLines?.length) {
+    return current.chargeLines.map((l) => cell(l.name, l.pages)).join("");
+  }
+  return [
+    ["モノクロ", c.monoPages],
+    ["フルカラー", c.colorPages],
+    ["2色カラー", c.twoColorPages],
+  ]
+    .filter(([, pages]) => (pages as number) > 0)
+    .map(([label, pages]) => cell(label as string, pages as number))
+    .join("");
+}
+
+/**
+ * カウンターの内訳行。
+ *
+ * 区分ごとに「帯ごとの金額」を出し、控除はその下に別の行として引く。
+ * 控除後の枚数で1行にまとめてしまうと、明細のどの数字から来たのかが
+ * 追えなくなる（お客様に説明できない）。
+ *
+ * 帯の金額は控除前の枚数で出し、控除の行で差を引く。
+ * こうすると各行の合計が、明細に書かれた請求額とそのまま一致する。
+ */
+function counterCompareRows(
+  current: CurrentCalc,
+  calc: ProposalCalc,
+  c: Quote["current"],
+  priced: (unit: number | undefined, amount: number | undefined) => string,
+  blank: string,
+  row: (label: string, left: string, right: string, save?: string, cls?: string) => string,
+): string {
+  const lines = current.chargeLines;
+  if (!lines?.length) {
+    const simple = (label: string, lu: number, la: number, ru: number, ra: number) =>
+      row(label, priced(lu, la), priced(ru, ra));
+    return [
+      c.monoPages > 0 ? simple("ブラック", c.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount) : "",
+      c.colorPages > 0 ? simple("フルカラー", c.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount) : "",
+      c.twoColorPages > 0 ? simple("2色カラー", c.units.twoColor, current.counter.twoColorAmount, calc.units.twoColor, calc.counter.twoColorAmount) : "",
+    ].join("");
+  }
+
+  // 提案側の金額は区分ごとに1回だけ出す（フルカラーが2区分に分かれていても二重に出さない）
+  const shown = new Set<string>();
+  const proposalUnit = (kind: ChargeLineCalc["kind"]) =>
+    kind === "mono" ? calc.units.mono : kind === "twoColor" ? calc.units.twoColor : calc.units.color;
+  const proposalAmount = (kind: ChargeLineCalc["kind"]) =>
+    kind === "mono" ? calc.counter.monoAmount : kind === "twoColor" ? calc.counter.twoColorAmount : calc.counter.colorAmount;
+
+  return lines
+    .map((line) => {
+      const first = !shown.has(line.kind);
+      shown.add(line.kind);
+      const right = first ? priced(proposalUnit(line.kind), proposalAmount(line.kind)) : blank;
+
+      // 帯ごとの金額を、控除前の枚数で出し直す
+      const gross = grossBands(line);
+      const bandRows = gross.bands
+        .map((b, i) =>
+          row(`${line.name}：${b.label}`, priced(b.unit, b.amount), i === 0 ? right : blank),
+        )
+        .join("");
+
+      // 控除は最後の帯の単価で引く（明細と同じ見せ方）
+      const deducted = gross.total - line.amount;
+      const deductionRow =
+        line.deduction > 0
+          ? row("控除", priced(gross.bands[gross.bands.length - 1]?.unit, -deducted), blank)
+          : "";
+      return bandRows + deductionRow;
+    })
+    .join("");
+}
+
+/** 控除前の枚数で帯ごとの金額を出す（表示用。合計は控除の行で辻褄を合わせる） */
+function grossBands(line: ChargeLineCalc): { bands: { label: string; unit: number; amount: number }[]; total: number } {
+  const bands = line.bands.length
+    ? line.bands.map((b) => ({ label: b.label, unit: b.unit, amount: b.amount }))
+    : [];
+  if (!bands.length || line.deduction <= 0) {
+    return { bands, total: bands.reduce((s, b) => s + b.amount, 0) };
+  }
+  // 控除ぶんを最後の帯に戻す（その帯の単価で刷られていたものとして見せる）
+  const last = bands[bands.length - 1];
+  const restored = { ...last, amount: last.amount + Math.floor(line.deduction * last.unit) };
+  const out = [...bands.slice(0, -1), restored];
+  return { bands: out, total: out.reduce((s, b) => s + b.amount, 0) };
+}
+
+/** 合計合算削減金額の1行 */
+function saveRow(label: string, value: number): string {
+  const save = value < 0;
+  return `<tr>
+    <th>${esc(label)}</th>
+    <td class="yen">¥</td>
+    <td class="num ${save ? "save" : "cut"}">${save ? "-" : value > 0 ? "+" : ""}${n(Math.abs(value))}</td>
+  </tr>`;
 }
 
 /**
@@ -704,27 +956,32 @@ function counterOnlyNote(calc?: ProposalCalc): string {
 /**
  * 削減額を「年間売上高に換算した効果」（利益率20%/10%/5% → 5倍/10倍/20倍）。
  *
- * 商談でいちばん効くのがこの表なので、他の表より大きく、赤で出す。
- * 「月々いくら安くなるか」より「売上に直すといくらぶんか」のほうが、
- * 経営者の方には金額の大きさが伝わる。
+ * 商談でいちばん効くのがこの表。「月々いくら安くなるか」より
+ * 「売上に直すといくらぶんか」のほうが、経営者の方には金額の大きさが伝わる。
  */
-function salesEffectTable(diffYearly: number, width = "78%"): string {
+function salesEffectBlock(diffYearly: number): string {
   const save = Math.max(0, -diffYearly);
   if (save <= 0) return "";
   return `
-  <table class="grid effect" style="width:${width}">
-    <thead><tr><th colspan="4">年間売上高に換算したコスト削減効果</th></tr></thead>
-    <tbody>
-      <tr class="effect-rate"><th>利益率</th><th class="center">20%</th><th class="center">10%</th><th class="center">5%</th></tr>
-      <tr class="effect-value">
-        <th>年間売上高</th>
-        <td class="num">${n(save * 5)}</td>
-        <td class="num">${n(save * 10)}</td>
-        <td class="num">${n(save * 20)}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="effect-note">上記程度の<b>「売上高が増加した」ことと同等の効果</b>が得られます。</div>`;
+  <div class="effect-block">
+    <div class="effect-note">右記程度の「売上高が増加した」<br>ことと同等の効果が得られます</div>
+    <table class="effect">
+      <tbody>
+        <tr><td class="effect-title" colspan="4">年間売上高に換算したコスト削減効果</td></tr>
+        <tr><td class="effect-side"></td><td class="effect-rate-head" colspan="3">利益率</td></tr>
+        <tr>
+          <td class="effect-side"></td>
+          <td class="rate-20">20%</td><td class="rate-10">10%</td><td class="rate-5">5%</td>
+        </tr>
+        <tr>
+          <td class="effect-side">年間<br>売上高</td>
+          <td class="effect-value">${n(save * 5)}</td>
+          <td class="effect-value">${n(save * 10)}</td>
+          <td class="effect-value">${n(save * 20)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
 }
 
 /** 複数メーカーを横並びにした比較表（同時提案用） */
@@ -1197,7 +1454,7 @@ export function renderFleetCompareHtml(
         </tbody>
       </table>
     </div>
-    <div>${salesEffectTable(calc.diffYearly, "100%")}</div>
+    <div>${salesEffectBlock(calc.diffYearly)}</div>
   </div>
   `;
   return page(`複数台比較表_${quote.customerName}`, body, {
@@ -1221,7 +1478,9 @@ export function fitCompare(rowCount: number, columns = 1): number {
   const budget = COMPARE_BUDGET_PX - (columns > 1 ? 30 * (columns - 1) : 0);
   const scale = budget / (COMPARE_BLOCK_PX + COMPARE_ROW_PX * rowCount);
   if (scale >= 0.98) return 1;
-  return Math.max(0.5, Math.round(scale * 1_000) / 1_000);
+  // これより小さくすると紙で読めない。実物の明細は区分1〜4件（4〜10行）が
+  // ほとんどで、この下限でも8区分（23行）まで1枚に収まる
+  return Math.max(0.45, Math.round(scale * 1_000) / 1_000);
 }
 
 /**
@@ -1230,23 +1489,31 @@ export function fitCompare(rowCount: number, columns = 1): number {
  * 逓減単価の明細が無い場合は「ブラック・フルカラー・2色カラー」の3行で固定なので、
  * 伸び縮みは無い（0を返す）。この3行ぶんの高さは下の COMPARE_BLOCK_PX に含めてある。
  */
-export function compareRowCount(current: CurrentCalc): number {
+export function compareRowCount(current: CurrentCalc, specRows = 0): number {
   const lines = current.chargeLines;
-  if (!lines?.length) return 0;
-  // 区分ごとに1行。段が2つ以上ある区分は、その段の数だけ行が増える
-  return lines.reduce((sum, l) => sum + 1 + (l.bands.length > 1 ? l.bands.length : 0), 0);
+  // 明細を読み取っていない場合は、ブラック・フルカラー・2色カラーの3行。
+  // この3行ぶんの高さは COMPARE_BLOCK_PX に含めてあるので0で数える
+  const counter = lines?.length
+    ? // 帯ごとに1行、控除がある区分はさらに1行
+      lines.reduce((sum, l) => sum + Math.max(1, l.bands.length) + (l.deduction > 0 ? 1 : 0), 0)
+    : 0;
+  // スペックの行（ウォームタイム・ファーストコピー・連続コピー速度）は
+  // 機種DBに値があるときだけ出るので、出る数だけ数える
+  return counter + specRows;
 }
 
 /**
  * 以下の3つは Chromium で実測して求めた値（A4たて・印刷幅190mm）。
  *
  *   印刷できる高さ : 297mm − 上下余白24mm ≒ 1,032px（96dpi）→ 余裕を見て1,020px
- *   行数で変わらない部分 : 見出し・自社情報・枚数表・合計欄・削減効果で約925px（余裕を見て945px）
- *   明細1行あたり : 約37.5px（区分名の下に枚数と実効単価を添えるため2行分の高さになる）
+ *   行数で変わらない部分 : 見出し・自社情報・枚数表・合計欄・削減効果で約912px
+ *     （明細が無いときの3行ぶんもここに含む。実測1,011px）
+ *   明細1行あたり : 約71px（紙に刷って読める高さを取っているぶん、1行が厚い）
+ *     実測 5行1,269px / 9行1,557px / 18行2,200px / 23行2,552px
  */
 const COMPARE_BUDGET_PX = 1_020;
-const COMPARE_BLOCK_PX = 945;
-const COMPARE_ROW_PX = 37.5;
+const COMPARE_BLOCK_PX = 912;
+const COMPARE_ROW_PX = 71;
 
 /**
  * A3ヨコ1枚に収まるよう、字と行の高さを縮める割合（Excelの「1ページに収める」と同じ考え方）。
@@ -1581,7 +1848,7 @@ export function renderProposalDocHtml(
         <tr class="total-row"><th style="text-align:left">削減額（${calc.leaseYears}年間）</th><td class="num save">▲${n(Math.abs(calc.diffLeaseTerm))} 円</td></tr>
       </tbody>
     </table>
-    ${salesEffectTable(calc.diffYearly, "70%")}`
+    ${salesEffectBlock(calc.diffYearly)}`
         : ""
     }
 

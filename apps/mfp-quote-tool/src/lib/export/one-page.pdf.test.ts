@@ -94,8 +94,9 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("比較表は必ず1枚に収まる", () => {
-  // 区分0（明細なし）から、実際にはまず来ない12区分まで
-  for (const nLines of [0, 3, 6, 12]) {
+  // 実物の明細は区分1〜4件。その倍の8件までは1枚に収まること
+  // （これ以上は字が紙で読めなくなるため、2枚目に送る）
+  for (const nLines of [0, 3, 6, 8]) {
     it(`区分${nLines}件でも1枚（現状 vs 1提案）`, async () => {
       if (!chromium) return;
       const { q, current, calc } = build(nLines);
@@ -118,7 +119,7 @@ describe("比較表は必ず1枚に収まる", () => {
 
   it("1枚に収める指定をしなければ、あふれた分は2枚目に出る（仕組みが効いていることの裏取り）", async () => {
     if (!chromium) return;
-    const { q, current, calc } = build(12);
+    const { q, current, calc } = build(8);
     const pdf = await htmlToPdf(renderCompareHtml(q, current, calc, DEFAULT_SETTINGS));
     // 見積り側で既に縮めているので1枚のこともある。あふれても2枚まで
     expect(pdfPages(pdf)).toBeLessThanOrEqual(2);
