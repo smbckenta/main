@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AiStatusBanner from "../AiStatusBanner";
 import AiTestButton from "./AiTestButton";
 import UsersPanel from "./UsersPanel";
+import RegisterSetup from "./RegisterSetup";
 import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } from "@/lib/types";
 
 /** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
@@ -904,6 +905,11 @@ export default function SettingsPage() {
 
         {s.quoteRegister.mode === "appsScript" ? (
           <>
+            <RegisterSetup
+              spreadsheet={s.quoteRegister.spreadsheetId}
+              onSpreadsheet={(v) => set({ quoteRegister: { ...s.quoteRegister, spreadsheetId: v } })}
+              onToken={(t) => set({ quoteRegister: { ...s.quoteRegister, webAppToken: t } })}
+            />
             <div className="row">
               <Field label="ウェブアプリのURL" width={460}>
                 <input
@@ -925,10 +931,10 @@ export default function SettingsPage() {
               </Field>
             </div>
             <p className="muted">
-              台帳のスプレッドシートで「拡張機能 →  Apps Script」を開き、
-              <code>docs/apps-script/QuoteRegister.gs</code> の内容を貼り付けて
-              「デプロイ → ウェブアプリ（実行：自分／アクセス：全員）」にすると、URLが表示されます。
-              Google Cloud の設定は不要です。
+              上の「貼るだけのスクリプトを作る」を使うと、スプレッドシートIDと合言葉を埋め込んだ
+              スクリプトができます。手で書き写す必要はありません。Google Cloud の設定も不要です。
+              台帳がご自身の所有でない場合でも、ご自分のドライブにスクリプトを作れば使えます
+              （台帳への<strong>編集者</strong>権限は必要です）。
             </p>
           </>
         ) : (
@@ -937,9 +943,17 @@ export default function SettingsPage() {
               <Field label="スプレッドシートID" width={420}>
                 <input
                   value={s.quoteRegister.spreadsheetId}
-                  placeholder="URLの /d/ と /edit の間"
+                  placeholder="台帳のURLをそのまま貼ってもかまいません"
                   onChange={(e) =>
-                    set({ quoteRegister: { ...s.quoteRegister, spreadsheetId: e.target.value.trim() } })
+                    set({
+                      quoteRegister: {
+                        ...s.quoteRegister,
+                        // URLを貼られてもIDだけを取り出す（書き写しの手間と間違いをなくす）
+                        spreadsheetId:
+                          e.target.value.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)?.[1] ??
+                          e.target.value.trim(),
+                      },
+                    })
                   }
                 />
               </Field>
