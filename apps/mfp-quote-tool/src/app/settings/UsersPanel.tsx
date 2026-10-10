@@ -47,6 +47,10 @@ export default function UsersPanel() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
 
+  // オーナーの引き継ぎ
+  const [heir, setHeir] = useState("");
+  const [heirPassword, setHeirPassword] = useState("");
+
   useEffect(() => {
     fetch("/api/auth/state")
       .then((r) => r.json())
@@ -121,6 +125,31 @@ export default function UsersPanel() {
     if (show(res, json, "")) {
       setIssued({ id, password: json.password });
       setUsers(json.users ?? users);
+    }
+  }
+
+  async function handOver() {
+    const to = users.find((u) => u.id === heir);
+    if (!to) return;
+    if (
+      !confirm(
+        `オーナーを ${to.name ? `${to.name}さん（${to.id}）` : to.id} に引き継ぎます。\n` +
+          "あなたは管理者になり、これ以降は権限を配れなくなります。\n元に戻せません。よろしいですか？",
+      )
+    ) {
+      return;
+    }
+    const res = await fetch("/api/auth/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: heir, password: heirPassword, transfer: true }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (show(res, json, `オーナーを ${heir} に引き継ぎました。`)) {
+      setUsers(json.users ?? []);
+      setRole("admin");
+      setHeir("");
+      setHeirPassword("");
     }
   }
 
@@ -257,6 +286,44 @@ export default function UsersPanel() {
           <p className="muted">
             最初のパスワードはこちらで決めて構いません。ログインしたあと、ご本人に変えてもらってください。
           </p>
+        </>
+      )}
+
+      {isOwner && users.length > 1 && (
+        <>
+          <h3>オーナーを引き継ぐ</h3>
+          <p className="muted">
+            退職や異動でオーナーが不在になると、管理者を任命できる人がいなくなります。
+            会社を離れる前に、残る方へ引き継いでください。引き継いだあと、あなたは管理者になります。
+          </p>
+          <div className="row">
+            <div className="field" style={{ width: 280 }}>
+              <label>引き継ぐ相手</label>
+              <select value={heir} onChange={(e) => setHeir(e.target.value)}>
+                <option value="">選んでください</option>
+                {users
+                  .filter((u) => u.id !== me)
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name ? `${u.name}（${u.id}）` : u.id}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="field" style={{ width: 220 }}>
+              {/* 取り消せない操作なので、本人であることをパスワードで確かめる */}
+              <label>確認のため、ご自身のパスワード</label>
+              <input
+                type="password"
+                value={heirPassword}
+                autoComplete="current-password"
+                onChange={(e) => setHeirPassword(e.target.value)}
+              />
+            </div>
+            <button className="danger" disabled={!heir || !heirPassword} onClick={handOver}>
+              オーナーを引き継ぐ
+            </button>
+          </div>
         </>
       )}
 

@@ -10,6 +10,7 @@ import {
   resetPassword,
   setRole,
   SESSION_COOKIE,
+  transferOwnership,
   type Role,
 } from "@/lib/auth";
 
@@ -54,7 +55,8 @@ export async function POST(req: Request) {
 }
 
 /**
- * 権限を変える（オーナーのみ）か、パスワードを再発行する（管理者）。
+ * 権限を変える（オーナーのみ）、オーナーを引き継ぐ（オーナーのみ・要パスワード）、
+ * パスワードを再発行する（管理者）。
  *
  * 再発行したパスワードは、ここで1度だけ返す。保存されるのはハッシュなので、
  * 画面を閉じたあとに読み直すことはできない。
@@ -64,12 +66,17 @@ export async function PATCH(req: Request) {
   if (!current) return unauthorized();
   if (!(await admin())) return forbidden();
 
-  const { id, role, password } = (await req.json().catch(() => ({}))) as {
+  const { id, role, password, transfer } = (await req.json().catch(() => ({}))) as {
     id?: string;
     role?: Role;
     password?: string;
+    transfer?: boolean;
   };
   try {
+    if (transfer) {
+      const users = await transferOwnership(current, id ?? "", password ?? "");
+      return NextResponse.json({ ok: true, users });
+    }
     if (role) {
       const users = await setRole(current, id ?? "", role);
       return NextResponse.json({ ok: true, users });

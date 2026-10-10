@@ -103,7 +103,6 @@ describe("権限", () => {
 
   it("オーナーの権限は動かせない", async () => {
     await expect(auth.setRole(OWNER, OWNER, "member")).rejects.toThrow("オーナーの権限");
-    await expect(auth.setRole(OWNER, ADMIN, "owner")).rejects.toThrow("1人だけ");
   });
 
   it("管理者は他の人のパスワードを再発行できる", async () => {
@@ -130,6 +129,48 @@ describe("権限", () => {
 
   it("再発行のパスワードは紛らわしい文字を使わない", () => {
     expect(auth.makePassword()).not.toMatch(/[0OlI1]/);
+  });
+});
+
+describe("オーナーの引き継ぎ", () => {
+  // ここまでで残っているのは OWNER（オーナー）と ADMIN（管理者）の2人
+  it("権限の変更では、オーナーは渡せない", async () => {
+    await expect(auth.setRole(OWNER, ADMIN, "owner")).rejects.toThrow("引き継ぎの手続き");
+  });
+
+  it("オーナー以外は引き継げない", async () => {
+    await expect(auth.transferOwnership(ADMIN, OWNER, "akamine-pass-1")).rejects.toThrow(
+      "いまのオーナーだけ",
+    );
+  });
+
+  it("自分のパスワードが合わなければ渡らない", async () => {
+    await expect(auth.transferOwnership(OWNER, ADMIN, "wrong-pass-1")).rejects.toThrow(
+      "パスワードが違います",
+    );
+    expect((await auth.findUser(OWNER))?.role).toBe("owner");
+  });
+
+  it("自分自身や、いない人には渡せない", async () => {
+    await expect(auth.transferOwnership(OWNER, OWNER, "mfp-2027-newpass")).rejects.toThrow(
+      "ご自身に",
+    );
+    await expect(
+      auth.transferOwnership(OWNER, "nobody@denrai.net", "mfp-2027-newpass"),
+    ).rejects.toThrow("登録されていません");
+  });
+
+  it("引き継ぐと、前のオーナーは管理者として残る", async () => {
+    await auth.transferOwnership(OWNER, ADMIN, "mfp-2027-newpass");
+    expect((await auth.findUser(ADMIN))?.role).toBe("owner");
+    expect((await auth.findUser(OWNER))?.role).toBe("admin");
+
+    // 渡したあとは、もう権限を配れない
+    await expect(auth.setRole(OWNER, ADMIN, "member")).rejects.toThrow("オーナーだけ");
+    // 新しいオーナーは消せない。前のオーナーは消せる（離任のときのため）
+    await expect(auth.deleteUser(ADMIN, ADMIN)).rejects.toThrow("オーナーは削除できません");
+    await auth.deleteUser(ADMIN, OWNER);
+    expect((await auth.listUsers()).map((u) => u.id)).toEqual([ADMIN]);
   });
 });
 

@@ -196,11 +196,51 @@ export async function setRole(actorId: string, targetId: string, role: Role): Pr
   const target = list.find((u) => u.id === key);
   if (!target) throw new Error("その利用者は登録されていません。");
   if (target.role === "owner") throw new Error("オーナーの権限は変えられません。");
-  if (role === "owner") throw new Error("オーナーは1人だけです。");
+  if (role === "owner") throw new Error("オーナーを譲るには、引き継ぎの手続きを使ってください。");
 
   const next = list.map((u) =>
     u.id === key ? { ...u, role, updatedAt: new Date().toISOString() } : u,
   );
+  await writeUsers(next);
+  return next.map(publicOf);
+}
+
+/**
+ * オーナーを引き継ぐ。
+ *
+ * 会社を離れる・役割が変わるといったことは必ず起きるので、
+ * オーナーが宙に浮いたままにならない道を用意しておく。
+ *
+ * 取り消しのきかない操作なので、いまのオーナーのパスワードで本人を確かめる。
+ * 画面を開きっぱなしのPCを他の人に触られても、これだけでは渡らない。
+ *
+ * 引き継いだあと、前のオーナーは管理者として残る。
+ * 離任のときはそのまま削除できるし、役割が変わるだけなら仕事は続けられる。
+ */
+export async function transferOwnership(
+  actorId: string,
+  targetId: string,
+  password: string,
+): Promise<PublicUser[]> {
+  const list = await listUsers();
+  const actor = list.find((u) => u.id === normalizeId(actorId));
+  if (actor?.role !== "owner") throw new Error("オーナーを譲れるのは、いまのオーナーだけです。");
+
+  const key = normalizeId(targetId);
+  const target = list.find((u) => u.id === key);
+  if (!target) throw new Error("その利用者は登録されていません。");
+  if (target.id === actor.id) throw new Error("ご自身にオーナーを譲ることはできません。");
+
+  if (!(await verifyUser(actor.id, password))) {
+    throw new Error("ご自身のパスワードが違います。");
+  }
+
+  const now = new Date().toISOString();
+  const next = list.map((u) => {
+    if (u.id === key) return { ...u, role: "owner" as Role, updatedAt: now };
+    if (u.id === actor.id) return { ...u, role: "admin" as Role, updatedAt: now };
+    return u;
+  });
   await writeUsers(next);
   return next.map(publicOf);
 }
