@@ -178,35 +178,59 @@ const QUOTE_CSS = `
   body.quote { font-size: calc(12pt * var(--fit, 1)); line-height: 1.25; }
   body.quote h1 { font-size: calc(24pt * var(--fit, 1)); margin: calc(6px * var(--fit, 1)) 0; }
 
-  /* 宛名（左）と日付・見積書番号（右） */
-  body.quote .q-top { display: flex; justify-content: space-between; align-items: flex-end; }
-  body.quote .q-top .q-to + .q-no { flex: 1; }
-  body.quote .q-to {
-    width: 55%;
+  /* 宛名（左）と日付・見積書番号（右）＝元のExcelの1〜2行目 */
+  body.quote .q-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  body.quote .q-top .q-to { flex: 1; display: flex; align-items: flex-end; }
+  /* 下線は社名のところだけ。「御中」は線の外に置く（元のExcelと同じ） */
+  body.quote .q-name {
+    width: 52%;
     border-bottom: 1px solid #000;
-    padding: 0 0 0.15em 1.2em;
-    /* 宛名はいちばん先に目に入る欄なので、元のExcel（16pt）より少し大きく取る */
+    padding: 0 0 0.1em 1.2em;
+    /* 宛名はいちばん先に目に入る欄なので、元のExcel（14pt）より大きく取る */
     font-size: calc(19pt * var(--fit, 1));
     font-weight: 700;
     /* 宛名は下線の左端から書き出す（長い社名でも頭が切れない） */
     text-align: left;
+    line-height: calc(41.85pt * var(--fit, 1));
   }
-  body.quote .q-to .honorific { font-size: calc(14pt * var(--fit, 1)); margin-left: 0.6em; }
-  body.quote .q-no { text-align: right; font-size: calc(11pt * var(--fit, 1)); white-space: nowrap; line-height: 1.6; }
+  body.quote .q-to .honorific {
+    font-size: calc(14pt * var(--fit, 1));
+    font-weight: 700;
+    margin-left: 0.5em;
+    line-height: calc(41.85pt * var(--fit, 1));
+  }
+  body.quote .q-no { text-align: right; font-size: calc(11pt * var(--fit, 1)); white-space: nowrap; line-height: calc(20.9pt * var(--fit, 1)); }
 
-  /* 題字の前後は、元のExcelと同じくゆったり空ける */
-  body.quote h1 { margin: calc(30px * var(--fit, 1)) 0 0; }
+  /* 題字（元のExcelの3行目）。前後の空きも行の高さに合わせる */
+  body.quote h1 { margin: calc(13.2pt * var(--fit, 1)) 0 0; line-height: calc(33pt * var(--fit, 1)); }
+
+  /*
+   * ここから下は左右2段組み。
+   * 左に「下記の通り〜」「物件名…」「月額リース料金」、右に自社情報。
+   * 月額リース料金を左の段に入れておくと、拠点がいくつあっても
+   * 左に白い帯が残らない（元のExcelも、この3つが縦につながっている）。
+   */
+  body.quote .head { align-items: flex-start; margin-top: calc(32.1pt * var(--fit, 1)); }
+  body.quote .q-left { width: 52%; }
   body.quote .q-lead {
     font-size: calc(10pt * var(--fit, 1));
     font-weight: 700;
-    margin: calc(48px * var(--fit, 1)) 0 calc(14px * var(--fit, 1));
+    /* ロゴ（Excelの5行目）より1行ぶん下げる */
+    margin: calc(17.85pt * var(--fit, 1)) 0 calc(17.85pt * var(--fit, 1));
+    line-height: calc(17.85pt * var(--fit, 1));
   }
 
   /* 物件名・納入場所…（細い下線つきの箇条） */
-  body.quote .q-terms { width: 48%; border-collapse: collapse; }
-  body.quote .q-terms td { border-bottom: 1px solid #a6a6a6; padding: 0.22em 0; font-size: calc(10pt * var(--fit, 1)); font-weight: 700; }
-  body.quote .q-terms .q-label { width: 7.5em; text-align: justify; text-align-last: justify; }
-  body.quote .q-terms .q-colon { width: 1.2em; text-align: center; }
+  body.quote .q-terms { width: 100%; border-collapse: collapse; }
+  body.quote .q-terms td {
+    border-bottom: 1px solid #000;
+    font-size: calc(10pt * var(--fit, 1));
+    font-weight: 700;
+    line-height: calc(17.35pt * var(--fit, 1));
+  }
+  /* 見出しは均等割付（元のExcelと同じ幅の取り方：見出し25％・「：」8％） */
+  body.quote .q-terms .q-label { width: 25%; text-align: justify; text-align-last: justify; }
+  body.quote .q-terms .q-colon { width: 8%; text-align: center; }
 
   body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 41%; }
   body.quote .company .name { font-size: calc(15pt * var(--fit, 1)); }
@@ -228,9 +252,14 @@ const QUOTE_CSS = `
   }
   body.quote .company .offices .office-name { font-size: calc(11pt * var(--fit, 1)); }
 
-  /* 月額リース料金（緑の見出しセル＋金額） */
-  body.quote .lease-box { width: 48%; border-collapse: collapse; margin: 0.6em 0 0.5em; border: 2px solid #000; }
-  body.quote .lease-box td { border: 0; padding: 0.2em 0.5em; vertical-align: middle; }
+  /* 月額リース料金（緑の見出しセル＋金額）＝元のExcelの14行目 */
+  body.quote .lease-box {
+    width: 100%;
+    border-collapse: collapse;
+    margin: calc(19.5pt * var(--fit, 1)) 0 0;
+    border: 2px solid #000;
+  }
+  body.quote .lease-box td { border: 0; padding: 0 0.5em; vertical-align: middle; line-height: calc(40.6pt * var(--fit, 1)); }
   body.quote .lease-box .label {
     background: var(--head-green);
     border-right: 1px solid #000;
@@ -243,7 +272,7 @@ const QUOTE_CSS = `
   body.quote .lease-box .tax { font-size: calc(10pt * var(--fit, 1)); text-align: right; white-space: nowrap; }
 
   /* 明細表（Excelと同じ、薄緑の見出し＋細い黒罫） */
-  body.quote .grid { border: 2px solid #000; }
+  body.quote .grid { border: 2px solid #000; margin-top: calc(19.5pt * var(--fit, 1)); }
   body.quote .grid thead th {
     background: var(--head-green);
     font-size: calc(14pt * var(--fit, 1));
@@ -288,9 +317,9 @@ const QUOTE_ITEM_SLOTS = 8;
  * 下のほうはわざと空けてある（元のExcelもここで終わっている）。
  *
  * 実測（A4たて・印刷幅174mm）：
- *   行数で変わらない部分 約1,203px（見出し・自社情報・カウンター料金7行・
+ *   行数で変わらない部分 約1,263px（見出し・自社情報・カウンター料金7行・
  *   リースシミュレーション3行・注記をすべて含む）／ 明細1行あたり 約30px
- *   （品目8件まで1,443px ／ 12件1,563px ／ 16件1,683px）
+ *   （品目8件まで1,503px ／ 12件1,623px ／ 16件1,742px）
  */
 export function fitQuote(rowCount: number): number {
   const scale = QUOTE_BUDGET_PX / (QUOTE_BLOCK_PX + QUOTE_ROW_PX * rowCount);
@@ -300,7 +329,7 @@ export function fitQuote(rowCount: number): number {
 
 /** 中身を収める高さ 215mm ＝ 約813px（96dpi） */
 const QUOTE_BUDGET_PX = 813;
-const QUOTE_BLOCK_PX = 1_203;
+const QUOTE_BLOCK_PX = 1_263;
 const QUOTE_ROW_PX = 30;
 
 /**
@@ -537,11 +566,18 @@ function brandBar(
   </div>`;
 }
 
-/** 見積書のヘッダー（宛名・自社情報） */
+/**
+ * 見積書のヘッダー（宛名・物件名・月額リース料金・自社情報）。
+ *
+ * 元のExcelは、左に「下記の通り〜」から「月額リース料金」までが縦に並び、
+ * 右に自社情報が入る。月額リース料金まで左の段に入れておかないと、
+ * 拠点の数だけ左側に白い帯ができてしまう。
+ */
 function quoteHeader(
   quote: Quote,
   settings: Settings,
   subject: string,
+  leaseBox: string,
   logo?: string,
   quoteNo?: string,
   seal?: string,
@@ -551,23 +587,29 @@ function quoteHeader(
     `<tr><td class="q-label">${esc(label)}</td><td class="q-colon">：</td><td>${esc(value)}</td></tr>`;
   return `
   <div class="q-top">
-    <div class="q-to">${esc(quote.customerName)}<span class="honorific">${esc(quote.customerHonorific)}</span></div>
+    <div class="q-to">
+      <div class="q-name">${esc(quote.customerName)}</div>
+      <span class="honorific">${esc(quote.customerHonorific)}</span>
+    </div>
     <div class="q-no">
       <div>${esc(jpDate(quote.quoteDate))}</div>
       <div>見積書番号：　${esc(quoteNo ?? quote.quoteNo)}</div>
     </div>
   </div>
   <h1>御　見　積　書</h1>
-  <div class="q-lead">下記の通り御見積申し上げます。何卒よろしくお願い致します。</div>
   <div class="head">
-    <table class="q-terms">
-      ${term("物件名", subject)}
-      ${term("納入場所", "別途お打ち合わせ")}
-      ${term("御受渡期日", "別途お打ち合わせ")}
-      ${term("御支払条件", "別途お打ち合わせ")}
-      ${term("有効期限", c.validityText)}
-      ${quote.staffName ? term("担当者", quote.staffName) : ""}
-    </table>
+    <div class="q-left">
+      <div class="q-lead">下記の通り御見積申し上げます。何卒よろしくお願い致します。</div>
+      <table class="q-terms">
+        ${term("物件名", subject)}
+        ${term("納入場所", "別途お打ち合わせ")}
+        ${term("御受渡期日", "別途お打ち合わせ")}
+        ${term("御支払条件", "別途お打ち合わせ")}
+        ${term("有効期限", c.validityText)}
+        ${quote.staffName ? term("担当者", quote.staffName) : ""}
+      </table>
+      ${leaseBox}
+    </div>
     ${companyBlock(settings, logo, seal)}
   </div>`;
 }
@@ -646,14 +688,14 @@ export function renderQuoteHtml(
     )
     .join("");
 
-  const body = `
-  ${quoteHeader(quote, settings, subject, logo, p.quoteNo, seal)}
-
-  <table class="lease-box"><tr>
+  const leaseBox = `<table class="lease-box"><tr>
     <td class="label">月額リース料金</td>
     <td class="value">${n(calc.monthlyLease)}</td>
     <td class="tax">（税別）</td>
-  </tr></table>
+  </tr></table>`;
+
+  const body = `
+  ${quoteHeader(quote, settings, subject, leaseBox, logo, p.quoteNo, seal)}
 
   <table class="grid">
     <colgroup>

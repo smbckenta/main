@@ -124,6 +124,21 @@ describe("元のExcelと同じ体裁", () => {
     expect(renderQuoteHtml(q, calc, DEFAULT_SETTINGS)).toContain("@page { size: A4; margin: 22mm 18mm; }");
   });
 
+  it("見積書の上半分は左右2段組み。月額リース料金まで左の段に入れる", () => {
+    const html = renderQuoteHtml(q, calc, DEFAULT_SETTINGS);
+    // 「下記の通り〜」「物件名…」「月額リース料金」が、ひとつの段に縦に並ぶ。
+    // ここを分けると、拠点がいくつあるかで左側に白い帯ができてしまう。
+    const left = html.match(/<div class="q-left">([\s\S]*?)<\/div>\s*\n\s*<div class="company">/);
+    expect(left).not.toBeNull();
+    expect(left?.[1]).toContain("下記の通り御見積申し上げます");
+    expect(left?.[1]).toContain("物件名");
+    expect(left?.[1]).toContain('class="lease-box"');
+
+    // 宛名の下線は社名のところまで。「御中」は線の外に置く（元のExcelと同じ）
+    expect(html).toMatch(/<div class="q-name">[^<]*<\/div>\s*\n?\s*<span class="honorific">/);
+    expect(html).toMatch(/body\.quote \.q-name \{[^}]*border-bottom: 1px solid #000/);
+  });
+
   it("見積書の数量と単位は、罫線で区切らずひと続きに見せる", () => {
     const html = renderQuoteHtml(q, calc, DEFAULT_SETTINGS);
     expect(html).toContain('class="qty"');
