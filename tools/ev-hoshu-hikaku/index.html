@@ -113,6 +113,23 @@ label.f textarea{min-height:80px; resize:vertical; line-height:1.6}
 .rows col.sep{width:8px}
 .rows td.sep,.rows th.sep{background:#eef2f6; border-top:0; border-bottom:0}
 
+/* チェックボックス（提案の仕様など） */
+label.chk{
+  display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--ink);
+  white-space:nowrap; cursor:pointer;
+}
+label.chk input{width:auto; margin:0}
+.optrow{display:flex; gap:14px; flex-wrap:wrap; padding:7px 0}
+.f > span{font-size:12px; color:var(--muted)}
+.f{display:grid; gap:4px}
+.rows td.opts{padding:4px 7px; background:#fff}
+.rows td.opts label{
+  display:flex; align-items:center; gap:4px;
+  font-size:11px; line-height:1.6; white-space:nowrap; cursor:pointer;
+}
+.rows td.opts input[type=checkbox]{width:auto; margin:0; padding:0}
+.rows tbody tr:nth-child(even) td.opts{background:#fafbfc}
+
 /* ---------- 読み取り ---------- */
 .drop{
   border:2px dashed #b9c4cf; border-radius:10px; padding:34px; text-align:center;
@@ -159,6 +176,8 @@ label.f textarea{min-height:80px; resize:vertical; line-height:1.6}
   border-radius:999px; background:var(--danger); color:#fff;
   font-size:11px; line-height:18px; text-align:center; vertical-align:1px;
 }
+/* display を指定すると hidden 属性が効かなくなるので打ち消す */
+.tabs button .dot[hidden]{display:none}
 .summary{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px}
 .stat{
   flex:1 1 150px; background:var(--panel); border:1px solid var(--line);

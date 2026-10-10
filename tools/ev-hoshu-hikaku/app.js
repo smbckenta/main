@@ -26,15 +26,53 @@
       sectionTitle: '-  エ レ ベ ー タ ー 料 金 詳 細 内 訳  - ',
       years: 10,
       profitRates: [0.2, 0.1, 0.05],
+      proposalVendors: [
+        'エレベーターコミュニケーションズ㈱',
+        'エス・イー・シーエレベーター株式会社'
+      ],
       proposalVendor: 'エレベーターコミュニケーションズ㈱',
-      proposalFrequency: '有人点検\n1回/2ヶ月',
-      proposalSpec: '遠隔監視装置付き\nQRサポート付き',
-      proposalPlan: 'FM契約',
+      // 提案は原則として現行と同仕様。現行が読み取れない行だけ下の値を使う。
+      matchCurrentPlan: true,
+      matchCurrentFrequency: true,
+      fallbackPlan: 'FM契約',
+      fallbackFrequency: '有人点検\n1回/2ヶ月',
+      // 遠隔監視が要らない物件（ホテル・老人ホームなど）は remote を外す
+      specOptions: { remote: true, direct: false, qr: true },
       discountRate: 0.2,
       remarks: DEFAULT_REMARKS
     },
     ai: { enabled: true, model: 'claude-opus-5' }
   };
+
+  // 提案側の「仕様」欄を組み立てる部品
+  var SPEC_OPTIONS = [
+    { key: 'remote', label: '遠隔監視装置', text: '遠隔監視装置付き' },
+    { key: 'direct', label: '直話装置', text: '直話装置付き' },
+    { key: 'qr', label: 'QRサポート', text: 'QRサポート付き' }
+  ];
+
+  function specText(options) {
+    return SPEC_OPTIONS
+      .filter(function (o) { return options && options[o.key]; })
+      .map(function (o) { return o.text; })
+      .join('\n');
+  }
+
+  // 契約書から読み取った仕様の文面から、どの装置が付くかを拾う
+  function parseSpec(text) {
+    var t = String(text || '');
+    return {
+      remote: /遠隔監視/.test(t),
+      direct: /直話/.test(t),
+      qr: /QR/i.test(t)
+    };
+  }
+
+  // 「不明」や空欄は現行として採用できない
+  function usable(value) {
+    var s = String(value == null ? '' : value).trim();
+    return s !== '' && s !== '不明';
+  }
 
   var App = {
     settings: null,
@@ -171,14 +209,17 @@
   // ---------- 案件 ----------
   function newRow(settings) {
     var d = settings.defaults;
+    var options = Object.assign({}, d.specOptions);
     return {
       id: uuid(),
       site: '', currentMaker: '', currentQty: 1, currentVendor: '',
-      currentFrequency: '', currentSpec: '遠隔監視装置付き', stops: '',
+      currentFrequency: '', currentSpec: '', stops: '',
       currentPlan: '', currentMonthly: '',
       proposalMaker: '', proposalQty: 1, proposalVendor: d.proposalVendor,
-      proposalFrequency: d.proposalFrequency, proposalSpec: d.proposalSpec,
-      proposalPlan: d.proposalPlan, proposalMonthly: '',
+      // 契約内容と点検頻度は現行を入力した時点で同じ値が入る
+      proposalFrequency: '', proposalPlan: '',
+      proposalOptions: options, proposalSpec: specText(options),
+      proposalMonthly: '',
       emphasizePlan: null
     };
   }
@@ -228,7 +269,10 @@
     var c = await Store.readJson('cases/' + id + '.json', null);
     if (!c) return fail(new Error('案件を読み込めませんでした'));
     if (!c.rows || !c.rows.length) c.rows = [newRow(App.settings)];
-    c.rows.forEach(function (r) { if (!r.id) r.id = uuid(); });
+    c.rows.forEach(function (r) {
+      if (!r.id) r.id = uuid();
+      if (!r.proposalOptions) r.proposalOptions = parseSpec(r.proposalSpec);
+    });
     // 台帳を持たない古い案件も開けるようにしておく
     if (!c.units) c.units = [];
     c.units.forEach(function (u) {
@@ -534,9 +578,21 @@
       if (a.taxIncluded) {
         c.warnings.push(site + ': 読み取った月額は税込表記です。税抜に直してください。');
       }
-      // 提案側は既定値と割引率から下書きを作る（あとから手で直す前提）
+      // 提案側は「現行と同仕様」を下書きにする（あとから手で直す前提）
       if (isNew || !row.proposalMaker) row.proposalMaker = row.currentMaker;
       if (isNew || !row.proposalQty) row.proposalQty = row.currentQty;
+      if (!row.proposalVendor) row.proposalVendor = d.proposalVendor;
+      if (!row.proposalPlan) {
+        row.proposalPlan = (d.matchCurrentPlan && usable(row.currentPlan)) ? row.currentPlan : d.fallbackPlan;
+      }
+      if (!row.proposalFrequency) {
+        row.proposalFrequency = (d.matchCurrentFrequency && usable(row.currentFrequency))
+          ? row.currentFrequency : d.fallbackFrequency;
+      }
+      if (isNew) {
+        row.proposalOptions = Object.assign({}, d.specOptions);
+        row.proposalSpec = specText(row.proposalOptions);
+      }
       if (!row.proposalMonthly && row.currentMonthly) {
         row.proposalMonthly = round100(Number(row.currentMonthly) * (1 - Number(d.discountRate || 0)));
       }
@@ -896,9 +952,9 @@
   var PRO_COLS = [
     { k: 'proposalMaker', label: 'メーカー', w: 84 },
     { k: 'proposalQty', label: '台数', w: 46, num: true },
-    { k: 'proposalVendor', label: '提案ベンダー', w: 170 },
+    { k: 'proposalVendor', label: '提案ベンダー', w: 170, list: 'vendorOptions' },
     { k: 'proposalFrequency', label: '点検頻度', w: 96, multi: true },
-    { k: 'proposalSpec', label: '仕様', w: 116, multi: true },
+    { k: 'proposalSpec', label: '仕様', w: 118, spec: true },
     { k: 'proposalPlan', label: '契約内容', w: 82 },
     { k: 'proposalMonthly', label: '月額保守料金', w: 100, num: true }
   ];
@@ -915,11 +971,28 @@
   function cellHtml(row, i, col) {
     var v = row[col.k] == null ? '' : row[col.k];
     var attrs = 'data-i="' + i + '" data-k="' + col.k + '"';
+    if (col.spec) {
+      var picked = row.proposalOptions || {};
+      return '<td class="opts">' + SPEC_OPTIONS.map(function (o) {
+        return '<label><input type="checkbox" data-i="' + i + '" data-opt="' + o.key + '"' +
+          (picked[o.key] ? ' checked' : '') + '>' + esc(o.label) + '</label>';
+      }).join('') + '</td>';
+    }
     if (col.multi) {
       return '<td><textarea rows="2" ' + attrs + '>' + esc(v) + '</textarea></td>';
     }
+    if (col.list) {
+      return '<td><input type="text" list="' + col.list + '" ' + attrs + ' value="' + esc(v) + '"></td>';
+    }
     return '<td' + (col.num ? ' class="num"' : '') + '>' +
       '<input type="' + (col.num ? 'number' : 'text') + '" ' + attrs + ' value="' + esc(v) + '"></td>';
+  }
+
+  function vendorDatalist() {
+    var list = (App.settings.defaults.proposalVendors || []).slice();
+    return '<datalist id="vendorOptions">' +
+      list.map(function (v) { return '<option value="' + esc(v) + '"></option>'; }).join('') +
+      '</datalist>';
   }
 
   function renderRows() {
@@ -972,23 +1045,37 @@
     host.innerHTML =
       '<div class="card">' +
       '<h2>提案側を一括で埋める</h2>' +
-      '<div class="grid c4">' +
-      '<label class="f">提案ベンダー<input id="bkVendor" value="' + esc(d.proposalVendor) + '"></label>' +
-      '<label class="f">点検頻度<textarea id="bkFreq" rows="2">' + esc(d.proposalFrequency) + '</textarea></label>' +
-      '<label class="f">仕様<textarea id="bkSpec" rows="2">' + esc(d.proposalSpec) + '</textarea></label>' +
-      '<label class="f">契約内容<input id="bkPlan" value="' + esc(d.proposalPlan) + '"></label>' +
+      '<div class="grid c3">' +
+      '<label class="f">提案ベンダー' +
+      '<input id="bkVendor" list="vendorOptions" value="' + esc(d.proposalVendor) + '"></label>' +
+      '<div class="f"><span>契約内容</span>' +
+      '<label class="chk"><input type="checkbox" id="bkMatchPlan"' + (d.matchCurrentPlan ? ' checked' : '') +
+      '>現行と同じにする</label>' +
+      '<input id="bkPlan" value="' + esc(d.fallbackPlan) + '"></div>' +
+      '<div class="f"><span>点検頻度</span>' +
+      '<label class="chk"><input type="checkbox" id="bkMatchFreq"' + (d.matchCurrentFrequency ? ' checked' : '') +
+      '>現行と同じにする</label>' +
+      '<textarea id="bkFreq" rows="2">' + esc(d.fallbackFrequency) + '</textarea></div>' +
       '</div>' +
-      '<div class="grid c4" style="margin-top:12px; align-items:end">' +
+      '<div class="grid c3" style="margin-top:12px; align-items:end">' +
+      '<div class="f"><span>仕様（提案）</span><div class="optrow">' +
+      SPEC_OPTIONS.map(function (o) {
+        return '<label class="chk"><input type="checkbox" data-bkopt="' + o.key + '"' +
+          ((d.specOptions || {})[o.key] ? ' checked' : '') + '>' + esc(o.label) + '</label>';
+      }).join('') + '</div></div>' +
       '<label class="f">現行からの削減率（%）<input id="bkDiscount" type="number" step="1" value="' +
       Math.round(Number(d.discountRate || 0) * 100) + '"></label>' +
-      '<div><button id="bkApply" class="btn primary">提案側に反映</button></div>' +
-      '<div><button id="bkCopy" class="btn">メーカー・台数を現行からコピー</button></div>' +
-      '<div><button id="bkPrice" class="btn">提案金額だけ削減率から再計算</button></div>' +
-      '</div>' +
-      '<p class="hint">反映は空欄だけでなく上書きします。個別に変えた行は反映後に直してください。</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button id="bkApply" class="btn primary">提案側に反映</button>' +
+      '<button id="bkCopy" class="btn">メーカー・台数をコピー</button>' +
+      '<button id="bkPrice" class="btn">金額だけ再計算</button>' +
+      '</div></div>' +
+      '<p class="hint" id="bkNote">「現行と同じにする」を外すと、右の欄の値を全行に入れます。' +
+      'チェックしたままなら現行をそのまま写し、現行が空・不明の行だけ右の欄を使います。</p>' +
       '</div>' +
       '<div class="card">' +
       '<h2>明細</h2>' +
+      vendorDatalist() +
       '<div style="overflow:auto"><table class="rows">' + cols + head + body + foot + '</table></div>' +
       '<div style="margin-top:12px; display:flex; gap:10px; align-items:center">' +
       '<button id="addRowBtn" class="btn">＋ 行を追加</button>' +
@@ -1003,12 +1090,35 @@
     var table = $('.rows', host);
     table.addEventListener('input', function (e) {
       var el = e.target;
+      if (el.dataset.opt !== undefined) {
+        var target = c.rows[Number(el.dataset.i)];
+        if (!target.proposalOptions) target.proposalOptions = {};
+        target.proposalOptions[el.dataset.opt] = el.checked;
+        target.proposalSpec = specText(target.proposalOptions);
+        touch(); renderPreview();
+        return;
+      }
       if (el.dataset.i === undefined) return;
       var row = c.rows[Number(el.dataset.i)];
       var key = el.dataset.k;
       row[key] = el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
       if (key === 'currentMonthly' || key === 'proposalMonthly') updateFooter(c);
       touch();
+    });
+
+    // 提案は原則として現行と同仕様。現行を入れた時点で、まだ空の提案側へ写す。
+    table.addEventListener('change', function (e) {
+      var el = e.target;
+      if (el.dataset.i === undefined || el.dataset.opt !== undefined) return;
+      var mirror = { currentPlan: 'proposalPlan', currentFrequency: 'proposalFrequency' };
+      var to = mirror[el.dataset.k];
+      if (!to) return;
+      var row = c.rows[Number(el.dataset.i)];
+      if (row[to] || !usable(el.value)) return;
+      row[to] = el.value;
+      var cell = table.querySelector('[data-i="' + el.dataset.i + '"][data-k="' + to + '"]');
+      if (cell) cell.value = el.value;
+      touch(); renderPreview();
     });
     $$('[data-del]', table).forEach(function (b) {
       b.onclick = function () {
@@ -1071,17 +1181,30 @@
 
   function bulkApply(applyText) {
     var c = App.current;
+    var d = App.settings.defaults;
     var discount = Number($('#bkDiscount').value || 0) / 100;
-    var vendor = $('#bkVendor').value;
-    var freq = $('#bkFreq').value;
-    var spec = $('#bkSpec').value;
-    var plan = $('#bkPlan').value;
+    var vendor = $('#bkVendor').value.trim();
+    var matchPlan = $('#bkMatchPlan').checked;
+    var matchFreq = $('#bkMatchFreq').checked;
+    var fallbackPlan = $('#bkPlan').value;
+    var fallbackFreq = $('#bkFreq').value;
+    var options = {};
+    $$('[data-bkopt]').forEach(function (el) { options[el.dataset.bkopt] = el.checked; });
+
+    var usedFallback = [];
     c.rows.forEach(function (r) {
       if (applyText) {
         r.proposalVendor = vendor;
-        r.proposalFrequency = freq;
-        r.proposalSpec = spec;
+
+        var plan = matchPlan ? (usable(r.currentPlan) ? r.currentPlan : fallbackPlan) : fallbackPlan;
+        var freq = matchFreq ? (usable(r.currentFrequency) ? r.currentFrequency : fallbackFreq) : fallbackFreq;
+        if (matchPlan && !usable(r.currentPlan)) usedFallback.push((r.site || '（名称なし）') + '：契約内容');
+        if (matchFreq && !usable(r.currentFrequency)) usedFallback.push((r.site || '（名称なし）') + '：点検頻度');
         r.proposalPlan = plan;
+        r.proposalFrequency = freq;
+
+        r.proposalOptions = Object.assign({}, options);
+        r.proposalSpec = specText(r.proposalOptions);
         if (!r.proposalMaker) r.proposalMaker = r.currentMaker;
         if (!r.proposalQty) r.proposalQty = r.currentQty;
       }
@@ -1089,15 +1212,23 @@
         r.proposalMonthly = round100(Number(r.currentMonthly) * (1 - discount));
       }
     });
-    App.settings.defaults.discountRate = discount;
+
+    d.discountRate = discount;
     if (applyText) {
-      App.settings.defaults.proposalVendor = vendor;
-      App.settings.defaults.proposalFrequency = freq;
-      App.settings.defaults.proposalSpec = spec;
-      App.settings.defaults.proposalPlan = plan;
+      d.proposalVendor = vendor;
+      d.matchCurrentPlan = matchPlan;
+      d.matchCurrentFrequency = matchFreq;
+      d.fallbackPlan = fallbackPlan;
+      d.fallbackFrequency = fallbackFreq;
+      d.specOptions = Object.assign({}, options);
+      if (vendor && (d.proposalVendors || []).indexOf(vendor) < 0) d.proposalVendors.push(vendor);
     }
     Store.writeJson('settings.json', App.settings).catch(fail);
     touch(); renderRows(); renderPreview();
+
+    if (usedFallback.length) {
+      toast('現行が不明だったため既定値を使いました: ' + usedFallback.join(' / '));
+    }
   }
 
   // ---------- ④ 表紙・備考 ----------
@@ -1390,6 +1521,9 @@
     var dlg = document.createElement('dialog');
     dlg.style.cssText = 'border:0;border-radius:10px;padding:0;width:min(760px,92vw)';
     dlg.innerHTML =
+      '<datalist id="vendorOptionsDlg">' +
+      (d.proposalVendors || []).map(function (v) { return '<option value="' + esc(v) + '"></option>'; }).join('') +
+      '</datalist>' +
       '<form method="dialog" style="padding:20px">' +
       '<h2 style="margin:0 0 16px;font-size:16px">設定</h2>' +
       '<div class="card"><h2>作成者の既定値</h2><div class="grid c2">' +
@@ -1401,14 +1535,32 @@
       '<div class="card"><h2>比較表の既定値</h2><div class="grid c2">' +
       '<label class="f">タイトル<input data-s="defaults.title" value="' + esc(d.title) + '"></label>' +
       '<label class="f">シート名<input data-s="defaults.sheetName" value="' + esc(d.sheetName) + '"></label>' +
-      '<label class="f">提案ベンダー<input data-s="defaults.proposalVendor" value="' + esc(d.proposalVendor) + '"></label>' +
-      '<label class="f">契約内容<input data-s="defaults.proposalPlan" value="' + esc(d.proposalPlan) + '"></label>' +
-      '<label class="f">点検頻度<textarea data-s="defaults.proposalFrequency" rows="2">' + esc(d.proposalFrequency) + '</textarea></label>' +
-      '<label class="f">仕様<textarea data-s="defaults.proposalSpec" rows="2">' + esc(d.proposalSpec) + '</textarea></label>' +
+      '<label class="f">既定で選ぶ提案ベンダー' +
+      '<input data-s="defaults.proposalVendor" list="vendorOptionsDlg" value="' + esc(d.proposalVendor) + '"></label>' +
       '<label class="f">累計年数<input type="number" data-s="defaults.years" value="' + esc(d.years) + '"></label>' +
       '<label class="f">既定の削減率（%）<input type="number" data-s="defaults.discountRatePct" value="' +
       Math.round(Number(d.discountRate || 0) * 100) + '"></label>' +
       '</div>' +
+      '<label class="f" style="margin-top:12px">提案ベンダーの候補（1行に1社）' +
+      '<textarea id="setVendors" rows="4">' + esc((d.proposalVendors || []).join('\n')) + '</textarea></label>' +
+      '<p class="hint">明細の「提案ベンダー」欄はここに入れた会社から選べます。直接入力もできます。</p>' +
+      '<div class="grid c2" style="margin-top:12px">' +
+      '<div class="f"><span>契約内容の既定</span>' +
+      '<label class="chk"><input type="checkbox" id="setMatchPlan"' + (d.matchCurrentPlan ? ' checked' : '') +
+      '>現行と同じにする</label>' +
+      '<input id="setFallbackPlan" value="' + esc(d.fallbackPlan) + '" placeholder="現行が不明なときの値"></div>' +
+      '<div class="f"><span>点検頻度の既定</span>' +
+      '<label class="chk"><input type="checkbox" id="setMatchFreq"' + (d.matchCurrentFrequency ? ' checked' : '') +
+      '>現行と同じにする</label>' +
+      '<textarea id="setFallbackFreq" rows="2" placeholder="現行が不明なときの値">' + esc(d.fallbackFrequency) + '</textarea></div>' +
+      '</div>' +
+      '<div class="f" style="margin-top:12px"><span>仕様の既定（提案側）</span><div class="optrow">' +
+      SPEC_OPTIONS.map(function (o) {
+        return '<label class="chk"><input type="checkbox" data-setopt="' + o.key + '"' +
+          ((d.specOptions || {})[o.key] ? ' checked' : '') + '>' + esc(o.label) + '</label>';
+      }).join('') + '</div></div>' +
+      '<p class="hint">ホテルや老人ホームなど遠隔監視装置が不要な物件は、' +
+      '「遠隔監視装置」を外して「QRサポート」だけにしてください。</p>' +
       '<label class="f" style="margin-top:12px">備考の既定文<textarea data-s="defaults.remarks" rows="6">' + esc(d.remarks) + '</textarea></label>' +
       '</div>' +
       '<div class="card"><h2>Claude</h2><div class="grid c2">' +
@@ -1451,6 +1603,16 @@
           var value = el.type === 'number' ? Number(el.value) : el.value;
           if (key === 'discountRatePct') { s.defaults.discountRate = Number(el.value) / 100; return; }
           s[parts[0]][key] = value;
+        });
+        s.defaults.proposalVendors = $('#setVendors', dlg).value
+          .split('\n').map(function (v) { return v.trim(); }).filter(Boolean);
+        s.defaults.matchCurrentPlan = $('#setMatchPlan', dlg).checked;
+        s.defaults.matchCurrentFrequency = $('#setMatchFreq', dlg).checked;
+        s.defaults.fallbackPlan = $('#setFallbackPlan', dlg).value;
+        s.defaults.fallbackFrequency = $('#setFallbackFreq', dlg).value;
+        s.defaults.specOptions = {};
+        $$('[data-setopt]', dlg).forEach(function (el) {
+          s.defaults.specOptions[el.dataset.setopt] = el.checked;
         });
         await Store.writeJson('settings.json', s);
         var key = $('#apiKeyInput', dlg).value.trim();
