@@ -146,6 +146,12 @@ describe("元のExcelと同じ体裁", () => {
     expect(html).toContain("消費税（10％）");
   });
 
+  it("複数台比較表は、現状と提案のあいだに矢印を置く", () => {
+    const html = renderFleetCompareHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1), DEFAULT_SETTINGS);
+    // リース料金・カウンター料金・合計の3か所
+    expect(html.match(/class="fleet-arrow">➡/g) ?? []).toHaveLength(3);
+  });
+
   it("複数台比較表は設置場所・メーカー・印刷速度をExcelと同じ欄に出す", () => {
     const html = renderFleetCompareHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1), DEFAULT_SETTINGS);
     expect(html).toContain("<th>設置場所</th>");

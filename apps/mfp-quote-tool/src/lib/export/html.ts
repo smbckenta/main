@@ -1249,8 +1249,18 @@ const FLEET_CSS = `
   }
 
   /* ── 左右に並べた現状／提案の表 */
-  .fleet-cols { display: flex; gap: calc(18px * var(--fit)); align-items: flex-start; }
+  .fleet-cols { display: flex; gap: calc(10px * var(--fit)); align-items: flex-start; }
   .fleet-cols > * { flex: 1; min-width: 0; }
+  /* 現状 → 提案 の向きが一目で分かるよう、左右の表のあいだに矢印を置く */
+  .fleet-cols > .fleet-arrow {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 0 calc(4px * var(--fit));
+    font-size: calc(34pt * var(--fit));
+    line-height: 1;
+    font-weight: 700;
+    color: #000;
+  }
 
   body.fleet .grid { border: 1px solid #000; }
   body.fleet .grid th, body.fleet .grid td {
@@ -1558,6 +1568,7 @@ export function renderFleetCompareHtml(
       : `<div class="band">-  リ ー ス 料 金 詳 細 内 訳  -</div>
   <div class="fleet-cols">
     <div>${leaseTable("current")}</div>
+    <div class="fleet-arrow">➡</div>
     <div>${leaseTable("proposal")}</div>
   </div>`
   }
@@ -1567,6 +1578,7 @@ export function renderFleetCompareHtml(
   }</div>
   <div class="fleet-cols">
     <div>${counterTable("current")}${totalBox(calc.current.monthly)}</div>
+    <div class="fleet-arrow">➡</div>
     <div>${counterTable("proposal")}${totalBox(calc.proposal.monthly)}</div>
   </div>
   ${deductionNote}
@@ -1583,6 +1595,7 @@ export function renderFleetCompareHtml(
       <div class="band">-  合 計  -</div>
       ${sumBlock(calc.current)}
     </div>
+    <div class="fleet-arrow">➡</div>
     <div>
       <div class="band">-  合 計  -</div>
       ${sumBlock(calc.proposal)}
