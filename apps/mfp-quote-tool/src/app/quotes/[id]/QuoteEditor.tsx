@@ -184,6 +184,40 @@ export default function QuoteEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote.current.modelText, quote.current.deviceId]);
 
+  /**
+   * ご提案する機種のスペックも、現行機と同じように引いておく。
+   *
+   * 比較表の「ウォームタイム」「ファーストコピー」「連続コピー速度」は
+   * 現行と提案の両方がそろって初めて意味を持つ行なので、
+   * 提案側だけ空欄になると比べられない。
+   */
+  useEffect(() => {
+    const targets = quote.proposals.filter(
+      (p) => !p.deviceId && p.modelText.trim().length >= 3 && !triedModels.current.has(p.modelText.trim().toUpperCase()),
+    );
+    if (!targets.length) return;
+
+    const timer = setTimeout(async () => {
+      for (const p of targets) {
+        const model = p.modelText.trim();
+        triedModels.current.add(model.toUpperCase());
+        try {
+          const res = await fetch("/api/devices/lookup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model, maker: p.maker }),
+          });
+          const json = await res.json();
+          if (json.device) patchProposal(p.id, { deviceId: json.device.id });
+        } catch {
+          /* 自動取得なので、失敗しても画面は止めない */
+        }
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote.proposals.map((p) => `${p.id}:${p.modelText}:${p.deviceId ?? ""}`).join("|")]);
+
   function patchQuote(patch: Partial<Quote>) {
     setDirty(true);
     setQuote((q) => ({ ...q, ...patch }));
