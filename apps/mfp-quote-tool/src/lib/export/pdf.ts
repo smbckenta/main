@@ -84,10 +84,13 @@ export interface PdfPageOptions {
 const PAPER_MM = { A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 } };
 const MM_TO_PX = 96 / 25.4;
 /**
- * 縮小の下限。これより小さくすると紙で読めなくなる。
- * 元のExcelも台数が多い比較表は30%まで縮めて1枚に収めているので、同じ下限にする。
+ * 縮小の下限。
+ *
+ * 元のExcelも台数が多い比較表は30%まで縮めて1枚に収めている。
+ * 罫線（1px）だけは縮まないぶん、同じ中身でもHTMLのほうが少し背が高くなるので、
+ * A3ヨコに16台を収められるところまで下限を下げてある。
  */
-const MIN_FIT = 0.3;
+const MIN_FIT = 0.25;
 
 /**
  * 中身が1枚に収まるまで --fit を下げる。
@@ -98,15 +101,16 @@ const MIN_FIT = 0.3;
  *
  * 測るだけなので中身は作り直さない。--fit を変えて測り直すだけ。
  */
-async function fitToOnePage(page: import("playwright").Page, heightPx: number): Promise<void> {
+export async function fitToOnePage(page: import("playwright").Page, heightPx: number): Promise<void> {
   const measure = (fit: number) =>
     page.evaluate((f) => {
       document.body.style.setProperty("--fit", String(f));
       // 変更を反映させてから測る
       void document.body.offsetHeight;
+      // html要素の高さは「画面の高さ」より小さくならないので、ここでは見ない。
+      // 見てしまうと、どれだけ縮めても画面の高さが返り、下限まで縮んでしまう。
       return Math.max(
         document.body.scrollHeight,
-        document.documentElement.scrollHeight,
         ...Array.from(document.body.children, (el) => (el as HTMLElement).getBoundingClientRect().bottom),
       );
     }, fit);
@@ -154,11 +158,13 @@ export async function htmlToPdf(html: string, opts: PdfPageOptions = {}): Promis
       const [wMm, hMm] = landscape ? [paper.h, paper.w] : [paper.w, paper.h];
       // 印刷と同じ幅で描かせないと、折り返しが変わって測り値がずれる
       await page.emulateMedia({ media: "print" });
+      // 画面の高さと、収めたい高さは同じ値にそろえる（丸めで食い違わせない）
+      const heightPx = Math.round((hMm - marginMm * 2) * MM_TO_PX);
       await page.setViewportSize({
         width: Math.round((wMm - sideMm * 2) * MM_TO_PX),
-        height: Math.round((hMm - marginMm * 2) * MM_TO_PX),
+        height: heightPx,
       });
-      await fitToOnePage(page, (hMm - marginMm * 2) * MM_TO_PX);
+      await fitToOnePage(page, heightPx);
     }
     const pdf = await page.pdf({
       format: opts.format ?? "A4",
