@@ -209,7 +209,9 @@ describe("比較表への出し方", () => {
   it("各社同時比較では、現状の単価は実効単価で並べる（名目や0円にしない）", () => {
     const { q, current, calc } = render();
     const html = renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS);
-    expect(html).toContain("モノクロ単価（現状は実効）");
+    // 項目名は括弧の手前で折り返せるよう、2つの span に分けて出している
+    expect(html).toContain("モノクロ単価");
+    expect(html).toContain("（現状は実効）");
     expect(html).toContain("2.84円");
     // フルカラーはコピーとプリントを合算した実効単価 (856+5,143)÷435
     expect(html).toContain("13.79円");

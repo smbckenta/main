@@ -131,8 +131,10 @@ describe("リース料金が不明な案件の帳票", () => {
   it("各社同時比較にも同じ注記を出す", () => {
     const { q, current, calc } = render();
     const html = renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS);
-    expect(html).toContain("月額リース料（参考）");
-    expect(html).toContain("カウンター月間経費（税込）");
+    expect(html).toContain("月額リース料");
+    expect(html).toContain("（参考）");
+    expect(html).toContain("カウンター月間経費");
+    expect(html).toContain("（税込）");
     expect(html).toContain("カウンター料金のみ");
   });
 

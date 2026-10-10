@@ -58,6 +58,12 @@ const CSS = `
     font-size: 11pt;
     margin: 0;
     line-height: 1.3;
+    /* 金額の桁をそろえる（等幅の数字） */
+    font-variant-numeric: tabular-nums;
+    /* 行頭に句読点や閉じ括弧が来ないようにする */
+    line-break: strict;
+    word-break: normal;
+    overflow-wrap: normal;
   }
 
   h1 {
@@ -86,6 +92,8 @@ const CSS = `
   .plain td { padding: 0.1em 2px; vertical-align: top; line-height: 1.5; }
 
   .num { text-align: right; font-variant-numeric: tabular-nums; }
+  /* 折り返してほしくないひとかたまり */
+  .nw { white-space: nowrap; }
   .center { text-align: center; }
   .small { font-size: 0.84em; }
   .muted { color: #555; }
@@ -111,7 +119,14 @@ const CSS = `
   .company-logo .seal { position: absolute; right: -30px; top: -10px; width: 86px; height: auto; }
   .seal-bar { width: 72px; height: auto; }
 
-  .notes { margin-top: 8px; font-size: 0.86em; line-height: 1.5; white-space: pre-wrap; }
+  /* ※の注記は、折り返した行を本文の頭にそろえる（ぶら下げインデント） */
+  .notes { margin-top: 8px; font-size: 0.86em; line-height: 1.6; }
+  /* 自由入力の文章は、入力どおりに改行する */
+  .notes-raw { white-space: pre-wrap; }
+  .notes .note-line { padding-left: 2.2em; text-indent: -2.2em; }
+  /* ※のあとに続く説明文は、※ぶん下げたまま書き出す */
+  .notes .note-cont { padding-left: 2.2em; }
+  .notes .note-line + .note-line, .notes .note-cont + .note-line { margin-top: 0.35em; }
 
   .grid tbody tr.sum-row td { background: var(--label-gray); font-weight: 700; }
   .grid tbody tr.group-row td { font-weight: 700; }
@@ -201,11 +216,16 @@ const QUOTE_CSS = `
   /* 角印はロゴの右寄りに重ねて押す（元のExcelと同じ、22mm角） */
   body.quote .company-logo .seal {
     width: 33%;
-    right: 16%;
+    right: 5%;
     top: 50%;
     transform: translateY(-50%);
   }
-  body.quote .company .offices { text-align: left; margin-top: 0.9em; }
+  body.quote .company .offices {
+    text-align: left;
+    margin-top: 0.9em;
+    font-size: calc(9.5pt * var(--fit, 1));
+    line-height: 1.5;
+  }
   body.quote .company .offices .office-name { font-size: calc(11pt * var(--fit, 1)); }
 
   /* 月額リース料金（緑の見出しセル＋金額） */
@@ -301,6 +321,8 @@ const COMPARE_CSS = `
     margin: calc(14px * var(--fit, 1)) 0 calc(6px * var(--fit, 1));
   }
   body.compare h2.h2-wide { font-size: calc(18pt * var(--fit, 1)); letter-spacing: 0.3em; }
+  /* 各社同時比較表の項目名。長い見出しが途中で折り返さないよう少し小さくする */
+  body.compare .grid th.row-label { text-align: left; font-size: calc(10.5pt * var(--fit, 1)); }
   body.compare .compare-makers {
     text-align: center;
     font-size: calc(18pt * var(--fit, 1));
@@ -369,8 +391,9 @@ const COMPARE_CSS = `
     border-bottom: 1px solid #000;
     text-align: center;
     font-weight: 700;
-    font-size: calc(10pt * var(--fit, 1));
-    padding: 0.1em;
+    font-size: calc(10.5pt * var(--fit, 1));
+    padding: 0.15em 0.1em;
+    white-space: nowrap;
   }
   .cmp .save-value {
     background: #ffff00;
@@ -396,6 +419,37 @@ const COMPARE_CSS = `
   .save-summary .cut { color: #000; font-weight: 400; }
 
 `;
+
+/**
+ * ※つきの注記。
+ *
+ * 折り返した2行目が「※」の下にもぐり込まないよう、1項目ずつ段落にして
+ * ぶら下げインデントをかける。続きの文（※を付けない行）は cont に入れる。
+ */
+function notesBlock(items: (string | { cont: string })[], style = ""): string {
+  const body = items
+    .filter((x) => (typeof x === "string" ? x.trim() : x.cont.trim()))
+    .map((x) =>
+      typeof x === "string"
+        ? `<div class="note-line">※　${x}</div>`
+        : `<div class="note-cont">${x.cont}</div>`,
+    )
+    .join("");
+  return body ? `<div class="notes"${style ? ` style="${style}"` : ""}>${body}</div>` : "";
+}
+
+/**
+ * 項目名を、括弧の前でだけ折り返せるようにする。
+ *
+ * そのままだと「連続コピー速度（カ／ラー）」のように括弧の途中で切れてしまう。
+ * 括弧のかたまりを1語として扱い、切れてよい位置を括弧の手前だけにする。
+ */
+function wrapLabel(label: string): string {
+  return label
+    .split(/(?=[（(])/)
+    .map((part) => `<span class="nw">${esc(part)}</span>`)
+    .join("");
+}
 
 const esc = (s: unknown): string =>
   String(s ?? "")
@@ -665,13 +719,14 @@ export function renderQuoteHtml(
     <tbody>${leaseRows}</tbody>
   </table>
 
-  <div class="notes">${
+  ${notesBlock([
     calc.debtSettlement.total > 0
-      ? `※　現在ご利用中のリースの残債（${n(calc.debtSettlement.remainingDebt)}円）と解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分 ${n(calc.debtSettlement.cancellationFee)}円）を本見積に含めております。\n`
-      : ""
-  }※　この御見積書の金額は「税抜」となっております。
-※　PC設定台数は${pcSetupNote(calc)}
-${p.note ? `※　${esc(p.note)}` : ""}</div>
+      ? `現在ご利用中のリースの残債（${n(calc.debtSettlement.remainingDebt)}円）と解約事務手数料（リース料${calc.debtSettlement.months}ヶ月分 ${n(calc.debtSettlement.cancellationFee)}円）を本見積に含めております。`
+      : "",
+    "この御見積書の金額は「税抜」となっております。",
+    `PC設定台数は${pcSetupNote(calc)}`,
+    p.note ? esc(p.note) : "",
+  ])}
   `;
   return page(`見積書_${quote.customerName}_${makerJp(p.maker)}`, body, {
     css: `${QUOTE_CSS}\n  body.quote { --fit: ${fitQuote(quoteRowCount(calc))}; }`,
@@ -778,7 +833,7 @@ export function renderCompareHtml(
 
   /** 4列（区分・現状・提案・削減額）の1行 */
   const row = (label: string, left: string, right: string, save = "", cls = "") =>
-    `<tr${cls ? ` class="${cls}"` : ""}><th>${esc(label)}</th>${left}${right}<td class="save-col">${save}</td></tr>`;
+    `<tr${cls ? ` class="${cls}"` : ""}><th>${wrapLabel(label)}</th>${left}${right}<td class="save-col">${save}</td></tr>`;
 
   /** 値がどちらにも無い行は出さない（空欄が並ぶと表が間延びする） */
   let specRows = 0;
@@ -788,8 +843,8 @@ export function renderCompareHtml(
       : (specRows++,
         row(
           label,
-          `<td class="num" colspan="2">${left === undefined ? "－" : `${left} ${unit}`}</td>`,
-          `<td class="num" colspan="2">${right === undefined ? "－" : `${right} ${unit}`}</td>`,
+          `<td class="num" colspan="2">${left === undefined ? "－" : `${left}${unit}`}</td>`,
+          `<td class="num" colspan="2">${right === undefined ? "－" : `${right}${unit}`}</td>`,
         ));
 
   /**
@@ -926,8 +981,10 @@ function deductionNote(current: CurrentCalc, source?: CurrentChargeLine[]): stri
     ? lines.map((l) => `${l.name} ${pct(rateOf(l.name))}（▲${n(l.deduction)}枚）`).join("　／　")
     : `${pct(flat?.rate)}（合計 ▲${n(flat?.total ?? 0)}枚）`;
 
-  return `<div class="notes">※　現行のカウンター明細には控除（${esc(detail)}）があり、上表の「控除」の行で差し引いています。
-　　ご提案する複合機には控除がございませんので、提案側は上記の印刷枚数そのままで計算しております。</div>`;
+  return notesBlock([
+    `現行のカウンター明細には控除（${esc(detail)}）があり、上表の「控除」の行で差し引いています。`,
+    { cont: "ご提案する複合機には控除がございませんので、提案側は上記の印刷枚数そのままで計算しております。" },
+  ]);
 }
 
 /** 単価は明細と同じ「3.0」「16.8」の書き方にそろえる（整数でも小数第1位まで） */
@@ -1043,9 +1100,10 @@ function saveRow(label: string, value: number): string {
  */
 function counterOnlyNote(calc?: ProposalCalc): string {
   if (!calc?.counterOnly) return "";
-  return `<div class="notes">※　現在ご利用中の複合機のリース料金をお伺いできていないため、
-　　この比較表は<b>カウンター料金のみ</b>で比較しております（リース料金は現状・提案とも含んでおりません）。
-　　リース料金をお知らせいただければ、リース料を含めた比較表をあらためてご用意いたします。</div>`;
+  return notesBlock([
+    "現在ご利用中の複合機のリース料金をお伺いできていないため、この比較表は<b>カウンター料金のみ</b>で比較しております（リース料金は現状・提案とも含んでおりません）。",
+    { cont: "リース料金をお知らせいただければ、リース料を含めた比較表をあらためてご用意いたします。" },
+  ]);
 }
 
 /**
@@ -1091,7 +1149,7 @@ export function renderMultiCompareHtml(
   const c = quote.current;
   const best = calcs.reduce((b, x, i) => (x.comparable < calcs[b].comparable ? i : b), 0);
   const head = `<tr>
-      <th style="width:20%"></th>
+      <th style="width:25%"></th>
       <th>現状利用状況</th>
       ${calcs
         .map(
@@ -1102,7 +1160,7 @@ export function renderMultiCompareHtml(
     </tr>`;
 
   const row = (label: string, left: string, values: string[]) =>
-    `<tr><th style="text-align:left">${esc(label)}</th><td class="num">${left}</td>${values
+    `<tr><th class="row-label">${wrapLabel(label)}</th><td class="num">${left}</td>${values
       .map((v, i) => `<td class="num"${i === best ? ' style="background:#fff6d8"' : ""}>${v}</td>`)
       .join("")}</tr>`;
 
@@ -1283,7 +1341,7 @@ const FLEET_CSS = `
   body.fleet .grid tbody tr.total-row td { background: #0d0d0d; color: #fff; font-weight: 700; }
   body.fleet .grid td.bill { font-weight: 700; font-size: calc(13pt * var(--fit)); }
   body.fleet .grid td.unit-head { font-weight: 700; }
-  body.fleet .grid td.no { width: 3%; font-size: calc(9.5pt * var(--fit)); }
+  body.fleet .grid td.no { width: 3%; font-size: calc(11pt * var(--fit)); }
   body.fleet .grid .sum-value { font-weight: 700; font-size: calc(13pt * var(--fit)); }
 
   /* 合計金額（表の下に置く小さな箱） */
@@ -2042,7 +2100,7 @@ export function renderProposalDocHtml(
 
     ${counterOnlyNote(calc)}
 
-    <div class="notes" style="margin-top:18px">${esc(
+    <div class="notes notes-raw" style="margin-top:18px">${esc(
       doc.closing?.trim() ||
         "ご不明な点やご要望がございましたら、何なりとお申し付けください。\n何卒ご検討のほど、よろしくお願い申し上げます。",
     )}</div>

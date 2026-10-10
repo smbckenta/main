@@ -3,7 +3,12 @@ import { DEFAULT_SETTINGS } from "../defaults";
 import { calcCurrent, calcProposal } from "../pricing";
 import { calcFleet } from "../fleet";
 import type { ChargeTier, CurrentChargeLine, Fleet, FleetSide, Proposal, Quote } from "../types";
-import { renderCompareHtml, renderFleetCompareHtml, renderQuoteHtml } from "./html";
+import {
+  renderCompareHtml,
+  renderFleetCompareHtml,
+  renderMultiCompareHtml,
+  renderQuoteHtml,
+} from "./html";
 import { QUOTE_PAGE } from "./pdf";
 
 /**
@@ -160,6 +165,23 @@ describe("元のExcelと同じ体裁", () => {
     expect(html).toMatch(/\.band\.band-save \{ background: #ffff00; \}/);
     // 台ごとに消費税の行を立て、請求金額は税込
     expect(html).toContain("消費税（10％）");
+  });
+
+  it("読みやすさの仕上げ（数字の桁そろえ・括弧の折り返し・注記のぶら下げ）", () => {
+    const html = renderCompareHtml(q, current, calc, DEFAULT_SETTINGS);
+    // 金額の桁をそろえる
+    expect(html).toContain("font-variant-numeric: tabular-nums;");
+    // 「カウンター請求合計　②」のような項目名が、括弧の途中で切れない
+    expect(html).toContain('<span class="nw">リース料　①</span>');
+    expect(renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS)).toContain(
+      '<span class="nw">連続コピー速度</span><span class="nw">（カラー）</span>',
+    );
+    expect(html).toMatch(/\.nw \{ white-space: nowrap; \}/);
+    // ※の注記は、折り返した行が本文の頭にそろう
+    expect(html).toMatch(/\.notes \.note-line \{[^}]*text-indent: -2\.2em/);
+    expect(renderQuoteHtml(q, calc, DEFAULT_SETTINGS)).toContain(
+      '<div class="note-line">※　この御見積書の金額は「税抜」となっております。</div>',
+    );
   });
 
   it("複数台比較表は、現状と提案のあいだに矢印を置く", () => {
