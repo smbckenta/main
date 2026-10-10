@@ -5,6 +5,7 @@ import type {
   Fleet,
   FleetCalc,
   FleetSideCalc,
+  FleetTotals,
   ProposalCalc,
   Quote,
   Settings,
@@ -18,9 +19,21 @@ import { groupOptions } from "../proposal-doc";
  * PDF出力と画面プレビューで共用する。
  */
 
+/**
+ * 元のExcelと同じ「メイリオ」。
+ * Windowsに必ず入っている書体なので、お客様の手元でも同じ見え方になる。
+ */
 const FONT_STACK =
-  '"Yu Gothic", "YuGothic", "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "IPAGothic", sans-serif';
+  '"Meiryo UI", "メイリオ", "Meiryo", "Yu Gothic", "YuGothic", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "IPAGothic", sans-serif';
 
+/**
+ * 元のExcelで使われている色。見た目を合わせるために名前で持つ。
+ *   見出し（見積書）     #CCFFCC
+ *   見出し（比較表の表頭）#BFBFBF（白を25%暗くした灰色）
+ *   区分名の列           #EBF1DE（アクセント3を80%明るく）
+ *   単価・枚数の強調      #FAC090（アクセント6を40%明るく）
+ *   合計の黒帯           #0D0D0D
+ */
 const CSS = `
   @page { size: A4; margin: 12mm 10mm; }
   * { box-sizing: border-box; }
@@ -28,152 +41,106 @@ const CSS = `
   html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   :root {
-    --ink: #16212e;
-    --accent: #1f4e79;
-    --accent-soft: #eaf0f7;
-    --line: #b9c6d4;
-    --line-soft: #dbe3ec;
+    --ink: #000;
+    --line: #000;
+    --head: #bfbfbf;
+    --head-green: #ccffcc;
+    --label-green: #ebf1de;
+    --label-gray: #f2f2f2;
+    --orange: #fac090;
+    --bar: #0d0d0d;
+    --red: #ff0000;
   }
 
   body {
     font-family: ${FONT_STACK};
     color: var(--ink);
-    /* A4に刷って読む紙なので、画面で見るより大きめに取る */
     font-size: 11pt;
     margin: 0;
-    line-height: 1.45;
+    line-height: 1.3;
   }
 
   h1 {
-    font-size: 21pt;
-    letter-spacing: 0.4em;
+    font-size: 24pt;
+    font-weight: 700;
+    letter-spacing: 0.5em;
     text-align: center;
-    color: var(--accent);
-    margin: 4px 0 3px;
-    text-indent: 0.4em;
-  }
-  h1 + .small { text-align: center; color: #4a5a6b; }
-  h1::after {
-    content: "";
-    display: block;
-    width: 120px;
-    height: 2px;
-    margin: 5px auto 0;
-    background: linear-gradient(90deg, var(--accent), #6f9bc4);
-    border-radius: 2px;
+    margin: 2px 0;
+    text-indent: 0.5em;
   }
   h2 {
-    font-size: 16.5pt;
-    letter-spacing: 0.35em;
+    font-size: 24pt;
+    font-weight: 700;
+    letter-spacing: 0.5em;
     text-align: center;
-    color: var(--accent);
-    margin: 16px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 2px solid var(--accent);
-    text-indent: 0.35em;
+    margin: 10px 0 4px;
+    text-indent: 0.5em;
   }
 
   table { border-collapse: collapse; width: 100%; }
+  /* Excelの罫線と同じ、細い黒の実線 */
   .grid { border: 1px solid var(--line); }
-  /* 余白は em で取る。字の大きさを変えたときに行の詰まり具合が変わらない */
-  .grid th, .grid td { border: 1px solid var(--line-soft); padding: 0.34em 0.55em; }
-  .grid thead th {
-    background: var(--accent);
-    color: #fff;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    border-color: var(--accent);
-  }
-  .grid tbody th { background: var(--accent-soft); font-weight: 600; }
-  .grid tbody tr:nth-child(even) td { background: #f7fafc; }
-  .plain td { padding: 0.1em 2px; vertical-align: top; line-height: 1.55; }
+  .grid th, .grid td { border: 1px solid var(--line); padding: 0.25em 0.45em; }
+  .grid thead th { background: var(--head); font-weight: 700; text-align: center; }
+  .grid tbody th { background: var(--label-gray); font-weight: 700; }
+  .plain td { padding: 0.1em 2px; vertical-align: top; line-height: 1.5; }
 
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .center { text-align: center; }
   .small { font-size: 0.84em; }
-  .muted { color: #5b6b7c; }
+  .muted { color: #555; }
 
   .head { display: flex; justify-content: space-between; align-items: flex-start; }
-  .customer {
-    font-size: 15pt;
-    font-weight: 600;
-    border-bottom: 2px solid var(--accent);
-    min-width: 260px;
-    padding-bottom: 3px;
-  }
+  /* 宛名は下線だけ（Excelと同じ） */
+  .customer { font-size: 16pt; font-weight: 700; }
 
   /* 自社情報 */
-  .company {
-    text-align: left;
-    max-width: 56%;
-    font-size: 9.5pt;
-    line-height: 1.4;
-    border-left: 3px solid var(--accent);
-    padding: 0 0 0 9px;
-  }
-  .company .name { font-size: 12.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
-  .company .logo { display: block; width: 215px; max-height: 42px; object-fit: contain; object-position: left center; margin-bottom: 2px; }
-  .company .offices { margin-top: 2px; font-size: 8.6pt; }
-  .company .offices div { display: flex; gap: 6px; }
-  .company .offices .office-name { font-weight: 600; white-space: nowrap; color: var(--accent); }
+  .company { text-align: left; font-size: 10pt; line-height: 1.45; }
+  .company .name { font-size: 15pt; font-weight: 700; letter-spacing: 0.02em; }
+  .company .logo { display: block; width: 230px; max-height: 46px; object-fit: contain; object-position: left center; }
+  .company .offices { margin-top: 3px; }
+  .company .offices .office-name { font-weight: 700; }
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand img { height: 44px; max-width: 260px; object-fit: contain; object-position: left center; }
 
-  /* 月額リース料の強調枠 */
-  .lease-box {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin: 8px 0 6px;
-    padding: 5px 12px;
-    background: linear-gradient(90deg, var(--accent-soft), #f7fafc);
-    border: 1px solid var(--line);
-    border-left: 5px solid var(--accent);
-    border-radius: 3px;
-  }
-  .lease-box .label { font-weight: 700; font-size: 12.5pt; color: var(--accent); letter-spacing: 0.08em; }
-  .lease-box .value { font-size: 19pt; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
-  .lease-box .value::before { content: "¥"; font-size: 14.5pt; margin-right: 2px; color: var(--accent); }
+  .notes { margin-top: 8px; font-size: 0.86em; line-height: 1.5; white-space: pre-wrap; }
 
-  .section {
-    margin-top: 8px;
-    font-weight: 700;
-    color: var(--accent);
-    border-left: 4px solid var(--accent);
-    padding-left: 8px;
-  }
-  .notes {
-    margin-top: 8px;
-    font-size: 0.86em;
-    line-height: 1.4;
-    white-space: pre-wrap;
-    background: #f7fafc;
-    border: 1px solid var(--line-soft);
-    border-radius: 3px;
-    padding: 5px 8px;
-  }
+  .grid tbody tr.sum-row td { background: var(--label-gray); font-weight: 700; }
+  .grid tbody tr.group-row td { font-weight: 700; }
+  /* 合計は黒帯に白抜き（Excelと同じ） */
+  .grid tbody tr.total-row .save, .grid tbody tr.total-row .cut { color: #fff; }
+  .grid tbody tr.total-row td, .grid tbody tr.total-row th { background: var(--bar); color: #fff; font-weight: 700; }
 
-  .grid tbody tr.sum-row td { background: var(--accent-soft); font-weight: 700; }
-  .grid tbody tr.group-row td {
-    background: #eef3f8;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: 0.04em;
-  }
-  /* 濃い帯の行では、削減額の色を明るくして読めるようにする */
-  .grid tbody tr.total-row .save { color: #ffc9c2; }
-  .grid tbody tr.total-row .cut { color: #d6e2ef; }
-  .grid tbody tr.total-row td, .grid tbody tr.total-row th { background: var(--accent); color: #fff; font-weight: 700; border-color: var(--accent); }
-
-  /* 削減額は赤で強調する（お客様がいちばん見る数字）。
-     増額のほうは控えめな色にして、赤が「削減」だけを指すようにする。 */
-  .save { color: #d0021b; font-weight: 700; }
-  .cut { color: #40556b; font-weight: 700; }
-  /* 合計の削減額（単月・年間・リース年数）はひときわ大きく出す */
-  .save-total .save { font-size: 1.25em; }
+  /* 削減額は赤。増額は黒のままにして、赤が「削減」だけを指すようにする */
+  .save { color: var(--red); font-weight: 700; }
+  .cut { color: #000; font-weight: 700; }
   .page-break { page-break-before: always; }
 
-
+  /* 年間売上高に換算した効果（左に一言、右に表） */
+  .effect-block {
+    display: flex;
+    align-items: center;
+    gap: 1.2em;
+    margin-top: 1.2em;
+  }
+  .effect-block .effect-note {
+    flex: 1;
+    color: var(--red);
+    font-weight: 700;
+    font-size: calc(14pt * var(--fit, 1));
+    line-height: 1.5;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .effect { width: 56%; border-collapse: collapse; border: 2px solid #000; }
+  .effect th, .effect td { border: 1px solid #000; padding: 0.2em 0.5em; text-align: center; }
+  .effect .effect-title { background: #dbeef4; font-size: calc(16pt * var(--fit, 1)); font-weight: 700; }
+  .effect .effect-rate-head { background: #eeece1; font-size: calc(10pt * var(--fit, 1)); font-weight: 700; }
+  .effect .rate-20 { background: #ff0000; font-weight: 700; font-size: calc(13pt * var(--fit, 1)); }
+  .effect .rate-10 { background: #92d050; font-weight: 700; font-size: calc(13pt * var(--fit, 1)); }
+  .effect .rate-5 { background: #00b0f0; font-weight: 700; font-size: calc(13pt * var(--fit, 1)); }
+  .effect .effect-side { font-weight: 700; font-size: calc(10pt * var(--fit, 1)); width: 14%; border: none; }
+  .effect .effect-value { font-size: calc(15pt * var(--fit, 1)); font-weight: 700; font-style: italic; }
 `;
 
 /**
@@ -183,20 +150,72 @@ const CSS = `
  * 2枚目に合計だけが続くと見落とされる。
  */
 const QUOTE_CSS = `
-  body.quote { font-size: calc(11pt * var(--fit, 1)); }
-  body.quote h1 { font-size: calc(21pt * var(--fit, 1)); }
-  body.quote .customer { font-size: calc(15pt * var(--fit, 1)); }
-  body.quote .company { font-size: calc(9.5pt * var(--fit, 1)); }
-  body.quote .company .name { font-size: calc(12.5pt * var(--fit, 1)); }
-  body.quote .company .offices { font-size: calc(8.6pt * var(--fit, 1)); }
-  body.quote .company .logo { width: calc(215px * var(--fit, 1)); max-height: calc(42px * var(--fit, 1)); }
-  body.quote .brand img { height: calc(44px * var(--fit, 1)); }
-  body.quote .lease-box { margin: 0.6em 0 0.5em; padding: 0.4em 0.9em; }
-  body.quote .lease-box .label { font-size: calc(12.5pt * var(--fit, 1)); }
-  body.quote .lease-box .value { font-size: calc(19pt * var(--fit, 1)); }
-  body.quote .lease-box .value::before { font-size: calc(14.5pt * var(--fit, 1)); }
-  body.quote .section { margin-top: 0.6em; }
-  body.quote .notes { font-size: 0.86em; margin-top: 0.7em; padding: 0.5em 0.8em; }
+  body.quote { font-size: calc(12pt * var(--fit, 1)); line-height: 1.25; }
+  body.quote h1 { font-size: calc(24pt * var(--fit, 1)); margin: calc(6px * var(--fit, 1)) 0; }
+
+  /* 宛名（左）と日付・見積書番号（右） */
+  body.quote .q-top { display: flex; justify-content: space-between; align-items: flex-end; }
+  body.quote .q-to {
+    flex: 1;
+    border-bottom: 1px solid #000;
+    padding: 0 0 0.15em 0.5em;
+    font-size: calc(14pt * var(--fit, 1));
+    font-weight: 700;
+    margin-right: 2em;
+  }
+  body.quote .q-to .honorific { font-size: calc(11pt * var(--fit, 1)); margin-left: 0.6em; }
+  body.quote .q-no { text-align: right; font-size: calc(11pt * var(--fit, 1)); white-space: nowrap; line-height: 1.6; }
+
+  body.quote .q-lead { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; margin: 0.4em 0 0.5em; }
+
+  /* 物件名・納入場所…（細い下線つきの箇条） */
+  body.quote .q-terms { width: 52%; border-collapse: collapse; }
+  body.quote .q-terms td { border-bottom: 1px solid #a6a6a6; padding: 0.22em 0; font-size: calc(10pt * var(--fit, 1)); font-weight: 700; }
+  body.quote .q-terms .q-label { width: 7.5em; text-align: justify; text-align-last: justify; }
+  body.quote .q-terms .q-colon { width: 1.2em; text-align: center; }
+
+  body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 46%; }
+  body.quote .company .name { font-size: calc(15pt * var(--fit, 1)); }
+  body.quote .company .logo { width: calc(230px * var(--fit, 1)); max-height: calc(46px * var(--fit, 1)); }
+  body.quote .company .company-contact { padding-left: 1.6em; margin-top: 0.2em; }
+  body.quote .company .offices { text-align: center; margin-top: 0.7em; }
+  body.quote .company .offices .office-name { font-size: calc(11pt * var(--fit, 1)); }
+
+  /* 月額リース料金（緑の見出しセル＋金額） */
+  body.quote .lease-box { width: 48%; border-collapse: collapse; margin: 0.6em 0 0.5em; border: 2px solid #000; }
+  body.quote .lease-box td { border: 0; padding: 0.2em 0.5em; vertical-align: middle; }
+  body.quote .lease-box .label {
+    background: var(--head-green);
+    border-right: 1px solid #000;
+    font-size: calc(16pt * var(--fit, 1));
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+  }
+  body.quote .lease-box .value { font-size: calc(18pt * var(--fit, 1)); font-weight: 700; text-align: center; }
+  body.quote .lease-box .tax { font-size: calc(10pt * var(--fit, 1)); text-align: right; white-space: nowrap; }
+
+  /* 明細表（Excelと同じ、薄緑の見出し＋細い黒罫） */
+  body.quote .grid { border: 2px solid #000; }
+  body.quote .grid thead th {
+    background: var(--head-green);
+    font-size: calc(14pt * var(--fit, 1));
+    font-weight: 700;
+    border-bottom: 3px double #000;
+    padding: 0.2em 0.3em;
+  }
+  body.quote .grid td { padding: 0.28em 0.45em; vertical-align: middle; }
+  body.quote .grid td.center { white-space: nowrap; }
+  body.quote .grid tbody tr.group-row td { font-weight: 400; }
+  body.quote .grid tbody tr.sum-row td { background: #fff; border-top: 3px double #000; border-bottom: 3px double #000; font-weight: 700; }
+  body.quote .grid tbody tr.discount-row td { color: var(--red); border-bottom: 3px double #000; font-weight: 700; }
+  body.quote .grid tbody tr.total-row td { background: #fff; color: #000; font-weight: 700; border-top: 0; }
+  body.quote .grid .unit-red { color: var(--red); font-weight: 700; }
+  body.quote .grid .lease-unit { background: #fabf8f; }
+  body.quote .sub-item td { padding-top: 0; padding-bottom: 0.28em; }
+
+  body.quote .section { font-size: calc(12pt * var(--fit, 1)); font-weight: 700; margin: 0.45em 0 0; }
+  body.quote .notes { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; margin-top: 0.6em; }
 `;
 
 /**
@@ -204,27 +223,32 @@ const QUOTE_CSS = `
  * 機器の明細・カウンター単価・リースシミュレーションが縦に伸びる。
  */
 export function quoteRowCount(calc: ProposalCalc): number {
-  const items = calc.proposal.items.length;
-  // カウンターは区分3つ＋最低基本料金、リースシミュレーションは3行で固定
-  return items + 4 + 3;
+  const items = calc.proposal.items.length + (calc.debtSettlement.total > 0 ? 1 : 0);
+  // 枠が余った分は空行で埋まる。空行は品目の行より背が低いので、
+  // 「品目1行ぶん」に換算して数える（実測 空行30px ／ 品目50px）
+  return items + Math.max(0, QUOTE_ITEM_SLOTS - items) * 0.6;
 }
+
+/** 機器明細の枠の行数（元のExcelと同じ） */
+const QUOTE_ITEM_SLOTS = 8;
 
 /**
  * 見積書の縮小率。
  *
  * 実測（A4たて・印刷幅190mm）：
- *   行数で変わらない部分 約740px ／ 明細1行あたり 約32.3px
- *   （8行998px ／ 12行1,127px ／ 15行1,224px ／ 19行1,353px）
+ *   行数で変わらない部分 約1,067px（見出し・自社情報・カウンター料金7行・
+ *   リースシミュレーション3行・注記をすべて含む）／ 明細1行あたり 約50px
+ *   （品目1件1,327px ／ 5件1,407px ／ 8件1,467px ／ 12件1,667px ／ 16件1,867px）
  */
 export function fitQuote(rowCount: number): number {
   const scale = QUOTE_BUDGET_PX / (QUOTE_BLOCK_PX + QUOTE_ROW_PX * rowCount);
   if (scale >= 0.98) return 1;
-  return Math.max(0.55, Math.round(scale * 1_000) / 1_000);
+  return Math.max(0.5, Math.round(scale * 1_000) / 1_000);
 }
 
 const QUOTE_BUDGET_PX = 1_020;
-const QUOTE_BLOCK_PX = 740;
-const QUOTE_ROW_PX = 32.3;
+const QUOTE_BLOCK_PX = 1_067;
+const QUOTE_ROW_PX = 50;
 
 /**
  * 比較表（A4たて1枚）。
@@ -235,137 +259,108 @@ const QUOTE_ROW_PX = 32.3;
  */
 const COMPARE_CSS = `
   body.compare {
-    font-size: calc(10.5pt * var(--fit, 1));
-    line-height: 1.4;
+    font-size: calc(12pt * var(--fit, 1));
+    line-height: 1.25;
   }
   body.compare h2 {
-    font-size: calc(19pt * var(--fit, 1));
-    letter-spacing: 0.5em;
-    border-bottom: none;
-    margin: calc(10px * var(--fit, 1)) 0 calc(2px * var(--fit, 1));
-    padding: 0;
+    font-size: calc(24pt * var(--fit, 1));
+    letter-spacing: 0.6em;
+    margin: calc(14px * var(--fit, 1)) 0 calc(6px * var(--fit, 1));
   }
+  body.compare h2.h2-wide { font-size: calc(18pt * var(--fit, 1)); letter-spacing: 0.3em; }
   body.compare .compare-makers {
     text-align: center;
-    font-size: 1.28em;
+    font-size: calc(18pt * var(--fit, 1));
+    font-weight: 700;
     letter-spacing: 0.1em;
-    margin-bottom: 0.9em;
+    margin-bottom: 1.1em;
   }
-  body.compare .customer { font-size: calc(13.5pt * var(--fit, 1)); min-width: 0; }
-  body.compare .company { font-size: calc(8.5pt * var(--fit, 1)); }
-  body.compare .company .name { font-size: calc(11pt * var(--fit, 1)); }
-  body.compare .company .offices { display: none; }
-  body.compare .company .logo { width: calc(180px * var(--fit, 1)); max-height: calc(34px * var(--fit, 1)); }
-  body.compare .brand img { height: calc(36px * var(--fit, 1)); }
-  body.compare .notes { font-size: 0.85em; margin-top: 0.7em; padding: 0.5em 0.8em; }
+  body.compare .notes { font-size: calc(9.5pt * var(--fit, 1)); margin-top: 0.7em; }
 
   /* 月間印刷枚数（左上の小さな表） */
-  .pages-box { width: auto; margin: 0 0 0.9em; border-collapse: collapse; }
+  .pages-box { width: auto; margin: 0 0 1em; border-collapse: collapse; }
   .pages-box thead th {
     text-align: left;
-    font-size: 0.95em;
     font-weight: 700;
-    padding: 0 0 0.25em 0.2em;
+    padding: 0 0 0.3em 1.6em;
     border: none;
   }
-  .pages-box td { border: 1px solid #333; padding: 0.42em 0.7em; }
-  .pages-box .pages-name { font-weight: 700; border: none; padding-left: 0.2em; }
-  .pages-box .pages-value { background: #f9cb9c; text-align: right; font-weight: 700; min-width: 110px; }
-  .pages-box .pages-unit { border: none; padding-left: 0.5em; }
+  .pages-box td { border: 1px solid #000; padding: 0.3em 0.7em; }
+  .pages-box .pages-name { font-weight: 700; border: none; padding-left: 0.2em; white-space: nowrap; }
+  .pages-box .pages-value { background: var(--orange); text-align: right; font-weight: 700; min-width: 7.5em; }
+  .pages-box .pages-unit { border: none; padding-left: 0.5em; font-weight: 700; }
 
   /* 本表 */
-  .cmp { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .cmp th, .cmp td { border: 1px solid #333; padding: 0.42em 0.55em; }
+  .cmp { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #000; }
+  .cmp th, .cmp td { border: 1px solid #000; padding: 0.3em 0.5em; }
   .cmp thead th {
-    background: #d9ead3;
+    background: var(--head-green);
     font-weight: 700;
     text-align: center;
-    font-size: 1.05em;
-    padding: 0.5em;
+    border-bottom: 3px double #000;
   }
-  .cmp thead th.save-head { color: #c00000; }
+  .cmp thead th.save-head { color: var(--red); }
   .cmp tbody th {
-    background: #eef3e7;
+    background: var(--label-green);
     text-align: left;
     font-weight: 700;
-    font-size: 0.96em;
+    font-size: calc(11pt * var(--fit, 1));
     word-break: break-word;
   }
-  .cmp .unit-cell { border-right: none; white-space: nowrap; font-size: 0.95em; }
+  /* カウンターの区分は、Excelと同じく薄い灰色 */
+  .cmp tbody tr.row-counter th { background: var(--label-gray); }
+  .cmp td { text-align: center; }
+  .cmp .unit-cell { border-right: none; white-space: nowrap; text-align: right; padding-right: 0.8em; }
   .cmp .unit-value {
     display: inline-block;
     min-width: 3.2em;
     padding: 0 0.3em;
     margin: 0 0.15em;
-    background: #f9cb9c;
-    text-align: right;
+    background: var(--orange);
+    text-align: center;
     font-weight: 700;
   }
-  .cmp td.num { border-left: none; }
-  .cmp .save-col { text-align: right; padding: 0.2em 0.4em; }
-  .cmp .row-sum th, .cmp .row-sum td { font-weight: 700; }
-  .cmp .row-total th { background: #cfe3c4; font-size: 1.05em; }
-  .cmp .row-total td { font-weight: 700; font-size: 1.12em; background: #f4f9f1; }
+  .cmp .unit-value.unit-red { color: var(--red); }
+  .cmp td.num { border-left: none; text-align: center; }
+  .cmp .save-col { padding: 0; }
+  .cmp .row-sum td.num { font-weight: 400; }
+  .cmp .row-lease td.num, .cmp .row-lease .unit-cell { background: var(--orange); }
+  .cmp .row-total th { background: var(--head-green); }
+  .cmp .row-total td { font-weight: 700; }
+  .cmp tbody tr.row-rule th, .cmp tbody tr.row-rule td { border-bottom: 3px double #000; }
 
   /* カウンター削減額（表の中でいちばん目を引かせる） */
   .cmp .save-label {
-    background: #d9ead3;
-    border: 1px solid #333;
+    background: var(--head-green);
+    border-bottom: 1px solid #000;
     text-align: center;
     font-weight: 700;
-    font-size: 0.86em;
+    font-size: calc(10pt * var(--fit, 1));
     padding: 0.1em;
   }
   .cmp .save-value {
     background: #ffff00;
-    border: 1px solid #333;
-    border-top: none;
-    color: #c00000;
+    color: var(--red);
     font-weight: 700;
-    text-align: right;
-    padding: 0.18em 0.5em;
+    text-align: center;
+    padding: 0.18em 0.4em;
   }
 
   /* 合計合算削減金額（3段） */
-  .save-summary { width: 100%; border-collapse: collapse; margin-top: 0.9em; }
-  .save-summary th, .save-summary td { border: 1px solid #333; padding: 0.42em 0.8em; }
+  .save-summary { width: 100%; border-collapse: collapse; margin-top: 1em; border: 2px solid #000; }
+  .save-summary th, .save-summary td { border: 1px solid #000; padding: 0.3em 0.8em; }
   .save-summary th {
-    background: #d9ead3;
+    background: var(--head-green);
     width: 52%;
     text-align: center;
-    font-size: 1.24em;
+    font-size: calc(18pt * var(--fit, 1));
     font-weight: 700;
-    letter-spacing: 0.04em;
   }
-  .save-summary .yen { width: 8%; font-size: 1.24em; font-weight: 700; color: #c00000; }
-  .save-summary td.num { font-size: 1.62em; font-weight: 700; letter-spacing: 0.02em; }
-  .save-summary .save { color: #c00000; }
-  .save-summary .cut { color: #1f4e79; }
+  .save-summary .yen { width: 7%; font-size: calc(16pt * var(--fit, 1)); font-weight: 700; color: var(--red); }
+  .save-summary td.num { font-size: calc(22pt * var(--fit, 1)); font-weight: 400; text-align: right; }
+  .save-summary .save { color: var(--red); font-weight: 400; }
+  .save-summary .cut { color: #000; font-weight: 400; }
 
-  /* 年間売上高に換算した効果（左に一言、右に表） */
-  .effect-block {
-    display: flex;
-    align-items: center;
-    gap: 1.4em;
-    margin-top: 0.9em;
-  }
-  .effect-block .effect-note {
-    flex: 1;
-    color: #c00000;
-    font-weight: 700;
-    font-size: 1.14em;
-    line-height: 1.6;
-    text-align: center;
-  }
-  .effect { width: 58%; border-collapse: collapse; border: 1px solid #333; }
-  .effect th, .effect td { border: 1px solid #333; padding: 0.35em 0.5em; text-align: center; }
-  .effect .effect-title { background: #ddeaf6; font-size: 1.16em; font-weight: 700; letter-spacing: 0.04em; }
-  .effect .effect-rate-head { background: #f2f2f2; font-size: 0.9em; }
-  .effect .rate-20 { background: #ff0000; color: #fff; font-weight: 700; }
-  .effect .rate-10 { background: #70ad47; color: #fff; font-weight: 700; }
-  .effect .rate-5 { background: #00b0f0; color: #fff; font-weight: 700; }
-  .effect .effect-side { background: #f2f2f2; font-weight: 700; font-size: 0.9em; width: 16%; }
-  .effect .effect-value { font-size: 1.32em; font-weight: 700; font-style: italic; text-align: right; }
 `;
 
 const esc = (s: unknown): string =>
@@ -387,25 +382,35 @@ function page(title: string, body: string, opts: { css?: string; bodyClass?: str
 <style>${CSS}${opts.css ?? ""}</style></head><body${opts.bodyClass ? ` class="${opts.bodyClass}"` : ""}>${body}</body></html>`;
 }
 
-/** 自社情報（ロゴ・社名・連絡先・拠点） */
+/**
+ * 自社情報（ロゴ・社名・連絡先・拠点）。
+ *
+ * 元のExcelでは、ロゴと社名の下に代表者・TEL・FAXを置き、
+ * そこから下（拠点名・住所・出張範囲）は中央そろえにしている。
+ */
 function companyBlock(settings: Settings, logo?: string): string {
   const c = settings.company;
   const offices = c.offices?.length
-    ? `<div class="offices">${c.offices
+    ? c.offices
         .map(
           (o) =>
-            `<div><span class="office-name">${esc(o.name)}</span><span>${esc(o.address)}</span></div>`,
+            `<div class="office-name">◎${esc(o.name)}</div><div>${esc(o.address)}</div>`,
         )
-        .join("")}</div>`
-    : `<div style="margin-top:4px">${esc(c.branchNote ?? "")}</div><div>${esc(c.address ?? "")}</div>`;
+        .join("")
+    : `<div class="office-name">${esc(c.branchNote ?? "")}</div><div>${esc(c.address ?? "")}</div>`;
 
   return `
     <div class="company">
       ${logo ? `<img class="logo" src="${logo}" alt="${esc(c.name)}">` : `<div class="name">${esc(c.name)}</div>`}
-      <div>${esc(c.representative ?? "")}</div>
-      <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
-      ${offices}
-      <div>${esc(c.areaNote ?? "")}</div>
+      <div class="company-contact">
+        <div>${esc(c.representative ?? "")}</div>
+        <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}</div>
+        <div>${c.fax ? `FAX ${esc(c.fax)}` : ""}</div>
+      </div>
+      <div class="offices">
+        ${offices}
+        <div>${esc(c.areaNote ?? "")}</div>
+      </div>
     </div>`;
 }
 
@@ -434,27 +439,26 @@ function quoteHeader(
   quoteNo?: string,
 ): string {
   const c = settings.company;
+  const term = (label: string, value: string) =>
+    `<tr><td class="q-label">${esc(label)}</td><td class="q-colon">：</td><td>${esc(value)}</td></tr>`;
   return `
-  <div class="head">
-    <div>
-      <span class="customer">${esc(quote.customerName)}</span>
-      <span style="font-size:12pt"> ${esc(quote.customerHonorific)}</span>
-    </div>
-    <div class="small">
+  <div class="q-top">
+    <div class="q-to">${esc(quote.customerName)}<span class="honorific">${esc(quote.customerHonorific)}</span></div>
+    <div class="q-no">
       <div>${esc(jpDate(quote.quoteDate))}</div>
-      <div>見積書番号：${esc(quoteNo ?? quote.quoteNo)}</div>
+      <div>見積書番号：　${esc(quoteNo ?? quote.quoteNo)}</div>
     </div>
   </div>
-  <h1>御 見 積 書</h1>
-  <div class="small">下記の通り御見積申し上げます。何卒よろしくお願い致します。</div>
-  <div class="head" style="margin-top:5px">
-    <table class="plain" style="width:52%">
-      <tr><td style="width:6.5em">物件名</td><td>：${esc(subject)}</td></tr>
-      <tr><td>納入場所</td><td>：別途お打ち合わせ</td></tr>
-      <tr><td>御受渡期日</td><td>：別途お打ち合わせ</td></tr>
-      <tr><td>御支払条件</td><td>：別途お打ち合わせ</td></tr>
-      <tr><td>有効期限</td><td>：${esc(c.validityText)}</td></tr>
-      ${quote.staffName ? `<tr><td>担当者</td><td>：${esc(quote.staffName)}</td></tr>` : ""}
+  <h1>御　見　積　書</h1>
+  <div class="q-lead">下記の通り御見積申し上げます。何卒よろしくお願い致します。</div>
+  <div class="head">
+    <table class="q-terms">
+      ${term("物件名", subject)}
+      ${term("納入場所", "別途お打ち合わせ")}
+      ${term("御受渡期日", "別途お打ち合わせ")}
+      ${term("御支払条件", "別途お打ち合わせ")}
+      ${term("有効期限", c.validityText)}
+      ${quote.staffName ? term("担当者", quote.staffName) : ""}
     </table>
     ${companyBlock(settings, logo)}
   </div>`;
@@ -487,6 +491,12 @@ export function renderQuoteHtml(
     )
     .join("");
 
+  // 元のExcelは明細の枠を8行ぶん取ってある。品目が少なくても枠の高さを
+  // そろえておかないと、合計欄の位置が案件ごとに上下して落ち着かない
+  const padRows = "<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>".repeat(
+    Math.max(0, QUOTE_ITEM_SLOTS - p.items.length - (calc.debtSettlement.total > 0 ? 1 : 0)),
+  );
+
   const leaseRows = Object.entries(settings.leaseRates)
     .map(([term, rate]) => ({ term: Number(term), rate }))
     .sort((a, b) => a.term - b.term)
@@ -496,7 +506,7 @@ export function renderQuoteHtml(
         <td>リース料金(${Math.round(l.term / 12)}年リース)</td>
         <td class="center">${l.term}</td>
         <td class="center">ヶ月</td>
-        <td class="num">${n(calc.leaseByTerm[l.term] ?? 0)}</td>
+        <td class="num lease-unit">${n(calc.leaseByTerm[l.term] ?? 0)}</td>
         <td class="num">${n((calc.leaseByTerm[l.term] ?? 0) * l.term)}</td>
         <td>${l.term === p.leaseTerm ? "本見積の条件" : ""}</td>
       </tr>`,
@@ -504,6 +514,7 @@ export function renderQuoteHtml(
     .join("");
 
   const u = calc.units;
+  // 元のExcelと同じく、区分名と「１枚〜　単価」を上下2行に分ける
   const counterRows = [
     { no: 1, name: "■白黒モード", unit: u.mono, qtyUnit: "枚" },
     { no: 2, name: "■2色カラーコピー", unit: u.twoColor, qtyUnit: "枚" },
@@ -512,10 +523,15 @@ export function renderQuoteHtml(
     .map(
       (r) => `<tr>
         <td class="center">${r.no}</td>
-        <td>${esc(r.name)}<br><span class="small">１枚〜</span></td>
+        <td>${esc(r.name)}</td>
+        <td></td><td></td><td></td><td></td>
+      </tr>
+      <tr class="sub-item">
+        <td></td>
+        <td>１枚〜</td>
         <td class="center">1</td>
         <td class="center">${r.qtyUnit}</td>
-        <td class="num">${Number(r.unit.toFixed(2))}</td>
+        <td class="num unit-red">${unitDigits(r.unit)}</td>
         <td></td>
       </tr>`,
     )
@@ -524,23 +540,25 @@ export function renderQuoteHtml(
   const body = `
   ${quoteHeader(quote, settings, subject, logo, p.quoteNo)}
 
-  <div class="lease-box">
-    <span class="label">月額リース料金</span>
-    <span class="value">${n(calc.monthlyLease)}</span>
-    <span>（税別・${p.leaseTerm}回払い）</span>
-  </div>
+  <table class="lease-box"><tr>
+    <td class="label">月額リース料金</td>
+    <td class="value">${n(calc.monthlyLease)}</td>
+    <td class="tax">（税別）</td>
+  </tr></table>
 
   <table class="grid">
+    <colgroup>
+      <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
+      <col style="width:15%" /><col style="width:14%" /><col style="width:13%" />
+    </colgroup>
     <thead><tr>
-      <th style="width:5%">No</th><th>メーカー　品　名　型　番</th>
-      <th style="width:7%">数量</th><th style="width:7%"></th>
-      <th style="width:14%">単　価</th><th style="width:14%">金　額</th><th style="width:14%">備考</th>
+      <th>No</th><th>メーカー　品　名　型　番</th>
+      <th colspan="2">数量</th>
+      <th>単　価</th><th>金　額</th><th>備考</th>
     </tr></thead>
     <tbody>
-      <tr class="group-row"><td></td><td colspan="6">${esc(groupLabel)}</td></tr>
+      <tr class="group-row"><td></td><td>${esc(groupLabel)}</td><td></td><td></td><td></td><td></td><td></td></tr>
       ${itemRows}
-      <tr class="sum-row"><td></td><td>本体合計</td><td colspan="3"></td><td class="num">${n(calc.listTotal)}</td><td></td></tr>
-      <tr><td></td><td>お値引き</td><td colspan="2"></td><td class="center">▲</td><td class="num">${n(calc.discount)}</td><td></td></tr>
       ${
         calc.debtSettlement.total > 0
           ? `<tr>
@@ -549,34 +567,45 @@ export function renderQuoteHtml(
         <td class="center">カ月</td>
         <td class="num">${n(calc.debtSettlement.monthlyLease)}</td>
         <td class="num">${n(calc.debtSettlement.total)}</td>
-        <td class="muted">残債${calc.debtSettlement.remainingMonths}カ月＋解約事務手数料${calc.debtSettlement.months}カ月</td>
+        <td class="small">残債${calc.debtSettlement.remainingMonths}カ月＋解約手数料${calc.debtSettlement.months}カ月</td>
       </tr>`
           : ""
       }
-      <tr class="total-row"><td></td><td>販売額計</td><td colspan="3"></td><td class="num">${n(calc.sellingTotal)}</td><td></td></tr>
+      ${padRows}
+      <tr class="sum-row"><td></td><td colspan="3" class="num">本体合計</td><td></td><td class="num">${n(calc.listTotal)}</td><td></td></tr>
+      <tr class="discount-row"><td></td><td colspan="3" class="num">お値引き</td><td class="num">▲</td><td class="num">(${n(Math.abs(calc.discount))})</td><td></td></tr>
+      <tr class="total-row"><td></td><td colspan="3" class="num">販売額計</td><td></td><td class="num">${n(calc.sellingTotal)}</td><td></td></tr>
     </tbody>
   </table>
 
   <div class="section">【カウンター料金】</div>
   <table class="grid">
+    <colgroup>
+      <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
+      <col style="width:15%" /><col style="width:27%" />
+    </colgroup>
     <thead><tr>
-      <th style="width:5%">No</th><th>品　　名</th><th style="width:7%">数量</th><th style="width:7%"></th>
-      <th style="width:14%">単　価</th><th style="width:28%">備考</th>
+      <th>No</th><th>品　　　　名</th><th colspan="2">数量</th>
+      <th>単　価</th><th>備考</th>
     </tr></thead>
     <tbody>
       ${counterRows}
       <tr>
         <td class="center">4</td><td>■最低基本料金</td><td class="center">1</td><td class="center">ヶ月</td>
-        <td class="num">${n(u.minCharge)}</td><td></td>
+        <td class="num" style="font-weight:700">${n(u.minCharge)}</td><td></td>
       </tr>
     </tbody>
   </table>
 
   <div class="section">【リースシミュレーション】</div>
   <table class="grid">
+    <colgroup>
+      <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
+      <col style="width:15%" /><col style="width:14%" /><col style="width:13%" />
+    </colgroup>
     <thead><tr>
-      <th style="width:5%">No</th><th>品　　名</th><th style="width:7%">数量</th><th style="width:7%"></th>
-      <th style="width:14%">単　価</th><th style="width:14%">金　額</th><th style="width:14%">備考</th>
+      <th>No</th><th>品　　　　名</th><th colspan="2">数量</th>
+      <th>単　価</th><th>金　額</th><th>備考</th>
     </tr></thead>
     <tbody>${leaseRows}</tbody>
   </table>
@@ -707,11 +736,14 @@ export function renderCompareHtml(
           `<td class="num" colspan="2">${right === undefined ? "－" : `${right} ${unit}`}</td>`,
         ));
 
-  /** 単価つきの金額セル（単価：[  3.0 ]円　3,000） */
-  const priced = (unit: number | undefined, amount: number | undefined) =>
+  /**
+   * 単価つきの金額セル（単価：[  3.0 ]円　3,000）。
+   * 提案側の単価は、元のExcelと同じく赤字で出す（いちばん見てほしい数字）。
+   */
+  const priced = (unit: number | undefined, amount: number | undefined, red = false) =>
     unit === undefined
       ? `<td class="unit-cell"></td><td class="num">${amount === undefined ? "" : n(amount)}</td>`
-      : `<td class="unit-cell">単価：<span class="unit-value">${unitDigits(unit)}</span>円</td>` +
+      : `<td class="unit-cell">単価：<span class="unit-value${red ? " unit-red" : ""}">${unitDigits(unit)}</span>円</td>` +
         `<td class="num">${amount === undefined ? "" : n(amount)}</td>`;
 
   const blank = `<td class="unit-cell"></td><td class="num"></td>`;
@@ -724,8 +756,7 @@ export function renderCompareHtml(
     }</div>`;
 
   const body = `
-  ${brandBar(settings, logo, quote, calc.proposal.quoteNo)}
-  <h2>比 較 表</h2>
+  <h2>比　較　表</h2>
   <div class="compare-makers">（　${esc(c.makerText || "現行")}　➡　${esc(makerJp(calc.proposal.maker))}　）</div>
 
   <table class="pages-box">
@@ -735,8 +766,8 @@ export function renderCompareHtml(
 
   <table class="cmp">
     <colgroup>
-      <col style="width:23%" /><col style="width:13%" /><col style="width:19%" />
-      <col style="width:13%" /><col style="width:19%" /><col style="width:13%" />
+      <col style="width:25.5%" /><col style="width:12%" /><col style="width:17.7%" />
+      <col style="width:12.8%" /><col style="width:19.2%" /><col style="width:12.8%" />
     </colgroup>
     <thead>
       <tr>
@@ -758,15 +789,23 @@ export function renderCompareHtml(
         "リース料　①",
         current.leaseUnknown ? `<td class="unit-cell"></td><td class="num">－（不明）</td>` : money(current.monthlyLease),
         calc.counterOnly ? `<td class="unit-cell"></td><td class="num">${n(calc.monthlyLease)}<span class="small muted">（参考）</span></td>` : money(calc.monthlyLease),
+        "",
+        "row-lease row-rule",
       )}
       ${counterRows}
-      ${row("最低基本料金", c.units.minCharge ? money(c.units.minCharge) : blank, calc.units.minCharge ? money(calc.units.minCharge) : blank)}
+      ${row(
+        "最低基本料金",
+        c.units.minCharge ? money(c.units.minCharge) : blank,
+        calc.units.minCharge ? money(calc.units.minCharge) : blank,
+        "",
+        "row-counter",
+      )}
       ${row(
         "カウンター請求合計　②",
         money(current.counter.total),
         money(calc.counter.total),
         saveCell(calc.counter.total - current.counter.total),
-        "row-sum",
+        "row-sum row-counter row-rule",
       )}
       ${
         calc.counterOnly
@@ -870,14 +909,14 @@ function counterCompareRows(
   current: CurrentCalc,
   calc: ProposalCalc,
   c: Quote["current"],
-  priced: (unit: number | undefined, amount: number | undefined) => string,
+  priced: (unit: number | undefined, amount: number | undefined, red?: boolean) => string,
   blank: string,
   row: (label: string, left: string, right: string, save?: string, cls?: string) => string,
 ): string {
   const lines = current.chargeLines;
   if (!lines?.length) {
     const simple = (label: string, lu: number, la: number, ru: number, ra: number) =>
-      row(label, priced(lu, la), priced(ru, ra));
+      row(label, priced(lu, la), priced(ru, ra, true), "", "row-counter");
     return [
       c.monoPages > 0 ? simple("ブラック", c.units.mono, current.counter.monoAmount, calc.units.mono, calc.counter.monoAmount) : "",
       c.colorPages > 0 ? simple("フルカラー", c.units.color, current.counter.colorAmount, calc.units.color, calc.counter.colorAmount) : "",
@@ -896,13 +935,13 @@ function counterCompareRows(
     .map((line) => {
       const first = !shown.has(line.kind);
       shown.add(line.kind);
-      const right = first ? priced(proposalUnit(line.kind), proposalAmount(line.kind)) : blank;
+      const right = first ? priced(proposalUnit(line.kind), proposalAmount(line.kind), true) : blank;
 
       // 帯ごとの金額を、控除前の枚数で出し直す
       const gross = grossBands(line);
       const bandRows = gross.bands
         .map((b, i) =>
-          row(`${line.name}：${b.label}`, priced(b.unit, b.amount), i === 0 ? right : blank),
+          row(`${line.name}：${b.label}`, priced(b.unit, b.amount), i === 0 ? right : blank, "", "row-counter"),
         )
         .join("");
 
@@ -910,7 +949,7 @@ function counterCompareRows(
       const deducted = gross.total - line.amount;
       const deductionRow =
         line.deduction > 0
-          ? row("控除", priced(gross.bands[gross.bands.length - 1]?.unit, -deducted), blank)
+          ? row("控除", priced(gross.bands[gross.bands.length - 1]?.unit, -deducted), blank, "", "row-counter")
           : "";
       return bandRows + deductionRow;
     })
@@ -1026,7 +1065,7 @@ export function renderMultiCompareHtml(
 
   const body = `
   ${brandBar(settings, logo, quote)}
-  <h2>複合機 比較表（各社同時比較）</h2>
+  <h2 class="h2-wide">複合機 比較表（各社同時比較）</h2>
   <div class="head">
     <div><span class="customer">${esc(quote.customerName)}</span> ${esc(quote.customerHonorific)}</div>
     <div class="small">${esc(jpDate(quote.quoteDate))}</div>
@@ -1111,83 +1150,136 @@ const currentSpec = (calcs: ProposalCalc[]) => calcs[0]?.currentDevice;
 const FLEET_CSS = `
   @page { size: A3 landscape; margin: 8mm; }
   /* 台数が多いときは字を小さくして高さだけ詰める（横幅はA3いっぱいのまま使う） */
-  body.fleet { font-size: calc(7.4pt * var(--fit)); line-height: 1.2; }
-  body.fleet .small { font-size: 0.86em; }
-  body.fleet h1 { font-size: 14pt; letter-spacing: 0.18em; margin: 0 0 2px; }
-  body.fleet h1::after { width: 200px; margin-top: 3px; }
-  /* 余白も字の大きさに合わせて詰める（そうしないと行が縮まない） */
-  body.fleet .grid th, body.fleet .grid td { padding: 0.14em 0.4em; }
-  body.fleet .company { max-width: 42%; font-size: 7pt; }
-  body.fleet .company .logo { width: 170px; max-height: 32px; }
+  body.fleet { font-size: calc(12pt * var(--fit)); line-height: 1.2; }
+  body.fleet .small { font-size: 0.8em; }
 
-  .fleet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-  .fleet-head .customer { font-size: 12pt; min-width: 220px; }
-
-  .band {
-    margin: 0.7em 0 0.3em;
+  /* ── 見出し（日付・題字・宛名・自社情報） */
+  .fleet-date { text-align: right; font-size: calc(10pt * var(--fit)); }
+  .fleet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .fleet-head > * { flex: 1; }
+  .fleet-title {
+    flex: 1.2;
+    border: 2px solid #000;
+    text-align: center;
     font-weight: 700;
-    font-size: 1.16em;
-    letter-spacing: 0.28em;
-    color: var(--accent);
-    border-bottom: 2px solid var(--accent);
-    padding-bottom: 2px;
+    font-size: calc(21pt * var(--fit));
+    line-height: 1.25;
+    padding: 0.25em 0.4em;
+    align-self: flex-start;
   }
-  .band .band-note { float: right; font-size: 0.82em; letter-spacing: 0; font-weight: 400; color: #5b6b7c; }
+  .fleet-title .fleet-subtitle { font-size: calc(12pt * var(--fit)); }
+  .fleet-to {
+    border-bottom: 2px solid #000;
+    font-size: calc(21pt * var(--fit));
+    font-weight: 700;
+    padding: 0.4em 0 0.15em 1.2em;
+    margin-top: 1.2em;
+  }
+  .fleet-company { text-align: right; font-size: calc(10pt * var(--fit)); font-weight: 700; line-height: 1.5; }
+  .fleet-company img { height: calc(34px * var(--fit)); max-width: 60%; object-fit: contain; object-position: right center; }
+  .fleet-company .name { font-size: calc(13pt * var(--fit)); font-weight: 700; }
 
-  /* 左（現状）と右（提案）を隔てる帯 */
-  .grid th.gap, .grid td.gap { border: 0; background: #fff !important; width: 1%; min-width: 6px; padding: 0; }
-  .grid thead th.side-current { background: #46586b; border-color: #46586b; }
-  .grid thead th.side-proposal { background: var(--accent); border-color: var(--accent); }
-  .grid tbody td.unit-head { background: #f2f6fa; font-weight: 600; }
-  .grid tbody tr.unit-first td { border-top: 1.4px solid var(--line); }
-  .grid tbody td.bill { background: #eef3f8; font-weight: 700; font-size: 1.05em; }
+  /* ── 帯見出し（題字を太い枠で囲んだもの） */
+  .band {
+    border: 3px solid #000;
+    text-align: center;
+    font-weight: 700;
+    font-size: calc(18pt * var(--fit));
+    letter-spacing: 0.1em;
+    padding: 0.2em;
+    margin: 0.8em 0 0.6em;
+  }
 
-  .fleet-bottom { display: flex; gap: 14px; align-items: flex-start; margin-top: 0.8em; }
+  /* ── 左右に並べた現状／提案の表 */
+  .fleet-cols { display: flex; gap: calc(18px * var(--fit)); align-items: flex-start; }
+  .fleet-cols > * { flex: 1; min-width: 0; }
+
+  body.fleet .grid { border: 1px solid #000; }
+  body.fleet .grid th, body.fleet .grid td {
+    border: 1px solid #000;
+    padding: 0.2em 0.3em;
+    text-align: center;
+    vertical-align: middle;
+  }
+  body.fleet .grid thead th { background: #bfbfbf; font-weight: 700; font-size: calc(10pt * var(--fit)); white-space: nowrap; }
+  body.fleet .grid td.nowrap { white-space: nowrap; }
+  /* 合計は黒帯に白抜き（Excelと同じ） */
+  body.fleet .grid tbody tr.total-row td { background: #0d0d0d; color: #fff; font-weight: 700; }
+  body.fleet .grid td.bill { font-weight: 700; font-size: calc(13pt * var(--fit)); }
+  body.fleet .grid td.unit-head { font-weight: 700; }
+  body.fleet .grid td.no { width: 3%; font-size: calc(9.5pt * var(--fit)); }
+  body.fleet .grid .sum-value { font-weight: 700; font-size: calc(13pt * var(--fit)); }
+
+  /* 合計金額（表の下に置く小さな箱） */
+  .fleet-total { width: 46%; margin: 0.5em 0 0 auto; border-collapse: collapse; border: 2px solid #000; }
+  .fleet-total td { border: 1px solid #000; padding: 0.2em 0.4em; text-align: center; font-weight: 700; }
+  .fleet-total .fleet-total-value { font-size: calc(14pt * var(--fit)); }
+
+  /* ── 合計／トータル削減料金（下段） */
+  .fleet-bottom { display: flex; gap: calc(18px * var(--fit)); align-items: flex-start; margin-top: 0.8em; }
   .fleet-bottom > * { flex: 1; min-width: 0; }
-  .fleet-note { margin-top: 0.5em; font-size: 0.95em; color: #5b6b7c; line-height: 1.35; }
-  .fleet-note strong { color: #b3261e; }
+  .sum-block { width: 100%; border-collapse: collapse; }
+  .sum-block td { border: 3px solid #000; padding: 0.15em 0.5em; text-align: center; font-weight: 700; }
+  .sum-block .sum-label { font-size: calc(15pt * var(--fit)); border-bottom: 3px double #000; }
+  .sum-block .sum-amount { font-size: calc(17pt * var(--fit)); color: var(--red); text-align: right; border-top: 0; }
+  .sum-block .sum-yen { float: left; }
+  .sum-block .sum-gap td { border: 0; padding: 0.2em; }
+  .sum-block.total-save .sum-label { background: #ffff00; }
+  .band.band-save { background: #ffff00; }
+
+  body.fleet .effect-block { flex-direction: column-reverse; align-items: stretch; gap: 0.5em; margin-top: 0; }
+  body.fleet .effect { width: 100%; }
+  body.fleet .effect .effect-title { font-size: calc(15pt * var(--fit)); }
+  body.fleet .effect .effect-value { font-size: calc(14pt * var(--fit)); }
+  body.fleet .effect-block .effect-note { font-size: calc(14pt * var(--fit)); }
+
+  .fleet-note { margin-top: 0.5em; font-size: calc(9.5pt * var(--fit)); line-height: 1.4; }
+  .fleet-note strong { color: var(--red); }
 `;
 
 /** 台ごとのカウンター明細を、表の行に展開したもの */
 interface FleetRow {
   item: string;
-  charge: string;
+  /** チャージ枚数の下限（「1」「1,001」） */
+  chargeFrom: string;
+  /** チャージ枚数の上限（空欄なら上限なし） */
+  chargeTo: string;
   unit: string;
   pages: string;
   amount: string;
-  /** 消費税・小計など、区分ではない行 */
+  /** 消費税・最低基本料金など、区分ではない行 */
   sub?: boolean;
 }
-
-const pagesCell = (line: ChargeLineCalc): string =>
-  line.deduction > 0
-    ? `${n(line.billablePages)}枚<br><span class="small muted">${n(line.pages)}枚−控除${n(line.deduction)}枚</span>`
-    : `${n(line.pages)}枚`;
 
 /** 片側（現行 or 提案）1台ぶんの明細行 */
 function fleetSideRows(side: FleetSideCalc): FleetRow[] {
   const rows: FleetRow[] = [];
+  // 「1〜1,000」のような帯の表記を、元のExcelと同じ2つの欄に分ける
+  const band = (label: string): { chargeFrom: string; chargeTo: string } => {
+    const [from, to] = label.replace(/枚/g, "").split(/[〜～]/);
+    return { chargeFrom: (from ?? "1").trim(), chargeTo: (to ?? "").trim() };
+  };
 
   for (const line of side.lines) {
     if (line.bands.length <= 1) {
-      const band = line.bands[0];
+      const b = line.bands[0];
       rows.push({
         item: line.name,
-        charge: band ? band.label.replace("枚", "") : "1〜",
-        unit: band ? unitYen(band.unit) : "－",
-        pages: pagesCell(line),
+        ...band(b ? b.label : "1〜"),
+        unit: b ? unitDigits(b.unit) : "－",
+        pages: n(line.billablePages),
         amount: n(line.amount),
       });
       continue;
     }
     // 段が分かれている区分は、段ごとに行を立てる（チャージ枚数の帯がそのまま行になる）
-    line.bands.forEach((band, i) => {
+    line.bands.forEach((b, i) => {
       rows.push({
         item: i === 0 ? line.name : "　〃",
-        charge: band.label.replace("枚", ""),
-        unit: unitYen(band.unit),
-        pages: i === 0 ? pagesCell(line) : `${n(band.pages)}枚`,
-        amount: n(band.amount),
+        ...band(b.label),
+        unit: unitDigits(b.unit),
+        pages: n(b.pages),
+        amount: n(b.amount),
       });
     });
   }
@@ -1195,7 +1287,8 @@ function fleetSideRows(side: FleetSideCalc): FleetRow[] {
   if (side.minCharge > 0) {
     rows.push({
       item: "最低基本料金",
-      charge: "",
+      chargeFrom: "",
+      chargeTo: "",
       unit: n(side.minCharge),
       pages: "",
       amount: side.minChargeApplied ? n(side.minCharge) : "－",
@@ -1205,29 +1298,26 @@ function fleetSideRows(side: FleetSideCalc): FleetRow[] {
   if (side.maintenanceMonthly > 0) {
     rows.push({
       item: "月額保守料金",
-      charge: "",
+      chargeFrom: "",
+      chargeTo: "",
       unit: n(side.maintenanceMonthly),
       pages: "",
       amount: n(side.maintenanceMonthly),
       sub: true,
     });
   }
+  // 消費税は元のExcelと同じく、台ごとに1行立てる
+  rows.push({
+    item: "消費税（10％）",
+    chargeFrom: "",
+    chargeTo: "",
+    unit: "",
+    pages: "",
+    amount: n(side.counterTax),
+    sub: true,
+  });
   return rows;
 }
-
-/**
- * 請求金額の欄。
- * 台数が多いと消費税だけで行数が膨らむため、消費税は請求金額の欄に併記して
- * 1台あたりの行数を減らす（A3ヨコ1枚に収めるため）。
- */
-const billCell = (side: FleetSideCalc): string =>
-  `${n(side.counterTotal)}<br><span class="small muted">税抜 ${n(side.counterBeforeTax)}＋税 ${n(
-    side.counterTax,
-  )}</span>`;
-
-/** 機種名の欄（設置場所・メーカー・型番をまとめて出す） */
-const sideTitle = (maker: string, model: string): string =>
-  `${esc(maker || "－")}<br><span class="small">${esc(model || "－")}</span>`;
 
 export function renderFleetCompareHtml(
   quote: Quote,
@@ -1236,72 +1326,136 @@ export function renderFleetCompareHtml(
   settings: Settings,
   logo?: string,
 ): string {
-  const diff = (v: number) =>
-    v === 0 ? "±0" : v < 0 ? `<span class="save">▲${n(Math.abs(v))}</span>` : `<span class="cut">+${n(v)}</span>`;
-
+  const co = settings.company;
   const uniq = (values: string[]) => [...new Set(values.filter(Boolean))];
   const fromMakers = uniq(calc.units.map((u) => u.unit.current.makerText));
   const toMakers = uniq(calc.units.map((u) => u.unit.proposal.makerText));
+  /** 金額は元のExcelと同じ「¥1,234」の書き方にそろえる */
+  const ym = (v: number) => `¥${n(v)}`;
+  const ppm = (v?: number) => (v === undefined ? "－" : `1分/${v}枚`);
 
-  // ── リース料金 詳細内訳
-  const leaseRows = calc.units
-    .map(
-      (u) => `<tr>
-      <td class="center">${u.no}</td>
-      <td>${esc(u.unit.location || "－")}</td>
-      <td>${esc(u.unit.current.makerText || "－")}</td>
-      <td>${esc(u.unit.current.modelText || "－")}</td>
-      <td class="center">${u.unit.current.ppm ?? "－"}</td>
-      <td class="small">${esc(u.unit.current.note ?? "")}</td>
-      <td class="num">${u.current.monthlyLease ? n(u.current.monthlyLease) : "－"}</td>
-      <td class="gap"></td>
-      <td>${esc(u.unit.proposal.makerText || "－")}</td>
-      <td>${esc(u.unit.proposal.modelText || "－")}</td>
-      <td class="center">${u.unit.proposal.ppm ?? "－"}</td>
-      <td class="num">${u.proposal.monthlyLease ? n(u.proposal.monthlyLease) : "－"}</td>
-    </tr>`,
-    )
-    .join("");
-
-  // ── カウンター料金 詳細内訳比較（左右で行数が違うので、多いほうに合わせて空欄で埋める）
-  const counterRows = calc.units
-    .map((u) => {
-      const left = fleetSideRows(u.current);
-      const right = fleetSideRows(u.proposal);
-      const height = Math.max(left.length, right.length, 1);
-
-      return Array.from({ length: height }, (_, i) => {
-        const l = left[i];
-        const r = right[i];
-        const cells = (row: FleetRow | undefined) =>
-          row
-            ? `<td${row.sub ? ' class="muted"' : ""}>${esc(row.item)}</td>
-             <td class="center small">${esc(row.charge)}</td>
-             <td class="num">${esc(row.unit)}</td>
-             <td class="num">${row.pages}</td>
-             <td class="num">${esc(row.amount)}</td>`
-            : `<td></td><td></td><td></td><td></td><td></td>`;
-
-        const head =
+  // ── リース料金 詳細内訳（左＝現状／右＝提案）
+  const leaseTable = (sideKey: "current" | "proposal") => {
+    const isCurrent = sideKey === "current";
+    const totals = calc[sideKey];
+    const rows = calc.units
+      .map((u, i) => {
+        const side = u[sideKey];
+        const info = isCurrent ? u.unit.current : u.unit.proposal;
+        const place = isCurrent ? `<td>${esc(u.unit.location || "－")}</td>` : "";
+        // 月額リース料金（税抜の合計）は、台をまとめて1つの欄に出す
+        const total =
           i === 0
-            ? `<td class="center unit-head" rowspan="${height}">${u.no}</td>
-               <td class="unit-head" rowspan="${height}">${esc(u.unit.location || "－")}<br>
-                 <span class="small">${esc(u.unit.current.makerText)} ${esc(u.unit.current.modelText)}</span></td>`
+            ? `<td class="bill" rowspan="${calc.units.length}">${ym(totals.leaseMonthly)}</td>`
             : "";
-        const leftBill =
-          i === 0 ? `<td class="num bill" rowspan="${height}">${billCell(u.current)}</td>` : "";
-        const rightHead =
-          i === 0
-            ? `<td class="unit-head" rowspan="${height}">${sideTitle(u.unit.proposal.makerText, u.unit.proposal.modelText)}</td>`
-            : "";
-        const rightBill =
-          i === 0 ? `<td class="num bill" rowspan="${height}">${billCell(u.proposal)}</td>` : "";
-        const gap = i === 0 ? `<td class="gap" rowspan="${height}"></td>` : "";
+        return `<tr>
+          <td class="no">${u.no}</td>
+          ${place}
+          <td class="unit-head">${esc(info.makerText || "－")}</td>
+          <td>${esc(info.modelText || "－")}</td>
+          <td>${ppm(info.ppm)}</td>
+          <td>${side.monthlyLease ? ym(side.monthlyLease) : "－"}</td>
+          ${total}
+        </tr>`;
+      })
+      .join("");
+    const span = isCurrent ? 4 : 3;
+    return `<table class="grid">
+      <colgroup>
+        <col style="width:3%" />${isCurrent ? '<col style="width:19%" />' : ""}
+        <col style="width:${isCurrent ? 15 : 19}%" /><col style="width:${isCurrent ? 17 : 26}%" />
+        <col style="width:14%" /><col style="width:15%" /><col style="width:17%" />
+      </colgroup>
+      <thead><tr>
+        <th></th>${isCurrent ? "<th>設置場所</th>" : ""}
+        <th>メーカー</th><th>${isCurrent ? "物件名" : "提案機種"}</th>
+        <th>印刷速度</th><th>リース料金</th><th>月額リース料金</th>
+      </tr></thead>
+      <tbody>
+        ${rows}
+        <tr>
+          <td colspan="${span}"></td><td class="nowrap">消費税(10％)</td><td>${ym(totals.leaseTax)}</td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="${span + 2}">リース料金　合計</td>
+          <td class="sum-value">${ym(totals.leaseTotal)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  };
 
-        return `<tr class="${i === 0 ? "unit-first" : ""}">${head}${cells(l)}${leftBill}${gap}${rightHead}${cells(r)}${rightBill}</tr>`;
-      }).join("");
-    })
-    .join("");
+  // ── カウンター料金 詳細内訳 比較（左＝現状／右＝提案）
+  const counterTable = (sideKey: "current" | "proposal") => {
+    const isCurrent = sideKey === "current";
+    const totals = calc[sideKey];
+    const body = calc.units
+      .map((u) => {
+        const side = u[sideKey];
+        const info = isCurrent ? u.unit.current : u.unit.proposal;
+        const rows = fleetSideRows(side);
+        const head = isCurrent
+          ? `${esc(u.unit.location || "－")}<br>${esc(info.modelText || "－")}`
+          : `${esc(info.makerText || "－")}<br>${esc(info.modelText || "－")}`;
+        return rows
+          .map((r, i) => {
+            const first =
+              i === 0
+                ? `<td class="no" rowspan="${rows.length}">${u.no}</td>
+                   <td class="unit-head" rowspan="${rows.length}">${head}</td>`
+                : "";
+            const bill =
+              i === 0
+                ? `<td class="bill" rowspan="${rows.length}">${ym(side.counterTotal)}</td>`
+                : "";
+            return `<tr>
+              ${first}
+              <td class="nowrap">${esc(r.item)}</td>
+              <td>${esc(r.chargeFrom)}${r.chargeFrom ? `　～　${esc(r.chargeTo)}` : ""}</td>
+              <td>${esc(r.unit)}</td>
+              <td>${r.pages ? `${esc(r.pages)} 枚` : ""}</td>
+              <td>${r.amount ? ym(Number(r.amount.replace(/,/g, ""))) : ""}</td>
+              ${bill}
+            </tr>`;
+          })
+          .join("");
+      })
+      .join("");
+    return `<table class="grid">
+      <colgroup>
+        <col style="width:3%" /><col style="width:15%" /><col style="width:16%" />
+        <col style="width:11%" /><col style="width:11%" /><col style="width:13%" />
+        <col style="width:15%" /><col style="width:16%" />
+      </colgroup>
+      <thead><tr>
+        <th></th><th>${isCurrent ? "設置場所" : "機種"}</th><th>項目</th>
+        <th>チャージ枚数</th><th>単価</th><th>印刷枚数</th><th>金額</th><th>請求金額</th>
+      </tr></thead>
+      <tbody>
+        ${body}
+        <tr class="total-row">
+          <td colspan="7">カウンター料金　小計</td>
+          <td class="sum-value">${ym(totals.counterSubtotal)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  };
+
+  /** 表の下に置く「合計金額」の小さな箱 */
+  const totalBox = (v: number) =>
+    `<table class="fleet-total"><tr><td>合計金額</td><td class="fleet-total-value">${ym(v)}</td></tr></table>`;
+
+  // リース料金が分からない案件は、カウンター料金だけを比べていることを見出しに残す
+  const sumLabel = calc.leaseUnknown ? "カウンター料金" : "合計金額";
+
+  /** 合計の3段（単月・年間・リース年数ぶん） */
+  const sumBlock = (totals: FleetTotals, cls = "") => `
+    <table class="sum-block ${cls}">
+      <tbody>
+        ${sumPair(`${sumLabel}　（単月）`, totals.monthly, true)}
+        ${sumPair(`${sumLabel}　（年間）`, totals.yearly)}
+        ${sumPair(`${sumLabel}　（${calc.leaseYears}年間）`, totals.longTerm)}
+      </tbody>
+    </table>`;
 
   // ── 控除の注意書き（現行に控除があり、提案に無い台がある場合）
   const deductedUnits = calc.units.filter((u) => u.current.deductedPages > 0 && u.proposal.deductedPages === 0);
@@ -1321,146 +1475,95 @@ export function renderFleetCompareHtml(
   const zoom = fitZoom(rowCount);
 
   const body = `
+  <div class="fleet-date">${esc(jpDate(quote.quoteDate))}</div>
   <div class="fleet-head">
-    <div>
-      <h1>複合機比較表</h1>
-      <div class="small">${esc(fromMakers.join("・") || "現行")} 複合機　⇒　${esc(toMakers.join("・") || "提案")} 複合機（全${calc.units.length}台）</div>
-      <div style="margin-top:6px"><span class="customer">${esc(quote.customerName)}</span> <span style="font-size:10pt">${esc(quote.customerHonorific)}</span></div>
+    <div><div class="fleet-to">${esc(quote.customerName)}　${esc(quote.customerHonorific)}</div></div>
+    <div class="fleet-title">複合機比較表
+      <div class="fleet-subtitle">${esc(fromMakers.join("・") || "現行")}複合機⇒${esc(toMakers.join("・") || "提案")}複合機</div>
     </div>
-    ${companyBlock(settings, logo)}
+    <div class="fleet-company">
+      ${logo ? `<img src="${logo}" alt="${esc(co.name)}">` : `<div class="name">${esc(co.name)}</div>`}
+      <div>${esc(co.postalCode ? `〒${co.postalCode}` : "")}</div>
+      <div>${esc(co.offices?.[0]?.address ?? co.address ?? "")}</div>
+      <div>${co.tel ? `TEL：${esc(co.tel)}` : ""}${co.fax ? `　　FAX：${esc(co.fax)}` : ""}</div>
+      <div>${quote.staffName ? `担当：${esc(quote.staffName)}` : ""}</div>
+    </div>
   </div>
 
-  ${calc.leaseUnknown ? "" : `<div class="band">- リ ー ス 料 金 詳 細 内 訳 -</div>
-  <table class="grid">
-    <thead>
-      <tr>
-        <th class="side-current" colspan="7">現状利用状況</th>
-        <th class="gap"></th>
-        <th class="side-proposal" colspan="4">導入提案予測</th>
-      </tr>
-      <tr>
-        <th style="width:2.5%">No</th><th style="width:16%">設置場所</th><th style="width:7.5%">メーカー</th>
-        <th style="width:13%">物件名</th><th style="width:4%">印刷速度</th><th style="width:8%">備考</th>
-        <th style="width:9%">リース料金</th>
-        <th class="gap"></th>
-        <th style="width:7.5%">メーカー</th><th style="width:14%">提案機種</th>
-        <th style="width:4%">印刷速度</th><th style="width:13%">リース料金</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${leaseRows}
-      <tr class="sum-row">
-        <td colspan="5"></td><td class="center">消費税（10％）</td>
-        <td class="num">${n(calc.current.leaseTax)}</td>
-        <td class="gap"></td>
-        <td colspan="2"></td><td class="center">消費税（10％）</td>
-        <td class="num">${n(calc.proposal.leaseTax)}</td>
-      </tr>
-      <tr class="total-row">
-        <td colspan="5"></td><td class="center">リース料金 合計</td>
-        <td class="num">${n(calc.current.leaseTotal)}</td>
-        <td class="gap"></td>
-        <td colspan="2"></td><td class="center">リース料金 合計</td>
-        <td class="num">${n(calc.proposal.leaseTotal)}</td>
-      </tr>
-    </tbody>
-  </table>`}
+  ${
+    calc.leaseUnknown
+      ? ""
+      : `<div class="band">-  リ ー ス 料 金 詳 細 内 訳  -</div>
+  <div class="fleet-cols">
+    <div>${leaseTable("current")}</div>
+    <div>${leaseTable("proposal")}</div>
+  </div>`
+  }
 
-  <div class="band">- カ ウ ン タ ー 料 金 詳 細 内 訳 比 較 -
-    ${fleet.pagesNote ? `<span class="band-note">（${esc(fleet.pagesNote)}）</span>` : ""}
+  <div class="band">-  カ ウ ン タ ー 料 金 詳 細 内 訳　 比 較 -${
+    fleet.pagesNote ? `（${esc(fleet.pagesNote)}）` : ""
+  }</div>
+  <div class="fleet-cols">
+    <div>${counterTable("current")}${totalBox(calc.current.monthly)}</div>
+    <div>${counterTable("proposal")}${totalBox(calc.proposal.monthly)}</div>
   </div>
-  <table class="grid">
-    <thead>
-      <tr>
-        <th class="side-current" colspan="8">現状利用状況</th>
-        <th class="gap"></th>
-        <th class="side-proposal" colspan="7">導入提案予測</th>
-      </tr>
-      <tr>
-        <th style="width:2.5%">No</th><th style="width:12%">設置場所・機種</th>
-        <th style="width:8%">項目</th><th style="width:5%">チャージ枚数</th><th style="width:4.5%">単価</th>
-        <th style="width:7%">印刷枚数</th><th style="width:6%">金額</th><th style="width:7%">請求金額</th>
-        <th class="gap"></th>
-        <th style="width:10%">機種</th>
-        <th style="width:8%">項目</th><th style="width:5%">チャージ枚数</th><th style="width:4.5%">単価</th>
-        <th style="width:7%">印刷枚数</th><th style="width:6%">金額</th><th style="width:7%">請求金額</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${counterRows}
-      <tr class="total-row">
-        <td colspan="7">カウンター料金 小計</td>
-        <td class="num">${n(calc.current.counterSubtotal)}</td>
-        <td class="gap"></td>
-        <td colspan="6">カウンター料金 小計</td>
-        <td class="num">${n(calc.proposal.counterSubtotal)}</td>
-      </tr>
-    </tbody>
-  </table>
   ${deductionNote}
   ${
     calc.leaseUnknown
       ? `<div class="fleet-note"><strong>※ リース料金について</strong>　現在ご利用中の複合機のリース料金を
         お伺いできていないため、この比較表は<b>カウンター料金のみ</b>で比較しております
-        （リース料金は現状・提案とも含んでおりません）。
-        リース料金をお知らせいただければ、リース料を含めた比較表をあらためてご用意いたします。</div>`
+        （リース料金は現状・提案とも含んでおりません）。</div>`
       : ""
   }
 
+  <div class="fleet-cols" style="margin-top:0.8em">
+    <div>
+      <div class="band">-  合 計  -</div>
+      ${sumBlock(calc.current)}
+    </div>
+    <div>
+      <div class="band">-  合 計  -</div>
+      ${sumBlock(calc.proposal)}
+    </div>
+  </div>
+
   <div class="fleet-bottom">
-    <div>
-      <div class="band">- 合 計 -</div>
-      <table class="grid">
-        <thead><tr>
-          <th></th><th class="side-current">現状利用状況</th>
-          <th class="side-proposal">導入提案予測</th><th>削減額</th>
-        </tr></thead>
-        <tbody>
-          <tr>
-            <th style="text-align:left">${calc.leaseUnknown ? "カウンター料金 （単月）" : "合計金額 （単月）"}</th>
-            <td class="num">${n(calc.current.monthly)}</td>
-            <td class="num">${n(calc.proposal.monthly)}</td>
-            <td class="num">${diff(calc.diffMonthly)}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left">${calc.leaseUnknown ? "カウンター料金 （年間）" : "合計金額 （年間）"}</th>
-            <td class="num">${n(calc.current.yearly)}</td>
-            <td class="num">${n(calc.proposal.yearly)}</td>
-            <td class="num">${diff(calc.diffYearly)}</td>
-          </tr>
-          <tr class="total-row">
-            <th style="text-align:left">${calc.leaseUnknown ? "カウンター料金" : "合計金額"} （${calc.leaseYears}年間）</th>
-            <td class="num">${n(calc.current.longTerm)}</td>
-            <td class="num">${n(calc.proposal.longTerm)}</td>
-            <td class="num">${diff(calc.diffLeaseTerm)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div>
-      <div class="band">- ト ー タ ル 削 減 料 金 -</div>
-      <table class="grid">
-        <tbody>
-          <tr class="save-total"><th style="text-align:left">合計合算削減金額 （単月）</th><td class="num">${diff(calc.diffMonthly)}</td></tr>
-          <tr class="save-total"><th style="text-align:left">合計合算削減金額 （年間）</th><td class="num">${diff(calc.diffYearly)}</td></tr>
-          <tr class="save-total"><th style="text-align:left">合計合算削減金額 （${calc.leaseYears}年間）</th><td class="num">${diff(calc.diffLeaseTerm)}</td></tr>
-          <tr class="total-row"><th style="text-align:left">削減率</th><td class="num">${
-            calc.reductionRate === 0
-              ? "±0%"
-              : calc.reductionRate < 0
-                ? `<span class="save">▲${(Math.abs(calc.reductionRate) * 100).toFixed(1)}%</span>`
-                : `<span class="cut">+${(calc.reductionRate * 100).toFixed(1)}%</span>`
-          }</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <div></div>
     <div>${salesEffectBlock(calc.diffYearly)}</div>
+    <div>
+      <div class="band band-save">-  ト ー タ ル 削 減 料 金  -</div>
+      <table class="sum-block total-save">
+        <tbody>
+          ${sumPair("合計合算削減金額　（単月）", calc.diffMonthly, true)}
+          ${sumPair("合計合算削減金額　（年間）", calc.diffYearly)}
+          ${sumPair(`合計合算削減金額　（${calc.leaseYears}年間）`, calc.diffLeaseTerm)}
+          ${sumPairText("削減率", `${(calc.reductionRate * 100).toFixed(2)}%`)}
+        </tbody>
+      </table>
+    </div>
   </div>
   `;
   return page(`複数台比較表_${quote.customerName}`, body, {
     css: `${FLEET_CSS}\n  body.fleet { --fit: ${zoom}; }`,
     bodyClass: "fleet",
   });
+}
+
+/** 合計の1組（見出しの行＋金額の行） */
+function sumPair(label: string, value: number, withYen = false): string {
+  return `
+    <tr><td class="sum-label">${esc(label)}</td></tr>
+    <tr><td class="sum-amount">${withYen ? '<span class="sum-yen">¥</span>' : ""}${
+      value < 0 ? `-${n(Math.abs(value))}` : n(value)
+    }</td></tr>
+    <tr class="sum-gap"><td></td></tr>`;
+}
+
+/** 合計の1組（削減率のように、金額ではない値） */
+function sumPairText(label: string, value: string): string {
+  return `
+    <tr><td class="sum-label">${esc(label)}</td></tr>
+    <tr><td class="sum-amount" style="text-align:center">${esc(value)}</td></tr>`;
 }
 
 /**
@@ -1480,7 +1583,7 @@ export function fitCompare(rowCount: number, columns = 1): number {
   if (scale >= 0.98) return 1;
   // これより小さくすると紙で読めない。実物の明細は区分1〜4件（4〜10行）が
   // ほとんどで、この下限でも8区分（23行）まで1枚に収まる
-  return Math.max(0.45, Math.round(scale * 1_000) / 1_000);
+  return Math.max(0.4, Math.round(scale * 1_000) / 1_000);
 }
 
 /**
@@ -1506,14 +1609,14 @@ export function compareRowCount(current: CurrentCalc, specRows = 0): number {
  * 以下の3つは Chromium で実測して求めた値（A4たて・印刷幅190mm）。
  *
  *   印刷できる高さ : 297mm − 上下余白24mm ≒ 1,032px（96dpi）→ 余裕を見て1,020px
- *   行数で変わらない部分 : 見出し・自社情報・枚数表・合計欄・削減効果で約912px
- *     （明細が無いときの3行ぶんもここに含む。実測1,011px）
- *   明細1行あたり : 約71px（紙に刷って読める高さを取っているぶん、1行が厚い）
- *     実測 5行1,269px / 9行1,557px / 18行2,200px / 23行2,552px
+ *   行数で変わらない部分 : 題字・枚数表・合計欄・削減効果で約872px
+ *     （明細が無いときの3行ぶんもここに含む。実測978px）
+ *   明細1行あたり : 約69px（紙に刷って読める高さを取っているぶん、1行が厚い）
+ *     実測 9行1,493px / 11行1,619px / 18行2,123px / 23行2,459px
  */
 const COMPARE_BUDGET_PX = 1_020;
-const COMPARE_BLOCK_PX = 912;
-const COMPARE_ROW_PX = 71;
+const COMPARE_BLOCK_PX = 872;
+const COMPARE_ROW_PX = 69;
 
 /**
  * A3ヨコ1枚に収まるよう、字と行の高さを縮める割合（Excelの「1ページに収める」と同じ考え方）。
@@ -1521,27 +1624,28 @@ const COMPARE_ROW_PX = 71;
  * 横幅はA3いっぱいのまま使いたいので、全体を拡大縮小（zoom）するのではなく
  * 字の大きさだけを変える。表は幅100%なので、字が小さくなると高さだけが縮む。
  *
- * 台数が多いと字は小さくなるが、これは元のExcel（16台を1枚に収める運用）と同じ。
- * ただし読めなくなる手前（0.45）で止め、それ以上は2枚に分ける。
+ * 台数が多いと字は小さくなるが、これは元のExcel（11台を30%に縮めて
+ * 1枚に収めている運用）と同じ。下限は元のExcelと同じ0.3。
  */
 export function fitZoom(rowCount: number): number {
   const scale = SHRINKABLE_BUDGET_PX / (BLOCK_HEIGHT_PX + ROW_HEIGHT_PX * rowCount);
   // わずかな縮小は見た目に効かないので等倍のままにする
   if (scale >= 0.98) return 1;
-  return Math.max(0.45, Math.round(scale * 1_000) / 1_000);
+  return Math.max(0.3, Math.round(scale * 1_000) / 1_000);
 }
 
 /**
- * 以下の3つは Chromium で実測して求めた値。
- * 高さは fit を f として 105 + (300 + 17.2 × 行数) × f でほぼ線形に効く。
+ * 以下の3つは Chromium で実測して求めた値（A3ヨコ・印刷幅404mm）。
  *
- *   印刷できる高さ  : A3ヨコ297mm − 余白16mm ≒ 1,060px（96dpi）→ 余裕を見て1,000px
- *   縮まない部分    : 罫線と自社情報など約105px
- *   縮む部分        : 見出し帯・合計欄で約300px ＋ 明細1行あたり約17.2px
+ *   印刷できる高さ : A3ヨコ297mm − 上下余白16mm ≒ 1,062px（96dpi）→ 余裕を見て1,050px
+ *   行数で変わらない部分 : 題字・帯見出し・合計欄・削減効果で約1,161px
+ *   明細1行あたり : 約26.6px
+ *     実測 1台1,294px / 2台1,425px / 4台1,691px / 8台2,222px / 16台3,285px
+ *     （1台あたり リース1行＋カウンター4行＝5行で約133px）
  */
-const SHRINKABLE_BUDGET_PX = 1_000 - 105;
-const BLOCK_HEIGHT_PX = 300;
-const ROW_HEIGHT_PX = 17.2;
+const SHRINKABLE_BUDGET_PX = 1_050;
+const BLOCK_HEIGHT_PX = 1_161;
+const ROW_HEIGHT_PX = 26.6;
 
 /* ---------------- 提案資料（写真入りのご提案書） ---------------- */
 

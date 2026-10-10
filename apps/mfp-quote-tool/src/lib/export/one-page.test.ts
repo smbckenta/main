@@ -88,7 +88,7 @@ describe("行数に応じた縮小", () => {
   });
 
   it("読めなくなる手前で止める", () => {
-    expect(fitCompare(500)).toBe(0.45);
+    expect(fitCompare(500)).toBe(0.4);
   });
 
   it("各社を横並びにした比較表は、列が増えるぶん少し余計に縮める", () => {
@@ -104,7 +104,7 @@ describe("画面に出るHTML", () => {
   it("削減額を赤で出す指定が入っている", () => {
     const html = renderCompareHtml(q, current, calc, DEFAULT_SETTINGS);
     // 合計合算削減金額は赤で大きく出す
-    expect(html).toMatch(/\.save-summary \.save \{ color: #c00000; \}/);
+    expect(html).toMatch(/\.save-summary \.save \{ color: var\(--red\);/);
     // カウンター削減額は黄色地に赤字
     expect(html).toContain('class="save-value"');
   });

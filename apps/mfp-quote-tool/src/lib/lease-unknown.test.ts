@@ -212,8 +212,8 @@ describe("複数台比較表でリース料金が不明な場合", () => {
       DEFAULT_SETTINGS,
     );
     expect(html).not.toContain("リ ー ス 料 金 詳 細 内 訳");
-    expect(html).toContain("カ ウ ン タ ー 料 金 詳 細 内 訳 比 較");
-    expect(html).toContain("カウンター料金 （単月）");
+    expect(html).toContain("カ ウ ン タ ー 料 金 詳 細 内 訳");
+    expect(html).toContain("カウンター料金　（単月）");
     expect(html).toContain("カウンター料金のみ");
   });
 

@@ -84,7 +84,7 @@ describe("比較表の体裁", () => {
     expect(html).toContain("合計合算削減金額　（単月）");
     expect(html).toContain("合計合算削減金額　（年間）");
     expect(html).toContain("合計合算削減金額　（6年間）");
-    expect(html).toMatch(/\.save-summary td\.num \{[^}]*font-size: 1\.62em/);
+    expect(html).toMatch(/\.save-summary td\.num \{[^}]*font-size: calc\(22pt/);
   });
 
   it("年間売上高に換算した効果を、左の一言と並べて出す", () => {

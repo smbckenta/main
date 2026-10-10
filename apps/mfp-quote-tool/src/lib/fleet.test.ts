@@ -276,7 +276,7 @@ describe("A3ヨコの複数台比較表（HTML）", () => {
   });
 
   it("4つのブロックをこの順に並べる", () => {
-    const order = ["リ ー ス 料 金 詳 細 内 訳", "カ ウ ン タ ー 料 金 詳 細 内 訳 比 較", "合 計", "ト ー タ ル 削 減 料 金"];
+    const order = ["リ ー ス 料 金 詳 細 内 訳", "カ ウ ン タ ー 料 金 詳 細 内 訳", "合 計", "ト ー タ ル 削 減 料 金"];
     let at = -1;
     for (const title of order) {
       const found = html.indexOf(title);
@@ -292,10 +292,9 @@ describe("A3ヨコの複数台比較表（HTML）", () => {
     expect(html).toContain("11号館経理課");
   });
 
-  it("見出しに現行メーカーと提案メーカーを並べる", () => {
-    expect(html).toContain("キャノン・理想科学・シャープ 複合機");
-    expect(html).toContain("キャノン・京セラ・理想科学 複合機");
-    expect(html).toContain("全4台");
+  it("題字に現行メーカーと提案メーカーを並べる", () => {
+    expect(html).toContain("複合機比較表");
+    expect(html).toContain("キャノン・理想科学・シャープ複合機⇒キャノン・京セラ・理想科学複合機");
   });
 
   it("最低基本料金・月額保守料金の行を出す", () => {
@@ -303,9 +302,11 @@ describe("A3ヨコの複数台比較表（HTML）", () => {
     expect(html).toContain("月額保守料金");
   });
 
-  it("消費税は行を増やさず、請求金額の欄に併記する（A3一枚に収めるため）", () => {
+  it("消費税は台ごとに1行立て、請求金額は税込で出す（元のExcelと同じ）", () => {
     // 1台目：税抜1,430＋税143＝1,573
-    expect(html).toContain("税抜 1,430＋税 143");
+    expect(html).toContain("消費税（10％）");
+    expect(html).toContain("¥143");
+    expect(html).toContain("¥1,573");
   });
 
   it("集計期間を見出しに添える", () => {
@@ -313,12 +314,12 @@ describe("A3ヨコの複数台比較表（HTML）", () => {
   });
 
   it("合計と削減額を出す", () => {
-    expect(html).toContain("カウンター料金 小計");
-    expect(html).toContain("合計金額 （6年間）");
-    expect(html).toContain("合計合算削減金額 （6年間）");
+    expect(html).toContain("カウンター料金　小計");
+    expect(html).toContain("合計金額　（6年間）");
+    expect(html).toContain("合計合算削減金額　（6年間）");
     expect(html).toContain("削減率");
-    // 提案のほうが安いので、削減は▲表示になる
-    expect(html).toContain("▲33,141");
+    // 提案のほうが安いので、削減はマイナス表示になる
+    expect(html).toContain("-33,141");
   });
 });
 
@@ -365,26 +366,27 @@ describe("控除がある台の複数台比較表", () => {
       calc,
       DEFAULT_SETTINGS,
     );
-    expect(html).toContain("1,000枚−控除20枚");
-    expect(html).toContain("980枚");
+    // 表には控除後の枚数を出し、控除があることは表の下の注記で断る
+    expect(html).toContain("980 枚");
     expect(html).toContain("ご提案する複合機には控除がないため");
   });
 });
 
 describe("A3ヨコ1枚に収めるための縮小率", () => {
-  it("行数が少ないうちは縮めない", () => {
-    expect(fitZoom(0)).toBe(1);
-    expect(fitZoom(35)).toBe(1);
+  it("縮めすぎない（1台なら8割以上の大きさを保つ）", () => {
+    // 1台ぶん（リース1行＋カウンター4行）
+    expect(fitZoom(5)).toBeGreaterThan(0.8);
+    expect(fitZoom(5)).toBeLessThanOrEqual(1);
   });
 
   it("行数が増えるほど小さくする", () => {
-    const a = fitZoom(50);
+    const a = fitZoom(10);
     const b = fitZoom(70);
     expect(a).toBeLessThan(1);
     expect(b).toBeLessThan(a);
   });
 
-  it("読めなくなる手前で止める（それ以上は2枚に分ける）", () => {
-    expect(fitZoom(10_000)).toBe(0.45);
+  it("読めなくなる手前で止める（元のExcelと同じ30%）", () => {
+    expect(fitZoom(10_000)).toBe(0.3);
   });
 });
