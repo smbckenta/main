@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { hasAnyUser, listPublicUsers, readSessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { findUser, hasAnyUser, listPublicUsers, readSessionToken, SESSION_COOKIE } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -14,6 +14,7 @@ export async function GET() {
   return NextResponse.json({
     registered,
     me: id ?? null,
+    role: id ? ((await findUser(id))?.role ?? null) : null,
     users: id ? await listPublicUsers() : [],
   });
 }

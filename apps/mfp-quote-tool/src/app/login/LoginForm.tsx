@@ -60,20 +60,21 @@ export default function LoginForm() {
   return (
     <div className="login-page">
       <form className="panel login-card" onSubmit={submit}>
-        <h2>{first ? "最初の利用者を登録します" : "ログイン"}</h2>
+        <h2>{first ? "オーナーを登録します" : "ログイン"}</h2>
         <p className="muted">
           {first
-            ? "このツールを使う方のIDとパスワードを決めてください。2人目以降は、ログインしたあと設定画面から追加できます。"
-            : "IDとパスワードを入れてください。"}
+            ? "最初に登録した方がオーナーになります。オーナーは、あとから管理者を任命できます。2人目以降は、ログインしたあと設定画面から追加してください。"
+            : "メールアドレスとパスワードを入れてください。"}
         </p>
 
         <div className="field">
-          <label>ID</label>
+          <label>ID（メールアドレス）</label>
           <input
+            type="email"
             value={id}
             autoFocus
             autoComplete="username"
-            placeholder="kosaka"
+            placeholder="k.kevin@denrai.net"
             onChange={(e) => setId(e.target.value)}
           />
         </div>
@@ -110,7 +111,7 @@ export default function LoginForm() {
         {error && <p className="error">{error}</p>}
 
         <button className="primary" type="submit" disabled={busy || !id || !password}>
-          {busy ? "確認中…" : first ? "登録してはじめる" : "ログイン"}
+          {busy ? "確認中…" : first ? "オーナーとして登録してはじめる" : "ログイン"}
         </button>
       </form>
     </div>

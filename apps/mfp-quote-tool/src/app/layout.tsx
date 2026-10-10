@@ -29,7 +29,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/settings">設定</Link>
               </nav>
               <span className="me">
-                <span>{me.name || me.id} さん</span>
+                <span>
+                  {me.name || me.id} さん
+                  {/* 管理者かどうかは、他の人のパスワードを触る前に分かっているほうがよい */}
+                  {me.role !== "member" && (
+                    <span className="role">{me.role === "owner" ? "オーナー" : "管理者"}</span>
+                  )}
+                </span>
                 <LogoutButton />
               </span>
             </>
