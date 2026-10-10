@@ -348,7 +348,7 @@
     var hint = $('#analyzeHint');
     if (hint) {
       hint.textContent = !App.apiKey
-        ? 'data/api-key.txt に API キーを置いてください'
+        ? '右上の「設定」で Claude の API キーを入れてください'
         : App.pending.length ? App.pending.length + ' 件を読み取ります' : '';
     }
   }

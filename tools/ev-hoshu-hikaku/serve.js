@@ -65,11 +65,51 @@ server.listen(wanted, '127.0.0.1', () => {
   if (!noOpen) open(url);
 });
 
+/*
+ * フォルダ選択 (File System Access API) は Chrome 系でしか使えないので、
+ * 既定ブラウザに任せず Chrome か Edge を探して開く。
+ * 見つからなければ既定ブラウザに渡す（その場合は画面に注意書きが出る）。
+ */
+function chromiumBrowsers() {
+  if (process.platform === 'win32') {
+    const dirs = [
+      process.env['ProgramFiles'],
+      process.env['ProgramFiles(x86)'],
+      process.env['LOCALAPPDATA']
+    ].filter(Boolean);
+    const rel = [
+      ['Google', 'Chrome', 'Application', 'chrome.exe'],
+      ['Microsoft', 'Edge', 'Application', 'msedge.exe']
+    ];
+    const found = [];
+    for (const parts of rel) {
+      for (const dir of dirs) {
+        const exe = path.join(dir, ...parts);
+        if (fs.existsSync(exe)) { found.push(exe); break; }
+      }
+    }
+    return found;
+  }
+  if (process.platform === 'darwin') {
+    return [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+    ].filter((p) => fs.existsSync(p));
+  }
+  return [];
+}
+
 function open(url) {
+  const browsers = chromiumBrowsers();
+  if (browsers.length) {
+    execFile(browsers[0], [url], () => { /* 開けなくても URL は表示済み */ });
+    return;
+  }
+  console.log('  （Chrome / Edge が見つかりませんでした。既定のブラウザで開きます）');
   const cmd = process.platform === 'win32'
     ? ['cmd', ['/c', 'start', '', url]]
     : process.platform === 'darwin'
       ? ['open', [url]]
       : ['xdg-open', [url]];
-  execFile(cmd[0], cmd[1], () => { /* 開けなくても URL は表示済み */ });
+  execFile(cmd[0], cmd[1], () => { });
 }

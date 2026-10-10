@@ -31,22 +31,31 @@ Claude に読ませて、**EVパートナーズ株式会社名義の「EV保守 
 ## 起動
 
 **`start.cmd` をダブルクリック**してください。ローカルサーバーが立ち上がり、
-既定のブラウザで `http://127.0.0.1:<ポート>/` が開きます。閉じるときはコンソールで `Ctrl+C`。
+`http://127.0.0.1:<ポート>/` が開きます。閉じるときはコンソールで `Ctrl+C`。
+
+フォルダ選択（File System Access API）は Chrome 系でしか使えないため、
+既定ブラウザに任せず **インストール済みの Chrome / Edge を探して開きます**
+（どちらも無い場合だけ既定ブラウザに渡し、その旨をコンソールに出します）。
 
 Node.js があれば追加のインストールは要りません（Claude Code が動いていれば入っています）。
 mac / Linux は `./start.sh`、ポートを決め打ちしたいときは `node serve.js 8080` です。
 
-`index.html` を直接ダブルクリックしても動きますが、`file://` だとブラウザの設定によって
-フォルダ選択（File System Access API）が使えないことがあるので `start.cmd` を勧めます。
+`index.html` を直接ダブルクリックしても動きますが、`file://` だとひな形を自動で取り込めず、
+ブラウザの設定によってはフォルダ選択も使えないので `start.cmd` を勧めます。
 
-> **Chrome か Edge で開いてください。** Firefox / Safari はフォルダ保存に対応していません。
+> **Firefox / Safari では動きません。** フォルダ保存に対応していないためです。
+
+配布用に ZIP を作るときは、このフォルダをそのまま固めれば動きます。
+展開先に制限はありません（`はじめかた.txt` に3手順の案内を入れてあります）。
 
 ## 準備（初回だけ）
 
-1. `▲0Claude\ev-hoshu-hikaku\data\` を作る
-2. `data-template\settings.json` を `data\settings.json` にコピーし、担当者名を入れる
-3. `data\api-key.txt` を作り、Claude の API キーを1行だけ書く
-4. `start.cmd` で開き、「データフォルダを接続」→ 手順1で作った `data` フォルダを選ぶ
+1. `▲0Claude\ev-hoshu-hikaku\data\` という空のフォルダを作る
+2. `start.cmd` で開き、「データフォルダを接続」→ 手順1のフォルダを選ぶ
+3. 右上の「設定」で Claude の API キーを貼る（書類読み取りを使う場合だけ）
+
+`settings.json` は接続したときに自動で作られます。既定値を先に決めておきたい場合は、
+`data-template\settings.json` を `data\settings.json` にコピーしてから接続してください。
 
 ひな形は初回の Excel 書き出し時に `template\ev-hikaku-template.xlsx` から
 `data\template.xlsx` へ自動で取り込まれます（`file://` で開いたときだけ手で選びます）。
