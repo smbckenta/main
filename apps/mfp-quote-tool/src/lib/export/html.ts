@@ -170,12 +170,13 @@ const QUOTE_CSS = `
     width: 55%;
     border-bottom: 1px solid #000;
     padding: 0 0 0.15em 1.2em;
-    font-size: calc(14pt * var(--fit, 1));
+    /* 宛名はいちばん先に目に入る欄なので、元のExcel（16pt）より少し大きく取る */
+    font-size: calc(19pt * var(--fit, 1));
     font-weight: 700;
     /* 宛名は下線の左端から書き出す（長い社名でも頭が切れない） */
     text-align: left;
   }
-  body.quote .q-to .honorific { font-size: calc(11pt * var(--fit, 1)); margin-left: 0.6em; }
+  body.quote .q-to .honorific { font-size: calc(14pt * var(--fit, 1)); margin-left: 0.6em; }
   body.quote .q-no { text-align: right; font-size: calc(11pt * var(--fit, 1)); white-space: nowrap; line-height: 1.6; }
 
   /* 題字の前後は、元のExcelと同じくゆったり空ける */
