@@ -16,6 +16,11 @@ export default function SettingsPage() {
     file: null,
     dataUri: null,
   });
+  /** 角印（社判）。見積書・比較表の自社情報に重ねて押す */
+  const [seal, setSeal] = useState<{ file: string | null; dataUri: string | null }>({
+    file: null,
+    dataUri: null,
+  });
   const [registerTest, setRegisterTest] = useState<string>("");
   /** APIキーを伏せずに表示するか（貼り付けの確認用） */
   const [showApiKey, setShowApiKey] = useState(false);
@@ -28,6 +33,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
     fetch("/api/logo").then((r) => r.json()).then(setLogo).catch(() => {});
+    fetch("/api/seal").then((r) => r.json()).then(setSeal).catch(() => {});
     fetch("/api/register/test").then((r) => r.json()).then(setServiceAccount).catch(() => {});
   }, []);
 
@@ -52,16 +58,18 @@ export default function SettingsPage() {
     }
   }
 
-  async function uploadLogo(file: File) {
+  /** ロゴ・角印の差し替え（置き場所が違うだけで手順は同じ） */
+  async function uploadImage(kind: "logo" | "seal", file: File) {
+    const label = kind === "logo" ? "ロゴ" : "角印";
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch("/api/logo", { method: "POST", body: form });
+    const res = await fetch(`/api/${kind}`, { method: "POST", body: form });
     const json = await res.json();
     if (res.ok) {
-      setLogo(json);
-      setMessage("ロゴを差し替えました。");
+      (kind === "logo" ? setLogo : setSeal)(json);
+      setMessage(`${label}を差し替えました。`);
     } else {
-      setMessage(json.error ?? "ロゴの差し替えに失敗しました。");
+      setMessage(json.error ?? `${label}の差し替えに失敗しました。`);
     }
   }
 
@@ -244,10 +252,40 @@ export default function SettingsPage() {
               accept=".png,.jpg,.jpeg,.webp,.svg,image/*"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) uploadLogo(f);
+                if (f) uploadImage("logo", f);
               }}
             />
             <span className="muted">現在のファイル：{logo.file ?? "未設定"}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>角印（見積書・比較表に押印）</h2>
+        <p className="muted">
+          背景が透明のPNGにすると、自社名に重ねて押したときに紙と同じ見え方になります。
+          差し替えると、以後の見積書・比較表すべてに反映されます。
+        </p>
+        <div className="row" style={{ alignItems: "center" }}>
+          {seal.dataUri && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={seal.dataUri}
+              alt="角印"
+              style={{ maxHeight: 72, maxWidth: 72, border: "1px solid #ddd", padding: 4, background: "#fff" }}
+            />
+          )}
+          <div className="field" style={{ width: 300 }}>
+            <label>角印の画像を差し替える</label>
+            <input
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,.svg,image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadImage("seal", f);
+              }}
+            />
+            <span className="muted">現在のファイル：{seal.file ?? "未設定"}</span>
           </div>
         </div>
       </section>

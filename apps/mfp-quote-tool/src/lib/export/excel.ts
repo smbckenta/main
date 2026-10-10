@@ -94,17 +94,26 @@ function setupSheet(sheet: ExcelJS.Worksheet) {
 
 /** 見積書＋比較表の1メーカー分シートを作る */
 /** ロゴ画像をシート左上に貼る（ExcelJSはPNG/JPEGのみ） */
+/** シートの右上にロゴを置き、その左下に角印を重ねる（紙の見積書と同じ並び） */
 export function putLogo(
   wb: ExcelJS.Workbook,
   sheet: ExcelJS.Worksheet,
   logo?: { buffer: Buffer; mime: string; raster: boolean },
+  seal?: { buffer: Buffer; mime: string; raster: boolean },
 ): void {
-  if (!logo?.raster) return;
-  const id = wb.addImage({
-    buffer: logo.buffer as unknown as ExcelJS.Buffer,
-    extension: logo.mime === "image/png" ? "png" : "jpeg",
-  });
-  sheet.addImage(id, { tl: { col: 6.7, row: 0.1 }, ext: { width: 210, height: 46 } });
+  const add = (img: { buffer: Buffer; mime: string; raster: boolean }) =>
+    wb.addImage({
+      buffer: img.buffer as unknown as ExcelJS.Buffer,
+      extension: img.mime === "image/png" ? "png" : "jpeg",
+    });
+
+  if (logo?.raster) {
+    sheet.addImage(add(logo), { tl: { col: 6.7, row: 0.1 }, ext: { width: 210, height: 46 } });
+  }
+  // ExcelJSはSVGを扱えないので、角印もラスター画像のときだけ押す
+  if (seal?.raster) {
+    sheet.addImage(add(seal), { tl: { col: 6.2, row: 1.4 }, ext: { width: 62, height: 62 } });
+  }
 }
 
 export function addQuoteSheet(

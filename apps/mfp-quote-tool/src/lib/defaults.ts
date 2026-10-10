@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
     // 複合機の提案は株式会社Life Yokusuru名義で作成する
     name: "株式会社Life Yokusuru",
     representative: "代表取締役　小坂 ケビン 絢太",
-    postalCode: "",
+    postalCode: "830-0044",
     address: "福岡県久留米市本町2-23　栗原ビルディング4F",
     tel: "0942-64-9035",
     fax: "0942-64-9036",

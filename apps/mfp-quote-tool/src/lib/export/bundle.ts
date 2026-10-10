@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import type { Quote } from "../types";
 import { MAKER_LABELS } from "../types";
 import { calcQuoteAll, loadDocPhotos } from "../calc-context";
-import { loadLogo } from "../logo";
+import { loadBrandAssets } from "../logo";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
@@ -53,7 +53,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   warnings: string[];
 }> {
   const { settings, current, proposals, fleet } = await calcQuoteAll(quote);
-  const logo = await loadLogo();
+  const { logo, seal } = await loadBrandAssets();
   const targets = req.proposalIds?.length
     ? proposals.filter((p) => req.proposalIds!.includes(p.proposal.id))
     : proposals;
@@ -68,13 +68,13 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   if (req.formats.includes("xlsx") && (targets.length || withFleet)) {
     const wb = newWorkbook(settings.company.name);
     for (const calc of targets) {
-      putLogo(wb, addQuoteSheet(wb, quote, current, calc, settings), logo);
+      putLogo(wb, addQuoteSheet(wb, quote, current, calc, settings), logo, seal);
     }
     if (targets.length > 1 && req.docs.includes("compare")) {
-      putLogo(wb, addMultiCompareSheet(wb, quote, current, targets), logo);
+      putLogo(wb, addMultiCompareSheet(wb, quote, current, targets), logo, seal);
     }
     if (withFleet) {
-      putLogo(wb, addFleetSheet(wb, quote, withFleet.input, withFleet.fleet, settings), logo);
+      putLogo(wb, addFleetSheet(wb, quote, withFleet.input, withFleet.fleet, settings), logo, seal);
     }
     if (req.includeProfit) addProfitSheet(wb, targets);
     files.push({
@@ -93,7 +93,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           files.push({
             name: `${base}_御見積書_${safe(maker)}.pdf`,
             // 見積書も1枚に収める（2枚目に合計だけ続くと見落とされる）
-            buffer: await htmlToPdf(renderQuoteHtml(quote, calc, settings, logo?.dataUri), {
+            buffer: await htmlToPdf(renderQuoteHtml(quote, calc, settings, logo?.dataUri, seal?.dataUri), {
               fitOnePage: true,
             }),
             contentType: "application/pdf",
@@ -103,7 +103,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           files.push({
             name: `${base}_比較表_${safe(maker)}.pdf`,
             // 比較表は必ず1枚に収める（並べて見比べる紙なので、切れると使えない）
-            buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings, logo?.dataUri), {
+            buffer: await htmlToPdf(renderCompareHtml(quote, current, calc, settings, logo?.dataUri, seal?.dataUri), {
               fitOnePage: true,
             }),
             contentType: "application/pdf",
@@ -114,7 +114,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           files.push({
             name: `${base}_ご提案書_${safe(maker)}.pdf`,
             buffer: await htmlToPdf(
-              renderProposalDocHtml(quote, current, calc, settings, photos, logo?.dataUri),
+              renderProposalDocHtml(quote, current, calc, settings, photos, logo?.dataUri, seal?.dataUri),
             ),
             contentType: "application/pdf",
           });
@@ -123,7 +123,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
       if (targets.length > 1 && req.docs.includes("compare")) {
         files.push({
           name: `${base}_比較表_各社.pdf`,
-          buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings, logo?.dataUri), {
+          buffer: await htmlToPdf(renderMultiCompareHtml(quote, current, targets, settings, logo?.dataUri, seal?.dataUri), {
             fitOnePage: true,
           }),
           contentType: "application/pdf",
@@ -133,7 +133,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
         files.push({
           name: `${base}_複数台比較表.pdf`,
           buffer: await htmlToPdf(
-            renderFleetCompareHtml(quote, withFleet.input, withFleet.fleet, settings, logo?.dataUri),
+            renderFleetCompareHtml(quote, withFleet.input, withFleet.fleet, settings, logo?.dataUri, seal?.dataUri),
             { format: "A3", landscape: true, fitOnePage: true },
           ),
           contentType: "application/pdf",

@@ -8,7 +8,7 @@ import {
   renderProposalDocHtml,
   renderQuoteHtml,
 } from "@/lib/export/html";
-import { loadLogo } from "@/lib/logo";
+import { loadBrandAssets } from "@/lib/logo";
 
 export const runtime = "nodejs";
 
@@ -24,9 +24,9 @@ export async function GET(req: Request, { params }: Ctx) {
   const doc = url.searchParams.get("doc") ?? "quote";
   const proposalId = url.searchParams.get("proposalId");
 
-  const [{ settings, current, proposals, fleet }, logo] = await Promise.all([
+  const [{ settings, current, proposals, fleet }, { logo, seal }] = await Promise.all([
     calcQuoteAll(quote),
-    loadLogo(),
+    loadBrandAssets(),
   ]);
 
   // 複数台比較表は提案（メーカー別の見積）が無くても出せる
@@ -36,7 +36,7 @@ export async function GET(req: Request, { params }: Ctx) {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
-    return new NextResponse(renderFleetCompareHtml(quote, quote.fleet, fleet, settings, logo?.dataUri), {
+    return new NextResponse(renderFleetCompareHtml(quote, quote.fleet, fleet, settings, logo?.dataUri, seal?.dataUri), {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
@@ -54,17 +54,17 @@ export async function GET(req: Request, { params }: Ctx) {
     const target = calc ?? proposals[0];
     const photos = await loadDocPhotos(quote, target);
     return new NextResponse(
-      renderProposalDocHtml(quote, current, target, settings, photos, logo?.dataUri),
+      renderProposalDocHtml(quote, current, target, settings, photos, logo?.dataUri, seal?.dataUri),
       { headers: { "Content-Type": "text/html; charset=utf-8" } },
     );
   }
 
   const html =
     doc === "compare-all"
-      ? renderMultiCompareHtml(quote, current, proposals, settings, logo?.dataUri)
+      ? renderMultiCompareHtml(quote, current, proposals, settings, logo?.dataUri, seal?.dataUri)
       : doc === "compare"
-        ? renderCompareHtml(quote, current, calc ?? proposals[0], settings, logo?.dataUri)
-        : renderQuoteHtml(quote, calc ?? proposals[0], settings, logo?.dataUri);
+        ? renderCompareHtml(quote, current, calc ?? proposals[0], settings, logo?.dataUri, seal?.dataUri)
+        : renderQuoteHtml(quote, calc ?? proposals[0], settings, logo?.dataUri, seal?.dataUri);
 
   return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

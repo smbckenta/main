@@ -22,7 +22,14 @@ export const DATA_DIR = process.env.MFP_DATA_DIR
   : BUNDLED_DATA_DIR;
 
 /** 保存先に無いマスタを同梱データから配置する（初回のみ） */
-const SEED_ENTRIES = ["price-book.json", "devices.json", "service-areas.json", "tessdata", "logo.svg"];
+const SEED_ENTRIES = [
+  "price-book.json",
+  "devices.json",
+  "service-areas.json",
+  "tessdata",
+  "logo.png",
+  "seal.png",
+];
 let seedPromise: Promise<void> | null = null;
 
 export function ensureDataDir(): Promise<void> {

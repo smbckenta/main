@@ -97,11 +97,17 @@ const CSS = `
   /* 自社情報 */
   .company { text-align: left; font-size: 10pt; line-height: 1.45; }
   .company .name { font-size: 15pt; font-weight: 700; letter-spacing: 0.02em; }
-  .company .logo { display: block; width: 230px; max-height: 46px; object-fit: contain; object-position: left center; }
+  .company .logo { display: block; width: 260px; max-height: 52px; object-fit: contain; object-position: left center; }
   .company .offices { margin-top: 3px; }
   .company .offices .office-name { font-weight: 700; }
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand img { height: 44px; max-width: 260px; object-fit: contain; object-position: left center; }
+  .brand-right { display: flex; align-items: center; gap: 8px; }
+
+  /* 角印はロゴの右肩に重ねて押す（紙に朱肉で押したときと同じ見え方） */
+  .company-logo { position: relative; display: inline-block; }
+  .company-logo .seal { position: absolute; right: -24px; top: -6px; width: 62px; height: auto; }
+  .seal-bar { width: 52px; height: auto; }
 
   .notes { margin-top: 8px; font-size: 0.86em; line-height: 1.5; white-space: pre-wrap; }
 
@@ -176,8 +182,13 @@ const QUOTE_CSS = `
 
   body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 46%; }
   body.quote .company .name { font-size: calc(15pt * var(--fit, 1)); }
-  body.quote .company .logo { width: calc(230px * var(--fit, 1)); max-height: calc(46px * var(--fit, 1)); }
+  body.quote .company .logo { width: calc(260px * var(--fit, 1)); max-height: calc(52px * var(--fit, 1)); }
   body.quote .company .company-contact { padding-left: 1.6em; margin-top: 0.2em; }
+  body.quote .company-logo .seal {
+    width: calc(78px * var(--fit, 1));
+    right: calc(-34px * var(--fit, 1));
+    top: calc(-10px * var(--fit, 1));
+  }
   body.quote .company .offices { text-align: center; margin-top: 0.7em; }
   body.quote .company .offices .office-name { font-size: calc(11pt * var(--fit, 1)); }
 
@@ -276,6 +287,17 @@ const COMPARE_CSS = `
     margin-bottom: 1.1em;
   }
   body.compare .notes { font-size: calc(9.5pt * var(--fit, 1)); margin-top: 0.7em; }
+
+  /* 題字の上に置く、ロゴ（左）と角印（右）の帯 */
+  body.compare .cmp-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: calc(46px * var(--fit, 1));
+  }
+  body.compare .cmp-logo { height: calc(40px * var(--fit, 1)); max-width: 50%; object-fit: contain; object-position: left center; }
+  body.compare .cmp-name { font-size: calc(13pt * var(--fit, 1)); font-weight: 700; }
+  body.compare .seal-compare { width: calc(62px * var(--fit, 1)); height: auto; }
 
   /* 月間印刷枚数（左上の小さな表） */
   .pages-box { width: auto; margin: 0 0 1em; border-collapse: collapse; }
@@ -388,7 +410,7 @@ function page(title: string, body: string, opts: { css?: string; bodyClass?: str
  * 元のExcelでは、ロゴと社名の下に代表者・TEL・FAXを置き、
  * そこから下（拠点名・住所・出張範囲）は中央そろえにしている。
  */
-function companyBlock(settings: Settings, logo?: string): string {
+function companyBlock(settings: Settings, logo?: string, seal?: string): string {
   const c = settings.company;
   const offices = c.offices?.length
     ? c.offices
@@ -401,7 +423,10 @@ function companyBlock(settings: Settings, logo?: string): string {
 
   return `
     <div class="company">
-      ${logo ? `<img class="logo" src="${logo}" alt="${esc(c.name)}">` : `<div class="name">${esc(c.name)}</div>`}
+      <div class="company-logo">
+        ${logo ? `<img class="logo" src="${logo}" alt="${esc(c.name)}">` : `<div class="name">${esc(c.name)}</div>`}
+        ${sealImg(seal)}
+      </div>
       <div class="company-contact">
         <div>${esc(c.representative ?? "")}</div>
         <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}</div>
@@ -414,18 +439,34 @@ function companyBlock(settings: Settings, logo?: string): string {
     </div>`;
 }
 
-/** 比較表の上部に置く社名・ロゴの帯 */
-function brandBar(settings: Settings, logo: string | undefined, quote: Quote, quoteNo?: string): string {
+/**
+ * 角印（社判）。自社名に重ねて押す。
+ * 画像が登録されていなければ、何も出さない（枠だけ残らないように）。
+ */
+const sealImg = (seal?: string, cls = "seal"): string =>
+  seal ? `<img class="${cls}" src="${seal}" alt="社印">` : "";
+
+/** 比較表の上部に置く社名・ロゴ・角印の帯 */
+function brandBar(
+  settings: Settings,
+  logo: string | undefined,
+  quote: Quote,
+  quoteNo?: string,
+  seal?: string,
+): string {
   const c = settings.company;
   return `
   <div class="head" style="align-items:center">
     <div class="brand">
       ${logo ? `<img src="${logo}" alt="${esc(c.name)}">` : `<span class="name">${esc(c.name)}</span>`}
     </div>
-    <div class="small muted" style="text-align:right">
-      <div>${esc(c.name)}</div>
-      <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
-      <div>見積番号 ${esc(quoteNo ?? quote.quoteNo)}${quote.staffName ? `　担当 ${esc(quote.staffName)}` : ""}</div>
+    <div class="brand-right">
+      <div class="small muted" style="text-align:right">
+        <div>${esc(c.name)}</div>
+        <div>${c.tel ? `TEL ${esc(c.tel)}` : ""}${c.fax ? `　FAX ${esc(c.fax)}` : ""}</div>
+        <div>見積番号 ${esc(quoteNo ?? quote.quoteNo)}${quote.staffName ? `　担当 ${esc(quote.staffName)}` : ""}</div>
+      </div>
+      ${sealImg(seal, "seal seal-bar")}
     </div>
   </div>`;
 }
@@ -437,6 +478,7 @@ function quoteHeader(
   subject: string,
   logo?: string,
   quoteNo?: string,
+  seal?: string,
 ): string {
   const c = settings.company;
   const term = (label: string, value: string) =>
@@ -460,7 +502,7 @@ function quoteHeader(
       ${term("有効期限", c.validityText)}
       ${quote.staffName ? term("担当者", quote.staffName) : ""}
     </table>
-    ${companyBlock(settings, logo)}
+    ${companyBlock(settings, logo, seal)}
   </div>`;
 }
 
@@ -470,6 +512,7 @@ export function renderQuoteHtml(
   calc: ProposalCalc,
   settings: Settings,
   logo?: string,
+  seal?: string,
 ): string {
   const p = calc.proposal;
   const subject = `${p.modelText}${calc.priceBook ? `　（${calc.priceBook.gradePpm}枚機）` : ""}`;
@@ -538,7 +581,7 @@ export function renderQuoteHtml(
     .join("");
 
   const body = `
-  ${quoteHeader(quote, settings, subject, logo, p.quoteNo)}
+  ${quoteHeader(quote, settings, subject, logo, p.quoteNo, seal)}
 
   <table class="lease-box"><tr>
     <td class="label">月額リース料金</td>
@@ -715,6 +758,7 @@ export function renderCompareHtml(
   calc: ProposalCalc,
   settings: Settings,
   logo?: string,
+  seal?: string,
 ): string {
   const c = quote.current;
   const d = calc.device;
@@ -756,6 +800,10 @@ export function renderCompareHtml(
     }</div>`;
 
   const body = `
+  <div class="cmp-brand">
+    ${logo ? `<img class="cmp-logo" src="${logo}" alt="${esc(settings.company.name)}">` : `<span class="cmp-name">${esc(settings.company.name)}</span>`}
+    ${sealImg(seal, "seal seal-compare")}
+  </div>
   <h2>比　較　表</h2>
   <div class="compare-makers">（　${esc(c.makerText || "現行")}　➡　${esc(makerJp(calc.proposal.maker))}　）</div>
 
@@ -1030,6 +1078,7 @@ export function renderMultiCompareHtml(
   calcs: ProposalCalc[],
   settings: Settings,
   logo?: string,
+  seal?: string,
 ): string {
   const c = quote.current;
   const best = calcs.reduce((b, x, i) => (x.comparable < calcs[b].comparable ? i : b), 0);
@@ -1064,7 +1113,7 @@ export function renderMultiCompareHtml(
   };
 
   const body = `
-  ${brandBar(settings, logo, quote)}
+  ${brandBar(settings, logo, quote, undefined, seal)}
   <h2 class="h2-wide">複合機 比較表（各社同時比較）</h2>
   <div class="head">
     <div><span class="customer">${esc(quote.customerName)}</span> ${esc(quote.customerHonorific)}</div>
@@ -1176,7 +1225,16 @@ const FLEET_CSS = `
     margin-top: 1.2em;
   }
   .fleet-company { text-align: right; font-size: calc(10pt * var(--fit)); font-weight: 700; line-height: 1.5; }
-  .fleet-company img { height: calc(34px * var(--fit)); max-width: 60%; object-fit: contain; object-position: right center; }
+  .fleet-company img { height: calc(34px * var(--fit)); max-width: 100%; object-fit: contain; object-position: right center; }
+  /* 角印はロゴの左肩に押す（右端は住所欄で詰まっているため） */
+  .fleet-brand { position: relative; display: inline-block; }
+  .fleet-brand .seal-fleet {
+    position: absolute;
+    right: calc(100% + 4px);
+    top: calc(-4px * var(--fit));
+    width: calc(54px * var(--fit));
+    height: auto;
+  }
   .fleet-company .name { font-size: calc(13pt * var(--fit)); font-weight: 700; }
 
   /* ── 帯見出し（題字を太い枠で囲んだもの） */
@@ -1325,6 +1383,7 @@ export function renderFleetCompareHtml(
   calc: FleetCalc,
   settings: Settings,
   logo?: string,
+  seal?: string,
 ): string {
   const co = settings.company;
   const uniq = (values: string[]) => [...new Set(values.filter(Boolean))];
@@ -1482,7 +1541,10 @@ export function renderFleetCompareHtml(
       <div class="fleet-subtitle">${esc(fromMakers.join("・") || "現行")}複合機⇒${esc(toMakers.join("・") || "提案")}複合機</div>
     </div>
     <div class="fleet-company">
-      ${logo ? `<img src="${logo}" alt="${esc(co.name)}">` : `<div class="name">${esc(co.name)}</div>`}
+      <div class="fleet-brand">
+        ${logo ? `<img src="${logo}" alt="${esc(co.name)}">` : `<div class="name">${esc(co.name)}</div>`}
+        ${sealImg(seal, "seal seal-fleet")}
+      </div>
       <div>${esc(co.postalCode ? `〒${co.postalCode}` : "")}</div>
       <div>${esc(co.offices?.[0]?.address ?? co.address ?? "")}</div>
       <div>${co.tel ? `TEL：${esc(co.tel)}` : ""}${co.fax ? `　　FAX：${esc(co.fax)}` : ""}</div>
@@ -1801,6 +1863,7 @@ export function renderProposalDocHtml(
   settings: Settings,
   photos: DocPhotos,
   logo?: string,
+  seal?: string,
 ): string {
   const doc = quote.proposalDoc ?? {};
   const base = settings.proposalDoc;
@@ -1820,7 +1883,7 @@ export function renderProposalDocHtml(
   // ── 表紙
   const cover = `
   <div class="doc-page cover">
-    <div class="cover-top">${brandBar(settings, logo, quote, p.quoteNo)}</div>
+    <div class="cover-top">${brandBar(settings, logo, quote, p.quoteNo, seal)}</div>
     <div class="cover-mid">
       <div><span class="to">${esc(quote.customerName)} ${esc(quote.customerHonorific)}</span></div>
       <h1>${esc(title)}</h1>
@@ -1828,7 +1891,7 @@ export function renderProposalDocHtml(
     </div>
     <div class="cover-foot">
       <div class="small muted">${esc(jpDate(quote.quoteDate))}</div>
-      ${companyBlock(settings, logo)}
+      ${companyBlock(settings, logo, seal)}
     </div>
   </div>`;
 
@@ -1962,7 +2025,7 @@ export function renderProposalDocHtml(
       doc.closing?.trim() ||
         "ご不明な点やご要望がございましたら、何なりとお申し付けください。\n何卒ご検討のほど、よろしくお願い申し上げます。",
     )}</div>
-    <div style="margin-top:22px;display:flex;justify-content:flex-end">${companyBlock(settings, logo)}</div>
+    <div style="margin-top:22px;display:flex;justify-content:flex-end">${companyBlock(settings, logo, seal)}</div>
   </div>`;
 
   return page(`ご提案書_${quote.customerName}_${makerJp(p.maker)}`, cover + flow + optionPage + effect, {
