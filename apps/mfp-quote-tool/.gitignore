@@ -22,3 +22,6 @@ data/deletion-log.json
 # ログイン情報（利用者のID・パスワードのハッシュ・署名鍵）
 data/users.json
 data/auth-secret
+
+# 配布用に書き出したもの（中身はgitで管理しない）
+dist/
