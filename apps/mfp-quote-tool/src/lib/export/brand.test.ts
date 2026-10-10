@@ -12,8 +12,11 @@ import {
 } from "./html";
 
 /**
- * ロゴと角印は、見積書・比較表のすべてに入れる。
- * どれか1種類だけ抜けていても、お客様には「別の会社の紙」に見えてしまう。
+ * ロゴと角印をどの帳票に載せるか。
+ *
+ * 見積書・各社同時比較表・複数台比較表・ご提案書には載せる。
+ * 複合機1台の比較表だけは、元のExcelと同じく題字だけの紙にする
+ * （ご提案時は見積書と一緒にお渡しするので、二重に社名が出ない）。
  */
 
 const LOGO = "data:image/png;base64,LOGO";
@@ -86,7 +89,6 @@ const calc = calcProposal(q, proposal, DEFAULT_SETTINGS);
 
 const docs: Record<string, (logo?: string, seal?: string) => string> = {
   見積書: (logo, seal) => renderQuoteHtml(q, calc, DEFAULT_SETTINGS, logo, seal),
-  比較表: (logo, seal) => renderCompareHtml(q, current, calc, DEFAULT_SETTINGS, logo, seal),
   各社同時比較表: (logo, seal) => renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS, logo, seal),
   複数台比較表: (logo, seal) =>
     renderFleetCompareHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1), DEFAULT_SETTINGS, logo, seal),
@@ -108,4 +110,11 @@ describe("ロゴと角印", () => {
       expect(html).toContain("株式会社Life Yokusuru");
     });
   }
+
+  it("複合機1台の比較表には載せない（題字だけの紙にする）", () => {
+    const html = renderCompareHtml(q, current, calc, DEFAULT_SETTINGS, LOGO, SEAL);
+    expect(html).not.toContain(LOGO);
+    expect(html).not.toContain(SEAL);
+    expect(html).toContain("比　較　表");
+  });
 });

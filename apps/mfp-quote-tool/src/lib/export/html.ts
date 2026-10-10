@@ -96,18 +96,20 @@ const CSS = `
 
   /* 自社情報 */
   .company { text-align: left; font-size: 10pt; line-height: 1.45; }
+  /* ロゴの幅ぴったりの箱にして、角印をその右肩に重ねられるようにする */
+  .company .company-logo { display: block; width: fit-content; margin-left: auto; }
   .company .name { font-size: 15pt; font-weight: 700; letter-spacing: 0.02em; }
-  .company .logo { display: block; width: 260px; max-height: 52px; object-fit: contain; object-position: left center; }
+  .company .logo { display: block; width: 300px; max-height: 60px; object-fit: contain; object-position: left center; }
   .company .offices { margin-top: 3px; }
   .company .offices .office-name { font-weight: 700; }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand img { height: 44px; max-width: 260px; object-fit: contain; object-position: left center; }
+  .brand img { height: 56px; max-width: 320px; object-fit: contain; object-position: left center; }
   .brand-right { display: flex; align-items: center; gap: 8px; }
 
   /* 角印はロゴの右肩に重ねて押す（紙に朱肉で押したときと同じ見え方） */
   .company-logo { position: relative; display: inline-block; }
-  .company-logo .seal { position: absolute; right: -24px; top: -6px; width: 62px; height: auto; }
-  .seal-bar { width: 52px; height: auto; }
+  .company-logo .seal { position: absolute; right: -30px; top: -10px; width: 86px; height: auto; }
+  .seal-bar { width: 72px; height: auto; }
 
   .notes { margin-top: 8px; font-size: 0.86em; line-height: 1.5; white-space: pre-wrap; }
 
@@ -175,19 +177,21 @@ const QUOTE_CSS = `
   body.quote .q-lead { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; margin: 0.4em 0 0.5em; }
 
   /* 物件名・納入場所…（細い下線つきの箇条） */
-  body.quote .q-terms { width: 52%; border-collapse: collapse; }
+  body.quote .q-terms { width: 46%; border-collapse: collapse; }
   body.quote .q-terms td { border-bottom: 1px solid #a6a6a6; padding: 0.22em 0; font-size: calc(10pt * var(--fit, 1)); font-weight: 700; }
   body.quote .q-terms .q-label { width: 7.5em; text-align: justify; text-align-last: justify; }
   body.quote .q-terms .q-colon { width: 1.2em; text-align: center; }
 
-  body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 46%; }
+  body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 52%; }
   body.quote .company .name { font-size: calc(15pt * var(--fit, 1)); }
-  body.quote .company .logo { width: calc(260px * var(--fit, 1)); max-height: calc(52px * var(--fit, 1)); }
+  body.quote .company .logo { width: calc(300px * var(--fit, 1)); max-height: calc(60px * var(--fit, 1)); }
   body.quote .company .company-contact { padding-left: 1.6em; margin-top: 0.2em; }
+  /* 角印はロゴの右肩に重ね、その右端が自社欄の右端にそろうようにする */
+  body.quote .company .company-logo { margin-right: calc(40px * var(--fit, 1)); }
   body.quote .company-logo .seal {
-    width: calc(78px * var(--fit, 1));
-    right: calc(-34px * var(--fit, 1));
-    top: calc(-10px * var(--fit, 1));
+    width: calc(96px * var(--fit, 1));
+    right: calc(-40px * var(--fit, 1));
+    top: calc(-14px * var(--fit, 1));
   }
   body.quote .company .offices { text-align: center; margin-top: 0.7em; }
   body.quote .company .offices .office-name { font-size: calc(11pt * var(--fit, 1)); }
@@ -288,16 +292,6 @@ const COMPARE_CSS = `
   }
   body.compare .notes { font-size: calc(9.5pt * var(--fit, 1)); margin-top: 0.7em; }
 
-  /* 題字の上に置く、ロゴ（左）と角印（右）の帯 */
-  body.compare .cmp-brand {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: calc(46px * var(--fit, 1));
-  }
-  body.compare .cmp-logo { height: calc(40px * var(--fit, 1)); max-width: 50%; object-fit: contain; object-position: left center; }
-  body.compare .cmp-name { font-size: calc(13pt * var(--fit, 1)); font-weight: 700; }
-  body.compare .seal-compare { width: calc(62px * var(--fit, 1)); height: auto; }
 
   /* 月間印刷枚数（左上の小さな表） */
   .pages-box { width: auto; margin: 0 0 1em; border-collapse: collapse; }
@@ -800,10 +794,6 @@ export function renderCompareHtml(
     }</div>`;
 
   const body = `
-  <div class="cmp-brand">
-    ${logo ? `<img class="cmp-logo" src="${logo}" alt="${esc(settings.company.name)}">` : `<span class="cmp-name">${esc(settings.company.name)}</span>`}
-    ${sealImg(seal, "seal seal-compare")}
-  </div>
   <h2>比　較　表</h2>
   <div class="compare-makers">（　${esc(c.makerText || "現行")}　➡　${esc(makerJp(calc.proposal.maker))}　）</div>
 
@@ -1225,14 +1215,14 @@ const FLEET_CSS = `
     margin-top: 1.2em;
   }
   .fleet-company { text-align: right; font-size: calc(10pt * var(--fit)); font-weight: 700; line-height: 1.5; }
-  .fleet-company img { height: calc(34px * var(--fit)); max-width: 100%; object-fit: contain; object-position: right center; }
+  .fleet-company img { height: calc(48px * var(--fit)); max-width: 100%; object-fit: contain; object-position: right center; }
   /* 角印はロゴの左肩に押す（右端は住所欄で詰まっているため） */
   .fleet-brand { position: relative; display: inline-block; }
   .fleet-brand .seal-fleet {
     position: absolute;
-    right: calc(100% + 4px);
-    top: calc(-4px * var(--fit));
-    width: calc(54px * var(--fit));
+    right: calc(100% - 10px);
+    top: calc(-6px * var(--fit));
+    width: calc(76px * var(--fit));
     height: auto;
   }
   .fleet-company .name { font-size: calc(13pt * var(--fit)); font-weight: 700; }
