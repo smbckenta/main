@@ -78,7 +78,31 @@ export interface PdfPageOptions {
    * 途中で切れて2枚目に続くと役に立たない。
    */
   fitOnePage?: boolean;
+  /**
+   * 余白（mm）。既定はA4たて 上下12・左右10、A3ヨコ 8。
+   * 御見積書は元のExcelに合わせて左右18・上22にする。
+   */
+  marginMm?: { top?: number; side?: number };
+  /**
+   * 中身を収める高さ（mm）。省略すると紙の内寸いっぱい。
+   *
+   * 御見積書のように「紙の下のほうは空けておく」体裁の帳票で使う。
+   * 元のExcelは上から215mmのところで終わり、残りは余白にしている。
+   */
+  contentHeightMm?: number;
 }
+
+/**
+ * 御見積書の紙の取り方（元のExcelの実測）。
+ *   左右の余白 17.5mm / 19.2mm → 18mm
+ *   上の余白   21.9mm → 22mm
+ *   中身の高さ 215mm（下はわざと空ける。元のExcelもここで終わっている）
+ */
+export const QUOTE_PAGE: PdfPageOptions = {
+  fitOnePage: true,
+  marginMm: { top: 22, side: 18 },
+  contentHeightMm: 215,
+};
 
 /** 用紙の内寸（mm）。余白を引く前の大きさ */
 const PAPER_MM = { A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 } };
@@ -140,8 +164,8 @@ export async function htmlToPdf(html: string, opts: PdfPageOptions = {}): Promis
   const landscape = opts.landscape ?? false;
   const format = opts.format ?? "A4";
   // A3ヨコは余白を詰めないと1枚に収まらない
-  const marginMm = landscape ? 8 : 12;
-  const sideMm = landscape ? 8 : 10;
+  const marginMm = opts.marginMm?.top ?? (landscape ? 8 : 12);
+  const sideMm = opts.marginMm?.side ?? (landscape ? 8 : 10);
   const margin = {
     top: `${marginMm}mm`,
     right: `${sideMm}mm`,
@@ -159,10 +183,13 @@ export async function htmlToPdf(html: string, opts: PdfPageOptions = {}): Promis
       // 印刷と同じ幅で描かせないと、折り返しが変わって測り値がずれる
       await page.emulateMedia({ media: "print" });
       // 画面の高さと、収めたい高さは同じ値にそろえる（丸めで食い違わせない）
-      const heightPx = Math.round((hMm - marginMm * 2) * MM_TO_PX);
+      const pageHeightPx = Math.round((hMm - marginMm * 2) * MM_TO_PX);
+      const heightPx = opts.contentHeightMm
+        ? Math.min(pageHeightPx, Math.round(opts.contentHeightMm * MM_TO_PX))
+        : pageHeightPx;
       await page.setViewportSize({
         width: Math.round((wMm - sideMm * 2) * MM_TO_PX),
-        height: heightPx,
+        height: pageHeightPx,
       });
       await fitToOnePage(page, heightPx);
     }

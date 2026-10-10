@@ -10,7 +10,7 @@ import {
   renderProposalDocHtml,
   renderQuoteHtml,
 } from "./html";
-import { htmlToPdf, PdfUnavailableError } from "./pdf";
+import { htmlToPdf, PdfUnavailableError, QUOTE_PAGE } from "./pdf";
 import {
   addFleetSheet,
   addMultiCompareSheet,
@@ -93,9 +93,10 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           files.push({
             name: `${base}_御見積書_${safe(maker)}.pdf`,
             // 見積書も1枚に収める（2枚目に合計だけ続くと見落とされる）
-            buffer: await htmlToPdf(renderQuoteHtml(quote, calc, settings, logo?.dataUri, seal?.dataUri), {
-              fitOnePage: true,
-            }),
+            buffer: await htmlToPdf(
+              renderQuoteHtml(quote, calc, settings, logo?.dataUri, seal?.dataUri),
+              QUOTE_PAGE,
+            ),
             contentType: "application/pdf",
           });
         }

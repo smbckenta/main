@@ -158,42 +158,53 @@ const CSS = `
  * 2枚目に合計だけが続くと見落とされる。
  */
 const QUOTE_CSS = `
+  /* 紙の取り方は元のExcelの実測に合わせる（左右18mm・上22mm） */
+  @page { size: A4; margin: 22mm 18mm; }
   body.quote { font-size: calc(12pt * var(--fit, 1)); line-height: 1.25; }
   body.quote h1 { font-size: calc(24pt * var(--fit, 1)); margin: calc(6px * var(--fit, 1)) 0; }
 
   /* 宛名（左）と日付・見積書番号（右） */
   body.quote .q-top { display: flex; justify-content: space-between; align-items: flex-end; }
+  body.quote .q-top .q-to + .q-no { flex: 1; }
   body.quote .q-to {
-    flex: 1;
+    width: 55%;
     border-bottom: 1px solid #000;
     padding: 0 0 0.15em 0.5em;
     font-size: calc(14pt * var(--fit, 1));
     font-weight: 700;
-    margin-right: 2em;
+    /* 宛名は下線の右端（「御中」の位置）にそろえる */
+    text-align: right;
   }
   body.quote .q-to .honorific { font-size: calc(11pt * var(--fit, 1)); margin-left: 0.6em; }
   body.quote .q-no { text-align: right; font-size: calc(11pt * var(--fit, 1)); white-space: nowrap; line-height: 1.6; }
 
-  body.quote .q-lead { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; margin: 0.4em 0 0.5em; }
+  /* 題字の前後は、元のExcelと同じくゆったり空ける */
+  body.quote h1 { margin: calc(30px * var(--fit, 1)) 0 0; }
+  body.quote .q-lead {
+    font-size: calc(10pt * var(--fit, 1));
+    font-weight: 700;
+    margin: calc(48px * var(--fit, 1)) 0 calc(14px * var(--fit, 1));
+  }
 
   /* 物件名・納入場所…（細い下線つきの箇条） */
-  body.quote .q-terms { width: 46%; border-collapse: collapse; }
+  body.quote .q-terms { width: 48%; border-collapse: collapse; }
   body.quote .q-terms td { border-bottom: 1px solid #a6a6a6; padding: 0.22em 0; font-size: calc(10pt * var(--fit, 1)); font-weight: 700; }
   body.quote .q-terms .q-label { width: 7.5em; text-align: justify; text-align-last: justify; }
   body.quote .q-terms .q-colon { width: 1.2em; text-align: center; }
 
-  body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 52%; }
+  body.quote .company { font-size: calc(10pt * var(--fit, 1)); font-weight: 700; width: 41%; }
   body.quote .company .name { font-size: calc(15pt * var(--fit, 1)); }
-  body.quote .company .logo { width: calc(300px * var(--fit, 1)); max-height: calc(60px * var(--fit, 1)); }
+  body.quote .company .company-logo { width: 95%; margin: 0 0 0 auto; }
+  body.quote .company .logo { width: 100%; max-height: none; }
   body.quote .company .company-contact { padding-left: 1.6em; margin-top: 0.2em; }
-  /* 角印はロゴの右肩に重ね、その右端が自社欄の右端にそろうようにする */
-  body.quote .company .company-logo { margin-right: calc(40px * var(--fit, 1)); }
+  /* 角印はロゴの右寄りに重ねて押す（元のExcelと同じ、22mm角） */
   body.quote .company-logo .seal {
-    width: calc(96px * var(--fit, 1));
-    right: calc(-40px * var(--fit, 1));
-    top: calc(-14px * var(--fit, 1));
+    width: 33%;
+    right: 16%;
+    top: 50%;
+    transform: translateY(-50%);
   }
-  body.quote .company .offices { text-align: center; margin-top: 0.7em; }
+  body.quote .company .offices { text-align: left; margin-top: 0.9em; }
   body.quote .company .offices .office-name { font-size: calc(11pt * var(--fit, 1)); }
 
   /* 月額リース料金（緑の見出しセル＋金額） */
@@ -221,6 +232,9 @@ const QUOTE_CSS = `
   }
   body.quote .grid td { padding: 0.28em 0.45em; vertical-align: middle; }
   body.quote .grid td.center { white-space: nowrap; }
+  /* 数量と単位は「1台」のようにひと続きに見せる（元のExcelと同じ） */
+  body.quote .grid td.qty { border-right: 0; text-align: right; padding-right: 0.1em; }
+  body.quote .grid td.qty-unit { border-left: 0; text-align: left; padding-left: 0.1em; }
   body.quote .grid tbody tr.group-row td { font-weight: 400; }
   body.quote .grid tbody tr.sum-row td { background: #fff; border-top: 3px double #000; border-bottom: 3px double #000; font-weight: 700; }
   body.quote .grid tbody tr.discount-row td { color: var(--red); border-bottom: 3px double #000; font-weight: 700; }
@@ -239,9 +253,8 @@ const QUOTE_CSS = `
  */
 export function quoteRowCount(calc: ProposalCalc): number {
   const items = calc.proposal.items.length + (calc.debtSettlement.total > 0 ? 1 : 0);
-  // 枠が余った分は空行で埋まる。空行は品目の行より背が低いので、
-  // 「品目1行ぶん」に換算して数える（実測 空行30px ／ 品目50px）
-  return items + Math.max(0, QUOTE_ITEM_SLOTS - items) * 0.6;
+  // 枠が余った分は空行で埋まるので、枠の行数を下限にする
+  return Math.max(QUOTE_ITEM_SLOTS, items);
 }
 
 /** 機器明細の枠の行数（元のExcelと同じ） */
@@ -250,20 +263,24 @@ const QUOTE_ITEM_SLOTS = 8;
 /**
  * 見積書の縮小率。
  *
- * 実測（A4たて・印刷幅190mm）：
- *   行数で変わらない部分 約1,067px（見出し・自社情報・カウンター料金7行・
- *   リースシミュレーション3行・注記をすべて含む）／ 明細1行あたり 約50px
- *   （品目1件1,327px ／ 5件1,407px ／ 8件1,467px ／ 12件1,667px ／ 16件1,867px）
+ * 紙の取り方は元のExcelと同じで、左右18mm・上22mm、中身の高さは215mm。
+ * 下のほうはわざと空けてある（元のExcelもここで終わっている）。
+ *
+ * 実測（A4たて・印刷幅174mm）：
+ *   行数で変わらない部分 約1,203px（見出し・自社情報・カウンター料金7行・
+ *   リースシミュレーション3行・注記をすべて含む）／ 明細1行あたり 約30px
+ *   （品目8件まで1,443px ／ 12件1,563px ／ 16件1,683px）
  */
 export function fitQuote(rowCount: number): number {
   const scale = QUOTE_BUDGET_PX / (QUOTE_BLOCK_PX + QUOTE_ROW_PX * rowCount);
   if (scale >= 0.98) return 1;
-  return Math.max(0.5, Math.round(scale * 1_000) / 1_000);
+  return Math.max(0.4, Math.round(scale * 1_000) / 1_000);
 }
 
-const QUOTE_BUDGET_PX = 1_020;
-const QUOTE_BLOCK_PX = 1_067;
-const QUOTE_ROW_PX = 50;
+/** 中身を収める高さ 215mm ＝ 約813px（96dpi） */
+const QUOTE_BUDGET_PX = 813;
+const QUOTE_BLOCK_PX = 1_203;
+const QUOTE_ROW_PX = 30;
 
 /**
  * 比較表（A4たて1枚）。
@@ -519,8 +536,8 @@ export function renderQuoteHtml(
       (item, i) => `<tr>
         <td class="center">${i + 1}</td>
         <td>${esc(item.name)}</td>
-        <td class="center">${item.qty}</td>
-        <td class="center">${esc(item.unit)}</td>
+        <td class="qty">${item.qty}</td>
+        <td class="qty-unit">${esc(item.unit)}</td>
         <td class="num">${n(item.unitPrice)}</td>
         <td class="num">${n(item.qty * item.unitPrice)}</td>
         <td></td>
@@ -541,8 +558,8 @@ export function renderQuoteHtml(
       (l, i) => `<tr>
         <td class="center">${i + 1}</td>
         <td>リース料金(${Math.round(l.term / 12)}年リース)</td>
-        <td class="center">${l.term}</td>
-        <td class="center">ヶ月</td>
+        <td class="qty">${l.term}</td>
+        <td class="qty-unit">ヶ月</td>
         <td class="num lease-unit">${n(calc.leaseByTerm[l.term] ?? 0)}</td>
         <td class="num">${n((calc.leaseByTerm[l.term] ?? 0) * l.term)}</td>
         <td>${l.term === p.leaseTerm ? "本見積の条件" : ""}</td>
@@ -566,8 +583,8 @@ export function renderQuoteHtml(
       <tr class="sub-item">
         <td></td>
         <td>１枚〜</td>
-        <td class="center">1</td>
-        <td class="center">${r.qtyUnit}</td>
+        <td class="qty">1</td>
+        <td class="qty-unit">${esc(r.qtyUnit)}</td>
         <td class="num unit-red">${unitDigits(r.unit)}</td>
         <td></td>
       </tr>`,
@@ -600,8 +617,8 @@ export function renderQuoteHtml(
         calc.debtSettlement.total > 0
           ? `<tr>
         <td></td><td>旧リース残債精算</td>
-        <td class="center">${calc.debtSettlement.totalMonths}</td>
-        <td class="center">カ月</td>
+        <td class="qty">${calc.debtSettlement.totalMonths}</td>
+        <td class="qty-unit">カ月</td>
         <td class="num">${n(calc.debtSettlement.monthlyLease)}</td>
         <td class="num">${n(calc.debtSettlement.total)}</td>
         <td class="small">残債${calc.debtSettlement.remainingMonths}カ月＋解約手数料${calc.debtSettlement.months}カ月</td>
@@ -628,7 +645,7 @@ export function renderQuoteHtml(
     <tbody>
       ${counterRows}
       <tr>
-        <td class="center">4</td><td>■最低基本料金</td><td class="center">1</td><td class="center">ヶ月</td>
+        <td class="center">4</td><td>■最低基本料金</td><td class="qty">1</td><td class="qty-unit">ヶ月</td>
         <td class="num" style="font-weight:700">${n(u.minCharge)}</td><td></td>
       </tr>
     </tbody>

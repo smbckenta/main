@@ -4,6 +4,7 @@ import { calcCurrent, calcProposal } from "../pricing";
 import { calcFleet } from "../fleet";
 import type { ChargeTier, CurrentChargeLine, Fleet, FleetSide, Proposal, Quote } from "../types";
 import { renderCompareHtml, renderFleetCompareHtml, renderQuoteHtml } from "./html";
+import { QUOTE_PAGE } from "./pdf";
 
 /**
  * 見積書・比較表の見た目が、元のExcel（お客様が長く使ってきた様式）から
@@ -109,6 +110,21 @@ describe("元のExcelと同じ体裁", () => {
     expect(html).toMatch(/\(\d[\d,]*\)/);
     expect(html).toContain("【カウンター料金】");
     expect(html).toContain("【リースシミュレーション】");
+  });
+
+  it("見積書の紙の取り方は、元のExcelの実測どおり（左右18mm・上22mm・中身215mm）", () => {
+    expect(QUOTE_PAGE.marginMm).toEqual({ top: 22, side: 18 });
+    expect(QUOTE_PAGE.contentHeightMm).toBe(215);
+    expect(QUOTE_PAGE.fitOnePage).toBe(true);
+    expect(renderQuoteHtml(q, calc, DEFAULT_SETTINGS)).toContain("@page { size: A4; margin: 22mm 18mm; }");
+  });
+
+  it("見積書の数量と単位は、罫線で区切らずひと続きに見せる", () => {
+    const html = renderQuoteHtml(q, calc, DEFAULT_SETTINGS);
+    expect(html).toContain('class="qty"');
+    expect(html).toContain('class="qty-unit"');
+    expect(html).toMatch(/body\.quote \.grid td\.qty \{[^}]*border-right: 0/);
+    expect(html).toMatch(/body\.quote \.grid td\.qty-unit \{[^}]*border-left: 0/);
   });
 
   it("見積書のカウンター単価は赤、リース料は橙のセルで出す", () => {
