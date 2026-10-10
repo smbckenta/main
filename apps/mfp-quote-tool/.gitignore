@@ -18,3 +18,7 @@ data/api-key.txt
 # 削除した案件の退避先と削除履歴（顧客情報を含む）
 data/quotes-deleted/
 data/deletion-log.json
+
+# ログイン情報（利用者のID・パスワードのハッシュ・署名鍵）
+data/users.json
+data/auth-secret

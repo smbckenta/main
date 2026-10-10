@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AiStatusBanner from "../AiStatusBanner";
 import AiTestButton from "./AiTestButton";
+import UsersPanel from "./UsersPanel";
 import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } from "@/lib/types";
 
 /** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
@@ -289,6 +290,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      <UsersPanel />
 
       <section className="panel">
         <h2>拠点（見積書・比較表に印字）</h2>

@@ -370,3 +370,56 @@ th.num {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---------------- ログイン ---------------- */
+
+.login-page {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.login-card .field {
+  min-width: 0;
+}
+
+.login-card input {
+  font-size: 15px;
+  padding: 8px 10px;
+}
+
+.login-card button {
+  margin-top: 4px;
+  padding: 10px;
+  font-size: 15px;
+}
+
+/* 画面の右上に出す「ログイン中の人」 */
+header.app .me {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+header.app .me form {
+  display: inline;
+}
+
+header.app .me button {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  padding: 3px 10px;
+  font-size: 12px;
+}
