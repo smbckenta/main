@@ -259,5 +259,53 @@
     return { documents: documents, usage: json.usage || null };
   }
 
-  global.Ai = { extract: extract, SCHEMA: SCHEMA };
+  /**
+   * API キーが使えるかだけを確かめる。極小のリクエストを1回投げる。
+   * 認証が通ったかどうかが分かればよいので、応答の中身は見ない。
+   */
+  async function ping(options) {
+    var key = (options.apiKey || '').trim();
+    if (!key) return { ok: false, message: 'API キーが入力されていません' };
+
+    var res;
+    try {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': API_VERSION,
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: options.model || 'claude-opus-5',
+          max_tokens: 16,
+          messages: [{ role: 'user', content: 'ping' }]
+        })
+      });
+    } catch (e) {
+      return { ok: false, message: 'ネットワークに繋がりませんでした: ' + e.message };
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, message: 'キーが受け付けられませんでした（' + res.status + '）。キーを確認してください。' };
+    }
+    if (res.status === 404) {
+      return { ok: false, message: 'モデル名が見つかりません: ' + (options.model || '') };
+    }
+    // レート制限や残高不足は「キー自体は本物」なので、そのまま伝える
+    if (res.status === 429) {
+      return { ok: false, message: 'キーは有効ですが、いまレート制限中です。少し待って試してください。' };
+    }
+    if (!res.ok) {
+      var detail = await res.text().catch(function () { return ''; });
+      var credit = /credit|balance|billing/i.test(detail)
+        ? 'キーは有効ですが、API の残高が足りないようです。コンソールでクレジットを追加してください。'
+        : null;
+      return { ok: false, message: credit || ('エラー (' + res.status + '): ' + detail.slice(0, 200)) };
+    }
+    return { ok: true, message: '接続できました。書類の読み取りが使えます。' };
+  }
+
+  global.Ai = { extract: extract, ping: ping, SCHEMA: SCHEMA };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

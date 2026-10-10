@@ -42,6 +42,7 @@
     templateBytes: null,
     index: [],        // 一覧用の軽い情報
     current: null,    // 開いている案件
+    hasSavedDir: false, // 前に選んだフォルダを覚えているか
     pending: [],      // 読み取り待ちのファイル
     lastExtract: null,
     dirty: false
@@ -101,14 +102,28 @@
     return s;
   }
 
-  async function connect(viaPicker) {
-    var dir = viaPicker ? await Store.pick() : (await Store.restore()) || (await Store.reauthorize());
+  /*
+   * mode:
+   *   'restore'   起動時。黙って繋ぎ直せるときだけ繋ぐ
+   *   'reconnect' 前に選んだフォルダに許可を求め直す（フォルダ選択は出ない）
+   *   'pick'      フォルダを選び直す
+   */
+  async function connect(mode) {
+    var dir = null;
+    if (mode === 'pick') {
+      dir = await Store.pick();
+    } else if (mode === 'reconnect') {
+      dir = (await Store.restore()) || (await Store.reauthorize()) || (await Store.pick());
+    } else {
+      dir = await Store.restore();
+    }
     if (!dir) return false;
     await afterConnect();
     return true;
   }
 
   async function afterConnect() {
+    App.hasSavedDir = true;
     App.settings = mergeDefaults(await Store.readJson('settings.json', null));
     if (!(await Store.exists('settings.json'))) {
       await Store.writeJson('settings.json', App.settings);
@@ -125,13 +140,15 @@
 
   function renderChip() {
     var chip = $('#dataChip');
+    var btn = $('#connectBtn');
     if (Store.connected()) {
       chip.className = 'chip';
       chip.textContent = 'data: ' + Store.name();
-      $('#connectBtn').textContent = 'フォルダを切り替え';
+      btn.textContent = 'フォルダを切り替え';
     } else {
       chip.className = 'chip off';
       chip.textContent = 'データフォルダ未接続';
+      btn.textContent = App.hasSavedDir ? '前回のフォルダに再接続' : 'データフォルダを接続';
     }
   }
 
@@ -270,7 +287,10 @@
     host.innerHTML = '<div class="empty">' +
       (Store.connected()
         ? '左の「＋ 新規案件」から始めてください。'
-        : '上の「データフォルダを接続」で、Google ドライブ上の data フォルダを選んでください。') +
+        : App.hasSavedDir
+          ? '上の「前回のフォルダに再接続」を押してください。許可を一度聞かれるだけで、' +
+            '案件も API キーもそのまま戻ります。'
+          : '上の「データフォルダを接続」で、保存先のフォルダを選んでください。') +
       '</div>';
     return true;
   }
@@ -1393,14 +1413,36 @@
       '</div>' +
       '<div class="card"><h2>Claude</h2><div class="grid c2">' +
       '<label class="f">モデル<input data-s="ai.model" value="' + esc(s.ai.model) + '"></label>' +
-      '<label class="f">API キー（data/api-key.txt）<input id="apiKeyInput" type="password" value="' + esc(App.apiKey) + '"></label>' +
-      '</div></div>' +
+      '<label class="f">API キー<input id="apiKeyInput" type="password" placeholder="sk-ant-..." value="' + esc(App.apiKey) + '"></label>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;align-items:center;margin-top:12px">' +
+      '<button type="button" id="testKey" class="btn">接続テスト</button>' +
+      '<span class="hint" id="testKeyResult"></span></div>' +
+      '<p class="hint">キーは接続中のデータフォルダの <code>api-key.txt</code> に保存されます。' +
+      'Google ドライブに置く場合、そのフォルダの共有範囲がそのままキーの共有範囲になります。</p>' +
+      '</div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end">' +
       '<button value="cancel" class="btn">閉じる</button>' +
       '<button id="saveSettings" value="ok" class="btn primary">保存</button>' +
       '</div></form>';
     document.body.appendChild(dlg);
     dlg.showModal();
+
+    $('#testKey', dlg).onclick = async function () {
+      var btn = this;
+      var out = $('#testKeyResult', dlg);
+      btn.disabled = true;
+      out.textContent = '確認中…';
+      out.style.color = '';
+      var result = await Ai.ping({
+        apiKey: $('#apiKeyInput', dlg).value,
+        model: $('[data-s="ai.model"]', dlg).value.trim()
+      });
+      out.textContent = result.message;
+      out.style.color = result.ok ? 'var(--ok)' : 'var(--danger)';
+      btn.disabled = false;
+    };
+
     dlg.addEventListener('close', async function () {
       if (dlg.returnValue === 'ok') {
         $$('[data-s]', dlg).forEach(function (el) {
@@ -1436,7 +1478,7 @@
       b.onclick = function () { switchPane(b.dataset.pane); };
     });
     $('#connectBtn').onclick = function () {
-      connect(true).catch(fail);
+      connect(Store.connected() ? 'pick' : 'reconnect').catch(fail);
     };
     $('#settingsBtn').onclick = openSettings;
     $('#caseSearch').oninput = renderCaseList;
@@ -1461,7 +1503,10 @@
       return;
     }
     App.settings = mergeDefaults(null);
-    Store.restore().then(function (dir) {
+    Store.hasSaved().then(function (saved) {
+      App.hasSavedDir = saved;
+      return Store.restore();
+    }).then(function (dir) {
       if (dir) return afterConnect();
       renderChip();
       renderAll();

@@ -28,9 +28,15 @@ const TYPES = {
   '.md': 'text/markdown; charset=utf-8'
 };
 
+/*
+ * ポートは固定にする。毎回変えるとブラウザから見たオリジンが変わり、
+ * データフォルダの許可も API キーの保存先の記憶も毎回消えてしまうため。
+ */
+const DEFAULT_PORT = 7420;
+
 const args = process.argv.slice(2);
 const noOpen = args.includes('--no-open');
-const wanted = Number(args.find((a) => /^\d+$/.test(a))) || 0;
+const wanted = Number(args.find((a) => /^\d+$/.test(a))) || DEFAULT_PORT;
 
 const server = http.createServer((req, res) => {
   let rel = decodeURIComponent(req.url.split('?')[0]);
@@ -55,6 +61,16 @@ const server = http.createServer((req, res) => {
     });
     res.end(data);
   });
+});
+
+server.on('error', (err) => {
+  if (err.code !== 'EADDRINUSE') throw err;
+  // 既に起動している。二重に立てずに、そのウィンドウを開き直す。
+  const url = 'http://127.0.0.1:' + wanted + '/';
+  console.log('すでに起動しています: ' + url);
+  console.log('ブラウザを開き直します。このウィンドウは閉じて構いません。');
+  if (!noOpen) open(url);
+  setTimeout(() => process.exit(0), 1500);
 });
 
 server.listen(wanted, '127.0.0.1', () => {

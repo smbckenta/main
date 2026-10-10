@@ -77,6 +77,13 @@
     return dir;
   }
 
+  // 前に選んだフォルダを覚えているか（許可が切れていても true）
+  async function hasSaved() {
+    if (!supported()) return false;
+    var handle = await idbGet(HANDLE_KEY).catch(function () { return null; });
+    return !!handle;
+  }
+
   // 明示的な操作をきっかけに許可を求め直す
   async function reauthorize() {
     var handle = await idbGet(HANDLE_KEY).catch(function () { return null; });
@@ -172,6 +179,7 @@
     supported: supported,
     connected: connected,
     name: name,
+    hasSaved: hasSaved,
     pick: pick,
     restore: restore,
     reauthorize: reauthorize,
