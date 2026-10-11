@@ -22,8 +22,9 @@ def read(*parts):
 
 BANNER_CSS = """
 /* ---------- デモ版だけの追加 ---------- */
-body{display:flex; flex-direction:column; height:100vh}
-.app{height:auto; flex:1; min-height:0}
+html, body{height:100%; margin:0}
+body{display:flex; flex-direction:column}
+#evApp{flex:1; min-height:0}
 .demo-banner{
   flex:0 0 auto; display:flex; align-items:center; gap:18px; flex-wrap:wrap;
   padding:8px 18px; background:#132a41; color:#c9dbec;
@@ -61,22 +62,27 @@ def main():
 
     style = re.search(r'<style>(.*?)</style>', html, re.S).group(1)
     body = re.search(r'<body>(.*?)</body>', html, re.S).group(1)
-    body = re.sub(r'<script[^>]*></script>\s*', '', body)
+    # script は後ろでまとめて差し込むので、骨格からは全て外す
+    body = re.sub(r'<script[^>]*>.*?</script>\s*', '', body, flags=re.S)
 
     with io.open(os.path.join(BASE, 'template', 'ev-hikaku-template.xlsx'), 'rb') as f:
         template_b64 = base64.b64encode(f.read()).decode()
 
     scripts = [
         read('lib', 'logo.js'),
+        read('lib', 'evh-css.js'),
+        read('lib', 'evh-html.js'),
         'var EV_TEMPLATE_BASE64 = "%s";' % template_b64,
         read('lib', 'lifecycle.js'),
         read('lib', 'zip.js'),
         read('lib', 'xlsx-fill.js'),
+        read('lib', 'browser-store.js'),
         read('demo', 'store-demo.js'),
         read('demo', 'download-demo.js'),
         read('demo', 'ai-demo.js'),
         read('app.js'),
         read('demo', 'seed-demo.js'),
+        "EvHikaku.mount(document.getElementById('evApp'));",
     ]
 
     out = [

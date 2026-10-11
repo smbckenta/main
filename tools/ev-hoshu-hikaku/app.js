@@ -7,6 +7,20 @@
 (function () {
   'use strict';
 
+  /*
+   * 保存先・ファイル受け渡し・書類読み取りは差し替えられる。
+   * 単体で開いたときは lib/ 配下の既定実装、
+   * 統合基幹システムなどに組み込むときは mount() の options で差し替える。
+   */
+  var Store = window.Store;
+  var Downloader = window.Downloader;
+  var Ai = window.Ai;
+
+  // 画面は Shadow DOM の中に作る。ホスト側の CSS と干渉させないため。
+  var root = null;
+  var hostEl = null;
+  var listeners = [];
+
   var DEFAULT_REMARKS = [
     '・上記金額はすべて年1回の法定検査も含まれた金額となります。',
     '・上記ランニングコストに加え、約25年周期のリニューアル工事費用につきましては、メーカー系保守ベンダー対比で独立系保守ベンダーは30％-40％程度削減できる見込みです。',
@@ -87,8 +101,11 @@
   };
 
   // ---------- 小さな道具 ----------
-  var $ = function (sel, root) { return (root || document).querySelector(sel); };
-  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+  // 既定の探索範囲は自分の Shadow DOM。ホストの DOM には触れない。
+  var $ = function (sel, scope) { return (scope || root || document).querySelector(sel); };
+  var $$ = function (sel, scope) {
+    return Array.prototype.slice.call((scope || root || document).querySelectorAll(sel));
+  };
 
   function uuid() {
     if (crypto.randomUUID) return crypto.randomUUID();
@@ -1308,7 +1325,7 @@
       '</div>' + buildSheet(c);
 
     fitSheet();
-    $('#printBtn').onclick = function () { window.print(); };
+    $('#printBtn').onclick = printSheet;
     $('#exportBtn').onclick = function () { exportExcel().catch(fail); };
     $('#tplHint').textContent = App.templateBytes
       ? 'ひな形: data/template.xlsx'
@@ -1577,7 +1594,7 @@
       '<button value="cancel" class="btn">閉じる</button>' +
       '<button id="saveSettings" value="ok" class="btn primary">保存</button>' +
       '</div></form>';
-    document.body.appendChild(dlg);
+    root.appendChild(dlg);
     dlg.showModal();
 
     $('#testKey', dlg).onclick = async function () {
@@ -1634,6 +1651,84 @@
     if (name === 'preview') fitSheet();
   }
 
+  /*
+   * 印刷指定は document 側にしか効かない（@page と body への指定）。
+   * 組み込み先では、印刷中だけ自分の領域以外を隠して比較表だけを出す。
+   */
+  var DOC_PRINT_CSS = [
+    '@media print {',
+    '  @page { size: A3 landscape; margin: 6mm }',
+    '  html.evh-printing, html.evh-printing body { background:#fff !important }',
+    '  html.evh-printing body * { visibility: hidden !important }',
+    '  html.evh-printing .evh-root, html.evh-printing .evh-root * { visibility: visible !important }',
+    '  html.evh-printing .evh-root {',
+    '    position:absolute !important; left:0 !important; top:0 !important;',
+    '    width:100% !important; margin:0 !important; padding:0 !important;',
+    '  }',
+    '}'
+  ].join('\n');
+
+  function ensureDocumentPrintStyle() {
+    if (document.getElementById('evh-doc-print')) return;
+    var style = document.createElement('style');
+    style.id = 'evh-doc-print';
+    style.textContent = DOC_PRINT_CSS;
+    document.head.appendChild(style);
+  }
+
+  function printSheet() {
+    var html = document.documentElement;
+    html.classList.add('evh-printing');
+    var clear = function () {
+      html.classList.remove('evh-printing');
+      window.removeEventListener('afterprint', clear);
+    };
+    window.addEventListener('afterprint', clear);
+    window.print();
+  }
+
+  function listen(target, type, handler) {
+    target.addEventListener(type, handler);
+    listeners.push([target, type, handler]);
+  }
+
+  /**
+   * 画面を container の中に作る。
+   * options: { store, downloader, ai }  いずれも省略可（既定実装を使う）
+   */
+  function mount(container, options) {
+    if (!container) throw new Error('マウント先の要素がありません');
+    options = options || {};
+    unmount();
+
+    if (options.store) Store = options.store;
+    if (options.downloader) Downloader = options.downloader;
+    if (options.ai) Ai = options.ai;
+
+    hostEl = container;
+    hostEl.classList.add('evh-root');
+    root = container.shadowRoot || container.attachShadow({ mode: 'open' });
+    root.innerHTML = '<style>' + EVH_CSS + '</style>' + EVH_HTML;
+    // 組み込み先に題名とロゴがある場合は、こちらの見出しを省く
+    if (options.embedded) $('.app').classList.add('embedded');
+    ensureDocumentPrintStyle();
+    init();
+    return api;
+  }
+
+  function unmount() {
+    listeners.forEach(function (l) { l[0].removeEventListener(l[1], l[2]); });
+    listeners = [];
+    if (App.dirty) saveCurrent().catch(function () { });
+    if (root) root.innerHTML = '';
+    if (hostEl) hostEl.classList.remove('evh-root');
+    root = null;
+    hostEl = null;
+    App.current = null;
+    App.pending = [];
+    App.lastExtract = null;
+  }
+
   function init() {
     $('#brandLogo').src = EV_LOGO_DATA_URI;
     $$('.tabs button').forEach(function (b) {
@@ -1651,8 +1746,8 @@
       renderAll();
       switchPane('cover');
     };
-    window.addEventListener('resize', fitSheet);
-    window.addEventListener('beforeunload', function (e) {
+    listen(window, 'resize', fitSheet);
+    listen(window, 'beforeunload', function (e) {
       if (!App.dirty) return;
       e.preventDefault();
       e.returnValue = '';
@@ -1679,9 +1774,14 @@
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  var api = {
+    mount: mount,
+    unmount: unmount,
+    print: printSheet,
+    // 組み込み先から案件を開きたいときに使う
+    openCase: function (id) { return openCase(id); },
+    get settings() { return App.settings; }
+  };
+
+  window.EvHikaku = api;
 })();

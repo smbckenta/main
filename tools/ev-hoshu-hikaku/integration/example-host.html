@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>組み込み例（統合基幹システム想定）</title>
+<link rel="icon" href="data:,">
+<style>
+  /*
+   * ここは「組み込み先」を模したページ。統合基幹システムと同じ名前のクラスを、
+   * わざと別の見た目で定義してある。比較表ツールは Shadow DOM の中に入るので、
+   * これらの影響を受けないことを確かめるための見本。
+   */
+  :root{
+    --app-bg:#fff; --surface-1:#fcfcfb; --surface-2:#fff; --page-plane:#f5f5f2;
+    --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+    --gridline:#e1e0d9; --border:rgba(11,11,11,0.10);
+    --brand-accent:#111; --brand-accent-text:#fff; --link:#1c5cab;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:system-ui,-apple-system,"Segoe UI","Yu Gothic",sans-serif;
+       background:var(--app-bg); color:var(--text-primary); display:flex; flex-direction:column}
+
+  .topbar{position:sticky;top:0;z-index:90;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  .topbar-main{display:flex;align-items:center;gap:14px;padding:7px 20px 0}
+  .cat-nav{display:flex;gap:2px}
+  .cat-nav button{padding:9px 15px 8px;border:none;background:transparent;color:var(--text-secondary);
+    font-size:13.5px;cursor:pointer;border-bottom:3px solid transparent;border-radius:8px 8px 0 0}
+  .cat-nav button.active{color:var(--text-primary);font-weight:700;border-bottom-color:var(--brand-accent)}
+  .app-nav{display:flex;gap:6px;padding:9px 20px 10px;background:var(--surface-1);border-top:1px solid var(--gridline)}
+  .app-nav button{padding:7px 13px;border:1px solid var(--border);background:var(--surface-2);
+    color:var(--text-secondary);font-size:12.5px;border-radius:999px;cursor:pointer}
+  .app-nav button.active{background:var(--brand-accent);border-color:var(--brand-accent);
+    color:var(--brand-accent-text);font-weight:600}
+
+  /* ---- ここから下が「ぶつかる」定義。ツール側と同じクラス名をわざと違う見た目にしている ---- */
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+  .btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px}
+  .chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--page-plane);border:1px solid var(--border)}
+  .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid var(--border)}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;padding:8px 10px;border-radius:8px;
+    border:1px solid var(--border);background:var(--surface-1);font-size:13px}
+  .muted{color:var(--text-muted)}
+  .dot{width:7px;height:7px;border-radius:50%}
+  /* 要素セレクタはクラス名を変えても効いてしまう。Shadow DOM でなければ防げない。 */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;
+     padding:8px 10px;border-bottom:1px solid var(--gridline)}
+  td{padding:9px 10px;border-bottom:1px solid var(--gridline)}
+  a{color:var(--link)}
+  input,select,textarea{font-family:inherit}
+
+  .main{flex:1;min-width:0;padding:20px 24px;display:flex;flex-direction:column;min-height:0}
+  /* 比較表ツールを置く枠。高さはホスト側が決める。 */
+  #evHikakuMount{flex:1;min-height:560px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-main">
+    <strong style="font-size:14px">Denrai 統合基幹システム（組み込み例）</strong>
+    <nav class="cat-nav">
+      <button>セールス</button>
+      <button class="active">EV</button>
+      <button>管理</button>
+    </nav>
+  </div>
+  <div class="app-nav">
+    <button>ダッシュボード</button>
+    <button>顧客（取引先）</button>
+    <button class="active">🛗 EV保守 価格比較表</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="evHikakuMount"></div>
+</div>
+
+<script src="../lib/logo.js"></script>
+<script src="../lib/evh-css.js"></script>
+<script src="../lib/evh-html.js"></script>
+<script src="../lib/lifecycle.js"></script>
+<script src="../lib/zip.js"></script>
+<script src="../lib/xlsx-fill.js"></script>
+<script src="../lib/browser-store.js"></script>
+<script src="../lib/download.js"></script>
+<script src="../lib/ai.js"></script>
+<script src="../app.js"></script>
+<script>
+  // 組み込み先では保存先を差し替える（フォルダ選択 API に頼らない）
+  var store = createBrowserStore({
+    prefix: 'denrai:evh:',
+    label: 'ブラウザ内'
+  });
+
+  // ひな形だけはホスト側が用意して渡す（他のファイルは既定の保存先のまま）
+  var baseExists = store.exists;
+  var baseReadBytes = store.readBytes;
+  store.exists = function (p) {
+    return p === 'template.xlsx' ? Promise.resolve(true) : baseExists(p);
+  };
+  store.readBytes = async function (p) {
+    if (p !== 'template.xlsx') return baseReadBytes(p);
+    var res = await fetch('../template/ev-hikaku-template.xlsx');
+    return new Uint8Array(await res.arrayBuffer());
+  };
+
+  EvHikaku.mount(document.getElementById('evHikakuMount'), {
+    store: store,
+    embedded: true   // ホスト側に題名とロゴがあるので、ツール側の見出しは省く
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<div class="app">
+  <header class="bar no-print">
+    <img id="brandLogo" alt="Elevator Partners">
+    <h1>EV保守 価格比較表 作成ツール</h1>
+    <span id="dataChip" class="chip off">データフォルダ未接続</span>
+    <span class="spacer"></span>
+    <button id="connectBtn" class="btn">データフォルダを接続</button>
+    <button id="settingsBtn" class="btn">設定</button>
+  </header>
+
+  <div class="body">
+    <aside class="side no-print">
+      <div class="head">
+        <button id="newCaseBtn" class="btn primary">＋ 新規案件</button>
+        <input id="caseSearch" type="search" placeholder="案件名・お客様名で絞り込む">
+      </div>
+      <ul id="caseList" class="case-list"></ul>
+    </aside>
+
+    <main class="work">
+      <nav class="tabs no-print">
+        <button data-pane="read" class="on">① 書類読み取り</button>
+        <button data-pane="units">② 昇降機台帳<span id="unitAlertDot" class="dot" hidden></span></button>
+        <button data-pane="rows">③ 明細</button>
+        <button data-pane="cover">④ 表紙・備考</button>
+        <button data-pane="preview">⑤ 比較表</button>
+      </nav>
+
+      <section id="pane-read" class="pane on">
+        <div id="readBody"></div>
+      </section>
+
+      <section id="pane-units" class="pane">
+        <div id="unitsBody"></div>
+      </section>
+
+      <section id="pane-rows" class="pane">
+        <div id="rowsBody"></div>
+      </section>
+
+      <section id="pane-cover" class="pane">
+        <div id="coverBody"></div>
+      </section>
+
+      <section id="pane-preview" class="pane" style="padding:0">
+        <div id="previewBody"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast no-print"></div>

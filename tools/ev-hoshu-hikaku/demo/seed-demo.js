@@ -126,15 +126,19 @@
     else fn();
   }
 
-  ready(function () {
-    // デモではフォルダ選択が意味を持たないので隠す
-    var connect = document.querySelector('#connectBtn');
-    if (connect) connect.style.display = 'none';
+  // 画面は Shadow DOM の中にあるので、そこを探す
+  function ui(sel) {
+    var host = document.getElementById('evApp');
+    return host && host.shadowRoot ? host.shadowRoot.querySelector(sel) : null;
+  }
 
-    // app.js が一覧を描いたら、その案件を開く
+  ready(function () {
+    // app.js が一覧を描いたら、フォルダ選択を隠してその案件を開く
     var tries = 0;
     var timer = setInterval(function () {
-      var first = document.querySelector('#caseList li');
+      var connect = ui('#connectBtn');
+      if (connect) connect.style.display = 'none';   // デモでは意味を持たない
+      var first = ui('#caseList li');
       if (first) { first.click(); clearInterval(timer); return; }
       if (++tries > 40) clearInterval(timer);
     }, 120);

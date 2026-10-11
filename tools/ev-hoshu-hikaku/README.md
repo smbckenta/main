@@ -183,6 +183,32 @@ LF だけの .cmd を正しく解釈できず、`if ( ... )` ブロックで黙�
 
 ---
 
+## 統合基幹システムへの組み込み
+
+ツールは単体ページとしても、他のアプリの中の1画面としても動きます。
+画面は **Shadow DOM の中**に作るので、組み込み先の CSS とは互いに影響しません。
+
+```js
+EvHikaku.mount(document.getElementById('枠'), { store: ..., embedded: true });
+```
+
+保存先・ファイルの渡し方・書類読み取りの3つは差し替えられます。
+手順と見本、統合基幹システムに貼る分のコードは [`integration/`](integration/) にあります。
+`integration/example-host.html` は、統合基幹システムと同名のクラスをわざと別定義にした
+ページに組み込んだ見本で、そのまま開いて確認できます。
+
+### 画面を編集するとき
+
+スタイルと骨格は `src/evh.css` と `src/evh.html` にあります。編集したら
+
+```
+python3 scripts/build-ui.py
+```
+
+で `lib/evh-css.js` / `lib/evh-html.js` を作り直してください（`lib/` 側は自動生成です）。
+
+---
+
 ## 出力される Excel について
 
 `template/ev-hikaku-template.xlsx` は、実際に使われている比較表そのものです。
