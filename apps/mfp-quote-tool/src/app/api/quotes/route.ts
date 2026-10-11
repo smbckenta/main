@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSettings, listQuotes, newId, saveQuote } from "@/lib/store";
+import { actorId } from "@/lib/session";
 import { allocateQuoteNumbers } from "@/lib/quote-register";
 import type { Quote } from "@/lib/types";
 
@@ -37,5 +38,5 @@ export async function POST(req: Request) {
     createdAt: now,
     updatedAt: now,
   };
-  return NextResponse.json(await saveQuote(quote));
+  return NextResponse.json(await saveQuote(quote, await actorId()));
 }

@@ -356,8 +356,10 @@ export interface DeletionSettings {
 /** 案件を削除した記録 */
 export interface DeletionRecord {
   deletedAt: string;
-  /** 削除した担当者 */
+  /** 削除した担当者（画面で選んだ名前） */
   deletedBy: string;
+  /** 削除したときにログインしていた人のID（名乗りではなく、確かめられた側） */
+  deletedByUser?: string;
   quoteId: string;
   quoteNo: string;
   customerName: string;
@@ -804,6 +806,16 @@ export interface Quote {
   };
   createdAt: string;
   updatedAt: string;
+  /**
+   * 作った人・最後に直した人のログインID。
+   *
+   * 1人で使っているうちは要らないが、基幹システムに入れて全社で共有すると
+   * 「これは誰の案件か」が必ず要る。あとから足すと、それまでの案件が
+   * 全部「作った人が分からない」まま残ってしまうので、先に入れておく。
+   * ログインの前に作られた案件では空になる。
+   */
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 /**

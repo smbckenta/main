@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteQuote, getQuote, getSettings, saveQuote, verifyPassword } from "@/lib/store";
 import { calcQuoteAll } from "@/lib/calc-context";
+import { actorId } from "@/lib/session";
 import type { Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -25,7 +26,10 @@ export async function PUT(req: Request, { params }: Ctx) {
   const existing = await getQuote(id);
   if (!existing) return NextResponse.json({ error: "案件が見つかりません。" }, { status: 404 });
   const body = (await req.json()) as Quote;
-  const saved = await saveQuote({ ...existing, ...body, id, createdAt: existing.createdAt });
+  const saved = await saveQuote(
+    { ...existing, ...body, id, createdAt: existing.createdAt, createdBy: existing.createdBy },
+    await actorId(),
+  );
   const calc = await calcQuoteAll(saved);
   return NextResponse.json({ quote: saved, ...calc });
 }
@@ -55,7 +59,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   }
 
   try {
-    const record = await deleteQuote(id, deletedBy);
+    const record = await deleteQuote(id, deletedBy, await actorId());
     return NextResponse.json({ ok: true, record });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 404 });

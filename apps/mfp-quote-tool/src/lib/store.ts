@@ -213,8 +213,20 @@ export async function getQuote(id: string): Promise<Quote | undefined> {
   return (await readJson<Quote | null>(path.join(QUOTES_DIR, `${id}.json`), null)) ?? undefined;
 }
 
-export async function saveQuote(quote: Quote): Promise<Quote> {
-  const record = { ...quote, updatedAt: new Date().toISOString() };
+/**
+ * 案件を保存する。
+ *
+ * actor（操作した人のログインID）を渡すと、作った人・直した人として残す。
+ * 全社で共有するようになってから「これは誰の案件か」を足すのは難しいので、
+ * 1人で使っているうちから記録しておく。
+ */
+export async function saveQuote(quote: Quote, actor?: string): Promise<Quote> {
+  const record: Quote = {
+    ...quote,
+    updatedAt: new Date().toISOString(),
+    createdBy: quote.createdBy || actor || undefined,
+    updatedBy: actor || quote.updatedBy,
+  };
   await writeJson(path.join(QUOTES_DIR, `${record.id}.json`), record);
   return record;
 }
@@ -223,7 +235,11 @@ export async function saveQuote(quote: Quote): Promise<Quote> {
  * 案件を削除する。
  * 誤削除に備えて実体は quotes-deleted へ退避し、誰がいつ消したかを記録する。
  */
-export async function deleteQuote(id: string, deletedBy: string): Promise<DeletionRecord> {
+export async function deleteQuote(
+  id: string,
+  deletedBy: string,
+  deletedByUser?: string,
+): Promise<DeletionRecord> {
   const quote = await getQuote(id);
   if (!quote) throw new Error("案件が見つかりません。");
 
@@ -235,6 +251,7 @@ export async function deleteQuote(id: string, deletedBy: string): Promise<Deleti
   const record: DeletionRecord = {
     deletedAt: new Date().toISOString(),
     deletedBy,
+    deletedByUser: deletedByUser || undefined,
     quoteId: id,
     quoteNo: quote.quoteNo,
     customerName: quote.customerName,
