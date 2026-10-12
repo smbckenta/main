@@ -4,10 +4,20 @@ import type { DocPhotos } from "./export/html";
 import { calcCurrent, calcProposal } from "./pricing";
 import { findServiceArea } from "./service-area";
 import { deviceMap, findDeviceByModel, getPriceBook, getSettings } from "./store";
-import type { CurrentCalc, FleetCalc, ProposalCalc, Quote, ServiceArea, Settings } from "./types";
+import type {
+  CurrentCalc,
+  FleetCalc,
+  PriceBook,
+  ProposalCalc,
+  Quote,
+  ServiceArea,
+  Settings,
+} from "./types";
 
 export interface QuoteCalcResult {
   settings: Settings;
+  /** 仕切表。複数台の見積書で、台ごとの構成品を展開するのに使う */
+  priceBook: PriceBook;
   current: CurrentCalc;
   proposals: ProposalCalc[];
   /** 複数台比較表の計算結果（複数台の案件のみ） */
@@ -49,6 +59,7 @@ export async function calcQuoteAll(quote: Quote): Promise<QuoteCalcResult> {
 
   return {
     settings,
+    priceBook: book,
     current: calcCurrent(quote, settings.company.taxRate),
     proposals,
     fleet: hasFleet(quote.fleet) ? calcFleet(quote.fleet, settings.company.taxRate, settings) : undefined,

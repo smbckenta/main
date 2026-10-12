@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: Ctx) {
   const doc = url.searchParams.get("doc") ?? "quote";
   const proposalId = url.searchParams.get("proposalId");
 
-  const [{ settings, current, proposals, fleet }, { logo, seal }] = await Promise.all([
+  const [{ settings, priceBook, current, proposals, fleet }, { logo, seal }] = await Promise.all([
     calcQuoteAll(quote),
     loadBrandAssets(),
   ]);
@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: Ctx) {
       });
     }
     return new NextResponse(
-      renderFleetQuoteHtml(quote, quote.fleet, fleet, settings, logo?.dataUri, seal?.dataUri),
+      renderFleetQuoteHtml(quote, quote.fleet, fleet, settings, priceBook, logo?.dataUri, seal?.dataUri),
       { headers: { "Content-Type": "text/html; charset=utf-8" } },
     );
   }

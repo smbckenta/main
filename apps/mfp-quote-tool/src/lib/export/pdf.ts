@@ -104,6 +104,18 @@ export const QUOTE_PAGE: PdfPageOptions = {
   contentHeightMm: 215,
 };
 
+/**
+ * 複数台の御見積書の紙の取り方。
+ *
+ * 紙の余白は1台のときと同じだが、1枚に押し込むことはしない。
+ * 台数ぶんの構成品をすべて載せるので、1枚に収めようとすると
+ * 読めない大きさまで縮んでしまう。読める大きさを保ち、
+ * あふれたぶんは2枚目へ送る（表の見出しは各ページでくり返す）。
+ */
+export const FLEET_QUOTE_PAGE: PdfPageOptions = {
+  marginMm: { top: 22, side: 18 },
+};
+
 /** 用紙の内寸（mm）。余白を引く前の大きさ */
 const PAPER_MM = { A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 } };
 const MM_TO_PX = 96 / 25.4;

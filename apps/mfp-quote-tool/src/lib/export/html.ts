@@ -7,8 +7,10 @@ import type {
   FleetSideCalc,
   FleetTotals,
   FleetUnitCalc,
+  PriceBook,
   ProposalCalc,
   Quote,
+  QuoteItem,
   Settings,
 } from "../types";
 import { yen } from "../pricing";
@@ -793,11 +795,17 @@ function counterKey(u: FleetUnitCalc): string {
 }
 
 /**
- * 複数台の御見積書（A4たて1枚）。
+ * 複数台の御見積書。
  *
  * 1台の見積書と同じ体裁のまま、機器明細を設置場所ごとに分けて並べる。
  * 台数ぶんの金額を1枚にまとめないと、お客様は何台ぶんの話なのかを
  * 読み取れない（これまでは1台ぶんの見積書しか出せなかった）。
+ *
+ * 台ごとの内訳は、仕切表に入っている構成一式（本体・原稿送り装置・
+ * ＦＡＸキット・給紙段・設置工事費）をそのまま展開する。
+ * 仕切価格はこの構成一式を含んだ額なので、本体とオプションを
+ * 分けて見せる必要はない。通常構成以外の追加オプションが出たときだけ、
+ * 「追加オプション」として別の行を立てる。
  *
  * カウンター単価は台ごとに違うことがあるので、同じ条件の台はまとめ、
  * 違う台だけ分けて出す。ふつうは全台同じなので1つの表になる。
@@ -807,50 +815,86 @@ export function renderFleetQuoteHtml(
   fleet: Fleet,
   calc: FleetCalc,
   settings: Settings,
+  book?: PriceBook,
   logo?: string,
   seal?: string,
 ): string {
   const makers = [...new Set(calc.units.map((u) => u.unit.proposal.makerText).filter(Boolean))];
   const subject = `複合機　入替一式（${calc.units.length}台）${makers.length ? `　${makers.join("・")}` : ""}`;
 
-  // ── 機器明細：設置場所ごとに小見出しを立てて、その台の内訳を並べる
+  // ── 機器明細：設置場所ごとに小見出しを立てて、その台の構成一式を並べる
   let no = 0;
+  let rowCount = 0;
   const priced = calc.units.filter((u) => (u.proposal.pricing?.sellingTotal ?? 0) > 0);
   const unpriced = calc.units.filter((u) => (u.proposal.pricing?.sellingTotal ?? 0) <= 0);
 
-  const unitRows = priced
+  /** その台の構成品。仕切表から引く。引けなければ機種名ひとつにまとめる */
+  const itemsOf = (u: FleetUnitCalc): QuoteItem[] => {
+    const id = u.unit.proposal.pricing?.priceBookId;
+    const entry = id ? book?.entries.find((e) => e.id === id) : undefined;
+    if (entry?.items.length) return entry.items;
+    return [
+      { name: `${u.unit.proposal.modelText || "複合機"}　一式`, qty: 1, unit: "式", unitPrice: 0 },
+    ];
+  };
+
+  const unitBlocks = priced
     .map((u) => {
       const side = u.unit.proposal;
       const pricing = u.proposal.pricing!;
+      const items = itemsOf(u);
+      // 構成一式の定価合計。仕切表から引けないときは販売額をそのまま使う
+      const listTotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0) || pricing.sellingTotal;
+      const discount = pricing.sellingTotal - listTotal;
+
       const head = `<tr class="group-row"><td></td><td>【No.${u.no}　${esc(u.unit.location || "設置場所未定")}${
         side.makerText ? `　${esc(side.makerText)}` : ""
-      }】</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+      }${side.modelText ? `　${esc(side.modelText)}` : ""}】</td><td></td><td></td><td></td><td></td><td></td></tr>`;
 
-      const rows = [
-        `<tr>
+      const itemRows = items
+        .map((it, i) => {
+          rowCount += 1;
+          return `<tr>
           <td class="center">${++no}</td>
-          <td>${esc(side.modelText || "本体")}　本体</td>
-          <td class="qty">1</td><td class="qty-unit">台</td>
-          <td class="num">${n(pricing.bodyPrice)}</td>
-          <td class="num">${n(pricing.bodyPrice)}</td>
-          <td>${side.ppm ? `${side.ppm}枚機` : ""}</td>
-        </tr>`,
-      ];
-      if (pricing.addOnTotal > 0) {
-        rows.push(`<tr>
+          <td>${esc(it.name)}</td>
+          <td class="qty">${it.qty}</td>
+          <td class="qty-unit">${esc(it.unit)}</td>
+          <td class="num">${it.unitPrice ? n(it.unitPrice) : ""}</td>
+          <td class="num">${it.unitPrice ? n(it.qty * it.unitPrice) : ""}</td>
+          <td>${i === 0 && side.ppm ? `${side.ppm}枚機` : ""}</td>
+        </tr>`;
+        })
+        .join("");
+
+      // 通常構成以外の追加オプションが出たときだけ、別行で見せる
+      const addOn =
+        pricing.addOnTotal > 0
+          ? (rowCount += 1) &&
+            `<tr>
           <td class="center">${++no}</td>
-          <td>オプション・設置工事費</td>
+          <td>追加オプション</td>
           <td class="qty">1</td><td class="qty-unit">式</td>
           <td class="num">${n(pricing.addOnTotal)}</td>
           <td class="num">${n(pricing.addOnTotal)}</td>
           <td></td>
-        </tr>`);
-      }
-      return head + rows.join("");
+        </tr>`
+          : "";
+
+      rowCount += 4; // 小見出し＋小計3行
+      return `<tbody class="unit-block">
+        ${head}${itemRows}${addOn}
+        <tr class="sum-row"><td></td><td colspan="3" class="num">小計</td><td></td><td class="num">${n(listTotal)}</td><td></td></tr>
+        <tr class="discount-row"><td></td><td colspan="3" class="num">お値引き</td><td class="num">▲</td><td class="num">(${n(Math.abs(discount))})</td><td></td></tr>
+        <tr class="total-row"><td></td><td colspan="3" class="num">販売額計</td><td></td><td class="num">${n(pricing.sellingTotal)}</td><td></td></tr>
+      </tbody>`;
     })
     .join("");
 
   const sellingTotal = priced.reduce((sum, u) => sum + (u.proposal.pricing?.sellingTotal ?? 0), 0);
+  const listGrandTotal = priced.reduce((sum, u) => {
+    const items = itemsOf(u);
+    return sum + (items.reduce((s, it) => s + it.qty * it.unitPrice, 0) || (u.proposal.pricing?.sellingTotal ?? 0));
+  }, 0);
 
   // ── カウンター料金：単価が同じ台はひとまとめにする
   const groups = new Map<string, FleetUnitCalc[]>();
@@ -940,14 +984,16 @@ export function renderFleetQuoteHtml(
       <th colspan="2">数量</th>
       <th>単　価</th><th>金　額</th><th>備考</th>
     </tr></thead>
+    ${unitBlocks}
     <tbody>
-      ${unitRows}
+      <tr class="sum-row"><td></td><td colspan="3" class="num">本体合計（${priced.length}台）</td><td></td><td class="num">${n(listGrandTotal)}</td><td></td></tr>
+      <tr class="discount-row"><td></td><td colspan="3" class="num">お値引き計</td><td class="num">▲</td><td class="num">(${n(Math.abs(sellingTotal - listGrandTotal))})</td><td></td></tr>
       <tr class="total-row"><td></td><td colspan="3" class="num">販売額計（${priced.length}台）</td><td></td><td class="num">${n(sellingTotal)}</td><td></td></tr>
     </tbody>
   </table>
 
   <div class="section">【カウンター料金】</div>
-  <table class="grid">
+  <table class="grid keep">
     <colgroup>
       <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
       <col style="width:15%" /><col style="width:27%" />
@@ -960,7 +1006,7 @@ export function renderFleetQuoteHtml(
   </table>
 
   <div class="section">【リースシミュレーション】</div>
-  <table class="grid">
+  <table class="grid keep">
     <colgroup>
       <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
       <col style="width:15%" /><col style="width:14%" /><col style="width:13%" />
@@ -984,7 +1030,7 @@ export function renderFleetQuoteHtml(
   ])}
   `;
   return page(`見積書_${quote.customerName}_複数台`, body, {
-    css: `${QUOTE_CSS}\n  body.quote { --fit: ${fitFleetQuote(no + counterNo)}; }`,
+    css: `${QUOTE_CSS}${FLEET_QUOTE_CSS}\n  body.quote { --fit: ${fitFleetQuote(rowCount + counterNo)}; }`,
     bodyClass: "quote",
   });
 }
@@ -992,17 +1038,41 @@ export function renderFleetQuoteHtml(
 /**
  * 複数台見積書の縮小率。
  *
- * 台数ぶん行が伸びるので、1台の見積書より早く縮める必要がある。
+ * 1台の見積書は必ず1枚に収めるが、複数台はそうしない。
+ * 台数ぶんの構成品をすべて載せるので、1枚に押し込もうとすると
+ * 読めない大きさまで縮んでしまう。読める大きさ（0.6）を下限にして、
+ * あふれたぶんは2枚目に送る。
+ *
  * 実測（A4たて・印刷幅174mm）：行数で変わらない部分 約900px／1行あたり約30px。
  */
 export function fitFleetQuote(rowCount: number): number {
   const scale = FLEET_QUOTE_BUDGET_PX / (FLEET_QUOTE_BLOCK_PX + QUOTE_ROW_PX * rowCount);
   if (scale >= 0.98) return 1;
-  return Math.max(0.3, Math.round(scale * 1_000) / 1_000);
+  return Math.max(FLEET_QUOTE_MIN_FIT, Math.round(scale * 1_000) / 1_000);
 }
 
 const FLEET_QUOTE_BUDGET_PX = 813;
 const FLEET_QUOTE_BLOCK_PX = 900;
+/**
+ * これより小さくすると読めない。あふれたら縮めずに2枚目へ送る。
+ * 1台の見積書も0.5前後で出ているので、そこを下限にそろえる。
+ */
+export const FLEET_QUOTE_MIN_FIT = 0.5;
+
+/**
+ * 2枚目に送るときの決まり。
+ *
+ * ・表の見出しは各ページの頭でくり返す（2枚目だけ見た人が列を読めるように）
+ * ・1台ぶんの内訳は途中で切らない（品目と小計が別のページに分かれない）
+ */
+const FLEET_QUOTE_CSS = `
+  body.quote .grid thead { display: table-header-group; }
+  body.quote .grid tbody.unit-block { break-inside: avoid; page-break-inside: avoid; }
+  /* 【カウンター料金】のような見出しが、ページの末尾に取り残されないように */
+  body.quote .section { break-after: avoid; page-break-after: avoid; }
+  /* カウンター料金・リースシミュレーションは短い表。途中で切らずに丸ごと送る */
+  body.quote .grid.keep { break-inside: avoid; page-break-inside: avoid; }
+`;
 
 function makerJp(maker: string): string {
   const map: Record<string, string> = {

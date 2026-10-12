@@ -11,7 +11,7 @@ import {
   renderProposalDocHtml,
   renderQuoteHtml,
 } from "./html";
-import { htmlToPdf, PdfUnavailableError, QUOTE_PAGE } from "./pdf";
+import { FLEET_QUOTE_PAGE, htmlToPdf, PdfUnavailableError, QUOTE_PAGE } from "./pdf";
 import {
   addFleetSheet,
   addMultiCompareSheet,
@@ -53,7 +53,7 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   files: ExportedFile[];
   warnings: string[];
 }> {
-  const { settings, current, proposals, fleet } = await calcQuoteAll(quote);
+  const { settings, priceBook, current, proposals, fleet } = await calcQuoteAll(quote);
   const { logo, seal } = await loadBrandAssets();
   const targets = req.proposalIds?.length
     ? proposals.filter((p) => req.proposalIds!.includes(p.proposal.id))
@@ -137,8 +137,8 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
         files.push({
           name: `${base}_御見積書_複数台.pdf`,
           buffer: await htmlToPdf(
-            renderFleetQuoteHtml(quote, fleetQuote.input, fleetQuote.fleet, settings, logo?.dataUri, seal?.dataUri),
-            QUOTE_PAGE,
+            renderFleetQuoteHtml(quote, fleetQuote.input, fleetQuote.fleet, settings, priceBook, logo?.dataUri, seal?.dataUri),
+            FLEET_QUOTE_PAGE,
           ),
           contentType: "application/pdf",
         });

@@ -91,7 +91,7 @@ const calc = calcProposal(q, proposal, DEFAULT_SETTINGS);
 const docs: Record<string, (logo?: string, seal?: string) => string> = {
   見積書: (logo, seal) => renderQuoteHtml(q, calc, DEFAULT_SETTINGS, logo, seal),
   複数台見積書: (logo, seal) =>
-    renderFleetQuoteHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1, DEFAULT_SETTINGS), DEFAULT_SETTINGS, logo, seal),
+    renderFleetQuoteHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1, DEFAULT_SETTINGS), DEFAULT_SETTINGS, undefined, logo, seal),
   各社同時比較表: (logo, seal) => renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS, logo, seal),
   ご提案書: (logo, seal) => renderProposalDocHtml(q, current, calc, DEFAULT_SETTINGS, { byOption: {} }, logo, seal),
 };

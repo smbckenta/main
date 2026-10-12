@@ -916,20 +916,20 @@ function BulkGrossProfitEditor({
         </button>
       </div>
       {/*
-        粗利は「販売額計 − 仕切価格」なので、オプション・設置工事費は
-        まるごと粗利に入る（仕切を取っていないため）。
-        1台当たりGPを30万にしたのに合計が129万と出る理由が分かるよう、
-        本体ぶんとオプションぶんを分けて出す。
+        仕切価格は通常構成（本体・オプション・設置工事費）を含んだ額なので、
+        ふつうは「1台当たりGP × 台数」がそのまま粗利合計になる。
+        通常構成以外の追加オプションを入れたときだけ、その分も粗利に入るので、
+        どこから来た差なのかが分かるように内訳を出す。
       */}
       <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
         いまの粗利合計　<strong>{yen(totals.total)}</strong>
         {totals.addOn > 0 && (
           <>
-            （本体 {yen(totals.body)}　＋　オプション・設置工事費 {yen(totals.addOn)}）
+            （機器ぶん {yen(totals.body)}　＋　追加オプション {yen(totals.addOn)}）
           </>
         )}
         {mode === "fromGp" && targets > 0 && (
-          <>　／　この設定なら本体ぶんが {yen(gp * targets)}（{yen(gp)}×{targets}台）</>
+          <>　／　この設定なら機器ぶんが {yen(gp * targets)}（{yen(gp)}×{targets}台）</>
         )}
       </p>
       {message && (
