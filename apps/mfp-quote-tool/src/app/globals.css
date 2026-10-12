@@ -460,6 +460,15 @@ header.app .me button {
   margin: 0 0 8px;
 }
 
+/* 全台の粗利をまとめて決める欄。台ごとの入力より一段上の操作なので、前に出す */
+.bulk-gp {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--accent-weak);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
 /* ---------------- 台帳の下ごしらえ ---------------- */
 
 .setup-box {

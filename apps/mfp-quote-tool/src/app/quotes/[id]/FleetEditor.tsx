@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_FLEET,
+  applyGrossProfitToAll,
   autoSelectProposals,
   calcFleet,
   copySide,
@@ -10,8 +11,10 @@ import {
   emptyFleetUnit,
   fleetFromReadings,
   newChargeLine,
+  isPriceable,
   proposalFromCurrent,
   requiredPpm,
+  grossProfitBreakdown,
   withDeductionRate,
 } from "@/lib/fleet";
 import { LEASE_TERMS, MAKERS, MAKER_LABELS } from "@/lib/types";
@@ -292,6 +295,13 @@ export default function FleetEditor({
           </select>
         </div>
       </div>
+
+      <BulkGrossProfitEditor
+        fleet={fleet}
+        settings={settings}
+        gp={grossProfitBreakdown(calc)}
+        onApply={onChange}
+      />
 
       {calc.units.map((u) => {
         const unit = u.unit;
@@ -823,6 +833,116 @@ function SideEditor({
         </div>
         <div className="muted">請求金額（税込）：{yen(billed)}</div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 全台の粗利をまとめて決める。
+ *
+ * 台数が多い案件で、1台ずつ同じ数字を入れ直すのは手間なだけでなく、
+ * 1台だけ入れ忘れたときに気づけない。1台当たりの粗利をここで決めて、
+ * 入替する台すべてに当てる。当たった台数と合計粗利をその場で出す。
+ */
+function BulkGrossProfitEditor({
+  fleet,
+  settings,
+  gp: totals,
+  onApply,
+}: {
+  fleet: Fleet;
+  settings: Settings;
+  gp: { total: number; body: number; addOn: number };
+  onApply: (fleet: Fleet) => void;
+}) {
+  const [mode, setMode] = useState<"fromGp" | "fromMargin">("fromGp");
+  const [gp, setGp] = useState<number>(settings.defaultGrossProfit);
+  const [rate, setRate] = useState<number>(Math.round(settings.defaultMarginRate * 1000) / 10);
+  const [message, setMessage] = useState("");
+
+  // 当てられるのは仕切価格が入っている台だけ（据え置く台は触らない）
+  const targets = fleet.units.filter(isPriceable).length;
+
+  function apply() {
+    const result = applyGrossProfitToAll(fleet, {
+      mode,
+      grossProfitAmount: gp,
+      marginRate: rate / 100,
+    });
+    onApply(result.fleet);
+    setMessage(
+      result.skipped > 0
+        ? `${result.applied}台に入れました（${result.skipped}台は仕切価格が未入力のため、そのままです）。`
+        : `${result.applied}台に入れました。`,
+    );
+  }
+
+  if (!fleet.units.length) return null;
+
+  return (
+    <div className="bulk-gp">
+      <div className="row">
+        <strong style={{ fontSize: 13 }}>全台の粗利をまとめて決める</strong>
+        <div className="field" style={{ width: 170 }}>
+          <label>決め方</label>
+          <select value={mode} onChange={(e) => setMode(e.target.value as "fromGp" | "fromMargin")}>
+            <option value="fromGp">1台当たりの粗利額（GP）</option>
+            <option value="fromMargin">粗利率（%）</option>
+          </select>
+        </div>
+        {mode === "fromGp" ? (
+          <div className="field" style={{ width: 150 }}>
+            <label>1台当たりGP（円）</label>
+            <input
+              type="number"
+              value={gp}
+              step={10_000}
+              onChange={(e) => setGp(Number(e.target.value))}
+            />
+          </div>
+        ) : (
+          <div className="field" style={{ width: 120 }}>
+            <label>粗利率（%）</label>
+            <input
+              type="number"
+              value={rate}
+              step={1}
+              onChange={(e) => setRate(Number(e.target.value))}
+            />
+          </div>
+        )}
+        <button disabled={targets === 0} onClick={apply}>
+          {targets}台にまとめて入れる
+        </button>
+      </div>
+      {/*
+        粗利は「販売額計 − 仕切価格」なので、オプション・設置工事費は
+        まるごと粗利に入る（仕切を取っていないため）。
+        1台当たりGPを30万にしたのに合計が129万と出る理由が分かるよう、
+        本体ぶんとオプションぶんを分けて出す。
+      */}
+      <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+        いまの粗利合計　<strong>{yen(totals.total)}</strong>
+        {totals.addOn > 0 && (
+          <>
+            （本体 {yen(totals.body)}　＋　オプション・設置工事費 {yen(totals.addOn)}）
+          </>
+        )}
+        {mode === "fromGp" && targets > 0 && (
+          <>　／　この設定なら本体ぶんが {yen(gp * targets)}（{yen(gp)}×{targets}台）</>
+        )}
+      </p>
+      {message && (
+        <p className="badge" style={{ marginTop: 6 }}>
+          {message}
+        </p>
+      )}
+      {targets === 0 && (
+        <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+          まとめて入れるには、各台の「価格の決め方」で仕切表から機種を選んでください。
+          据え置く台や、月額リース料を直接入れた台は対象になりません。
+        </p>
+      )}
     </div>
   );
 }

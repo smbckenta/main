@@ -518,3 +518,79 @@ export function autoSelectProposals(
   });
   return { ...fleet, enabled: true, units };
 }
+
+/* ---------------- 全台の粗利をまとめて決める ---------------- */
+
+/** まとめて当てる粗利の決め方（1台当たり） */
+export interface BulkGrossProfit {
+  mode: "fromGp" | "fromMargin";
+  /** fromGp: 1台当たりの粗利額（円） */
+  grossProfitAmount?: number;
+  /** fromMargin: 粗利率（0.3 = 30%） */
+  marginRate?: number;
+}
+
+/** まとめて決められる台か（仕切価格が入っている＝入替する台） */
+export function isPriceable(unit: FleetUnit): boolean {
+  const p = unit.proposal.pricing;
+  return Boolean(p && (p.cost ?? 0) > 0);
+}
+
+/**
+ * 全台に同じ粗利を当てる。
+ *
+ * 台数が多い案件で、1台ずつ同じ数字を入れ直すのは手間なだけでなく、
+ * 1台だけ入れ忘れたときに気づけない。まとめて当てて、
+ * 「何台に当たったか」を返す。
+ *
+ * 当てるのは仕切価格が入っている台だけ。据え置く台や、
+ * 月額リース料を直接入れた台は粗利の計算をしていないので触らない。
+ */
+export function applyGrossProfitToAll(
+  fleet: Fleet,
+  bulk: BulkGrossProfit,
+): { fleet: Fleet; applied: number; skipped: number } {
+  let applied = 0;
+  const units = fleet.units.map((unit) => {
+    if (!isPriceable(unit)) return unit;
+    applied += 1;
+    const pricing: FleetPricing = {
+      ...unit.proposal.pricing!,
+      mode: bulk.mode,
+      ...(bulk.mode === "fromGp"
+        ? { grossProfitAmount: Math.max(0, Math.round(bulk.grossProfitAmount ?? 0)) }
+        : { marginRate: Math.min(Math.max(bulk.marginRate ?? 0, 0), 0.95) }),
+    };
+    return { ...unit, proposal: { ...unit.proposal, pricing } };
+  });
+  return { fleet: { ...fleet, units }, applied, skipped: fleet.units.length - applied };
+}
+
+/**
+ * 全台の粗利の内訳。
+ *
+ * 粗利 ＝ 販売額計 − 仕切価格 なので、オプション・設置工事費は
+ * まるごと粗利に入る（仕切を取っていないため）。
+ * 「1台当たりGPを30万にしたのに合計が129万と出る」のが分かるよう、
+ * 本体ぶんとオプションぶんを分けて返す。
+ */
+export function grossProfitBreakdown(calc: FleetCalc): {
+  total: number;
+  body: number;
+  addOn: number;
+} {
+  let total = 0;
+  let addOn = 0;
+  for (const u of calc.units) {
+    const p = u.proposal.pricing;
+    if (!p) continue;
+    total += p.grossProfit;
+    addOn += p.addOnTotal;
+  }
+  return { total, body: total - addOn, addOn };
+}
+
+/** 全台の粗利の合計（画面に出して、狙いどおりかを確かめるため） */
+export function totalGrossProfit(calc: FleetCalc): number {
+  return grossProfitBreakdown(calc).total;
+}

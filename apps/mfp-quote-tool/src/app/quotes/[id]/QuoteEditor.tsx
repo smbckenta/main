@@ -868,19 +868,29 @@ export default function QuoteEditor({
             </a>
           )}
           {hasFleet(quote.fleet) && (
-            <a
-              className="badge"
-              href={`/api/quotes/${quote.id}/preview?doc=fleet`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              複数台比較表プレビュー（A3ヨコ）
-            </a>
+            <>
+              <a
+                className="badge"
+                href={`/api/quotes/${quote.id}/preview?doc=fleet-quote`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                複数台 御見積書プレビュー
+              </a>
+              <a
+                className="badge"
+                href={`/api/quotes/${quote.id}/preview?doc=fleet`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                複数台比較表プレビュー（A3ヨコ）
+              </a>
+            </>
           )}
         </div>
         <p className="muted">
           {hasFleet(quote.fleet)
-            ? "複合機が複数台あるため、A3ヨコの複数台比較表も一緒に出力します。"
+            ? "複合機が複数台あるため、台数ぶんをまとめた御見積書と、A3ヨコの複数台比較表も一緒に出力します。"
             : ""}
           複数ファイルになる場合は ZIP でダウンロードされます。PDF出力には Chromium が必要です
           （初回のみ <code>npx playwright install chromium</code>）。

@@ -4,6 +4,7 @@ import { calcQuoteAll, loadDocPhotos } from "@/lib/calc-context";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
+  renderFleetQuoteHtml,
   renderMultiCompareHtml,
   renderProposalDocHtml,
   renderQuoteHtml,
@@ -29,14 +30,26 @@ export async function GET(req: Request, { params }: Ctx) {
     loadBrandAssets(),
   ]);
 
-  // 複数台比較表は提案（メーカー別の見積）が無くても出せる
+  // 複数台の見積書・比較表は、提案（メーカー別の見積）が無くても出せる
+  if (doc === "fleet-quote") {
+    if (!fleet || !quote.fleet) {
+      return new NextResponse("<html><body>複数台の入力がありません。</body></html>", {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+    return new NextResponse(
+      renderFleetQuoteHtml(quote, quote.fleet, fleet, settings, logo?.dataUri, seal?.dataUri),
+      { headers: { "Content-Type": "text/html; charset=utf-8" } },
+    );
+  }
+
   if (doc === "fleet") {
     if (!fleet || !quote.fleet) {
       return new NextResponse("<html><body>複数台の入力がありません。</body></html>", {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
-    return new NextResponse(renderFleetCompareHtml(quote, quote.fleet, fleet, settings, logo?.dataUri, seal?.dataUri), {
+    return new NextResponse(renderFleetCompareHtml(quote, quote.fleet, fleet, settings, logo?.dataUri), {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }

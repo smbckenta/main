@@ -6,6 +6,7 @@ import type { Fleet, FleetSide, Proposal, Quote } from "../types";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
+  renderFleetQuoteHtml,
   renderMultiCompareHtml,
   renderProposalDocHtml,
   renderQuoteHtml,
@@ -89,9 +90,9 @@ const calc = calcProposal(q, proposal, DEFAULT_SETTINGS);
 
 const docs: Record<string, (logo?: string, seal?: string) => string> = {
   見積書: (logo, seal) => renderQuoteHtml(q, calc, DEFAULT_SETTINGS, logo, seal),
+  複数台見積書: (logo, seal) =>
+    renderFleetQuoteHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1, DEFAULT_SETTINGS), DEFAULT_SETTINGS, logo, seal),
   各社同時比較表: (logo, seal) => renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS, logo, seal),
-  複数台比較表: (logo, seal) =>
-    renderFleetCompareHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1), DEFAULT_SETTINGS, logo, seal),
   ご提案書: (logo, seal) => renderProposalDocHtml(q, current, calc, DEFAULT_SETTINGS, { byOption: {} }, logo, seal),
 };
 
@@ -116,5 +117,19 @@ describe("ロゴと角印", () => {
     expect(html).not.toContain(LOGO);
     expect(html).not.toContain(SEAL);
     expect(html).toContain("比　較　表");
+  });
+
+  it("複数台比較表はロゴだけ。角印は押さない", () => {
+    // 比較表は検討してもらうための資料で、社判を押して差し出す書類ではない
+    const html = renderFleetCompareHtml(
+      { ...q, fleet },
+      fleet,
+      calcFleet(fleet, 0.1, DEFAULT_SETTINGS),
+      DEFAULT_SETTINGS,
+      LOGO,
+    );
+    expect(html).toContain(LOGO);
+    expect(html).not.toContain(SEAL);
+    expect(html).not.toContain('class="seal');
   });
 });

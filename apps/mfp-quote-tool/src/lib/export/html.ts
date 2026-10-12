@@ -6,11 +6,13 @@ import type {
   FleetCalc,
   FleetSideCalc,
   FleetTotals,
+  FleetUnitCalc,
   ProposalCalc,
   Quote,
   Settings,
 } from "../types";
 import { yen } from "../pricing";
+import { calcUnitLease } from "../fleet";
 import { pagesAverageNote } from "../labels";
 import { groupOptions } from "../proposal-doc";
 
@@ -782,6 +784,226 @@ function pcSetupNote(calc: ProposalCalc): string {
   return `${free}台目まで無料となり、${free + 1}台目以降は5,000円/台の費用が発生いたします。`;
 }
 
+/* ---------------- 複数台の御見積書 ---------------- */
+
+/** その台のカウンター単価のまとめ（同じ条件の台をひとまとめにするための見出し） */
+function counterKey(u: FleetUnitCalc): string {
+  const lines = u.unit.proposal.lines.map((l) => `${l.name}:${l.tiers.map((t) => t.unit).join("/")}`);
+  return `${lines.join("|")}#${u.unit.proposal.minCharge ?? 0}`;
+}
+
+/**
+ * 複数台の御見積書（A4たて1枚）。
+ *
+ * 1台の見積書と同じ体裁のまま、機器明細を設置場所ごとに分けて並べる。
+ * 台数ぶんの金額を1枚にまとめないと、お客様は何台ぶんの話なのかを
+ * 読み取れない（これまでは1台ぶんの見積書しか出せなかった）。
+ *
+ * カウンター単価は台ごとに違うことがあるので、同じ条件の台はまとめ、
+ * 違う台だけ分けて出す。ふつうは全台同じなので1つの表になる。
+ */
+export function renderFleetQuoteHtml(
+  quote: Quote,
+  fleet: Fleet,
+  calc: FleetCalc,
+  settings: Settings,
+  logo?: string,
+  seal?: string,
+): string {
+  const makers = [...new Set(calc.units.map((u) => u.unit.proposal.makerText).filter(Boolean))];
+  const subject = `複合機　入替一式（${calc.units.length}台）${makers.length ? `　${makers.join("・")}` : ""}`;
+
+  // ── 機器明細：設置場所ごとに小見出しを立てて、その台の内訳を並べる
+  let no = 0;
+  const priced = calc.units.filter((u) => (u.proposal.pricing?.sellingTotal ?? 0) > 0);
+  const unpriced = calc.units.filter((u) => (u.proposal.pricing?.sellingTotal ?? 0) <= 0);
+
+  const unitRows = priced
+    .map((u) => {
+      const side = u.unit.proposal;
+      const pricing = u.proposal.pricing!;
+      const head = `<tr class="group-row"><td></td><td>【No.${u.no}　${esc(u.unit.location || "設置場所未定")}${
+        side.makerText ? `　${esc(side.makerText)}` : ""
+      }】</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+
+      const rows = [
+        `<tr>
+          <td class="center">${++no}</td>
+          <td>${esc(side.modelText || "本体")}　本体</td>
+          <td class="qty">1</td><td class="qty-unit">台</td>
+          <td class="num">${n(pricing.bodyPrice)}</td>
+          <td class="num">${n(pricing.bodyPrice)}</td>
+          <td>${side.ppm ? `${side.ppm}枚機` : ""}</td>
+        </tr>`,
+      ];
+      if (pricing.addOnTotal > 0) {
+        rows.push(`<tr>
+          <td class="center">${++no}</td>
+          <td>オプション・設置工事費</td>
+          <td class="qty">1</td><td class="qty-unit">式</td>
+          <td class="num">${n(pricing.addOnTotal)}</td>
+          <td class="num">${n(pricing.addOnTotal)}</td>
+          <td></td>
+        </tr>`);
+      }
+      return head + rows.join("");
+    })
+    .join("");
+
+  const sellingTotal = priced.reduce((sum, u) => sum + (u.proposal.pricing?.sellingTotal ?? 0), 0);
+
+  // ── カウンター料金：単価が同じ台はひとまとめにする
+  const groups = new Map<string, FleetUnitCalc[]>();
+  for (const u of calc.units) {
+    const key = counterKey(u);
+    groups.set(key, [...(groups.get(key) ?? []), u]);
+  }
+  const single = groups.size <= 1;
+  let counterNo = 0;
+  const counterRows = [...groups.values()]
+    .map((units) => {
+      const side = units[0].unit.proposal;
+      // 全台同じなら見出しは要らない。違うときだけ、どの台の話かを書く
+      const head = single
+        ? ""
+        : `<tr class="group-row"><td></td><td>【No.${units.map((u) => u.no).join("・")}　${esc(
+            units.map((u) => u.unit.location).filter(Boolean).join("／") || "設置場所未定",
+          )}】</td><td></td><td></td><td></td><td></td></tr>`;
+      const lines = side.lines
+        .map(
+          (l) => `<tr>
+            <td class="center">${++counterNo}</td>
+            <td>■${esc(l.name)}</td><td></td><td></td><td></td><td></td>
+          </tr>
+          <tr class="sub-item">
+            <td></td><td>１枚〜</td>
+            <td class="qty">1</td><td class="qty-unit">枚</td>
+            <td class="num unit-red">${unitDigits(l.tiers[0]?.unit ?? 0)}</td>
+            <td></td>
+          </tr>`,
+        )
+        .join("");
+      const min =
+        (side.minCharge ?? 0) > 0
+          ? `<tr>
+            <td class="center">${++counterNo}</td><td>■最低基本料金</td>
+            <td class="qty">1</td><td class="qty-unit">ヶ月</td>
+            <td class="num" style="font-weight:700">${n(side.minCharge)}</td><td></td>
+          </tr>`
+          : "";
+      return head + lines + min;
+    })
+    .join("");
+
+  // ── リースシミュレーション：台ごとに計算して足す（台ごとに切り上げるため）
+  const leaseRows = Object.entries(settings.leaseRates)
+    .map(([term, rate]) => ({ term: Number(term), rate }))
+    .sort((a, b) => a.term - b.term)
+    .map((l, i) => {
+      const monthly = calc.units.reduce((sum, u) => {
+        const pricing = u.unit.proposal.pricing;
+        return (
+          sum +
+          (pricing
+            ? calcUnitLease(pricing, l.term, settings).monthlyLease
+            : Math.max(0, Math.round(u.unit.proposal.monthlyLease ?? 0)))
+        );
+      }, 0);
+      return `<tr>
+        <td class="center">${i + 1}</td>
+        <td>リース料金(${Math.round(l.term / 12)}年リース)　${calc.units.length}台合計</td>
+        <td class="qty">${l.term}</td>
+        <td class="qty-unit">ヶ月</td>
+        <td class="num lease-unit">${n(monthly)}</td>
+        <td class="num">${n(monthly * l.term)}</td>
+        <td>${l.term === calc.leaseTerm ? "本見積の条件" : ""}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const leaseBox = `<table class="lease-box"><tr>
+    <td class="label">月額リース料金</td>
+    <td class="value">${n(calc.proposal.leaseMonthly)}</td>
+    <td class="tax">（税別）</td>
+  </tr></table>`;
+
+  const body = `
+  ${quoteHeader(quote, settings, subject, leaseBox, logo, quote.quoteNo, seal)}
+
+  <table class="grid">
+    <colgroup>
+      <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
+      <col style="width:15%" /><col style="width:14%" /><col style="width:13%" />
+    </colgroup>
+    <thead><tr>
+      <th>No</th><th>設置場所　メーカー　品　名　型　番</th>
+      <th colspan="2">数量</th>
+      <th>単　価</th><th>金　額</th><th>備考</th>
+    </tr></thead>
+    <tbody>
+      ${unitRows}
+      <tr class="total-row"><td></td><td colspan="3" class="num">販売額計（${priced.length}台）</td><td></td><td class="num">${n(sellingTotal)}</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="section">【カウンター料金】</div>
+  <table class="grid">
+    <colgroup>
+      <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
+      <col style="width:15%" /><col style="width:27%" />
+    </colgroup>
+    <thead><tr>
+      <th>No</th><th>品　　　　名</th><th colspan="2">数量</th>
+      <th>単　価</th><th>備考</th>
+    </tr></thead>
+    <tbody>${counterRows}</tbody>
+  </table>
+
+  <div class="section">【リースシミュレーション】</div>
+  <table class="grid">
+    <colgroup>
+      <col style="width:4%" /><col /><col style="width:5%" /><col style="width:5%" />
+      <col style="width:15%" /><col style="width:14%" /><col style="width:13%" />
+    </colgroup>
+    <thead><tr>
+      <th>No</th><th>品　　　　名</th><th colspan="2">数量</th>
+      <th>単　価</th><th>金　額</th><th>備考</th>
+    </tr></thead>
+    <tbody>${leaseRows}</tbody>
+  </table>
+
+  ${notesBlock([
+    `本見積は${calc.units.length}台ぶんの合計です。設置場所ごとの内訳は上記のとおりです。`,
+    unpriced.length
+      ? `No.${unpriced.map((u) => u.no).join("・")}（${unpriced
+          .map((u) => u.unit.location || "設置場所未定")
+          .join("／")}）は、本見積の機器明細には含めておりません。`
+      : "",
+    "この御見積書の金額は「税抜」となっております。",
+    `PC設定台数は5台目まで無料となり、6台目以降は5,000円/台の費用が発生いたします。`,
+  ])}
+  `;
+  return page(`見積書_${quote.customerName}_複数台`, body, {
+    css: `${QUOTE_CSS}\n  body.quote { --fit: ${fitFleetQuote(no + counterNo)}; }`,
+    bodyClass: "quote",
+  });
+}
+
+/**
+ * 複数台見積書の縮小率。
+ *
+ * 台数ぶん行が伸びるので、1台の見積書より早く縮める必要がある。
+ * 実測（A4たて・印刷幅174mm）：行数で変わらない部分 約900px／1行あたり約30px。
+ */
+export function fitFleetQuote(rowCount: number): number {
+  const scale = FLEET_QUOTE_BUDGET_PX / (FLEET_QUOTE_BLOCK_PX + QUOTE_ROW_PX * rowCount);
+  if (scale >= 0.98) return 1;
+  return Math.max(0.3, Math.round(scale * 1_000) / 1_000);
+}
+
+const FLEET_QUOTE_BUDGET_PX = 813;
+const FLEET_QUOTE_BLOCK_PX = 900;
+
 function makerJp(maker: string): string {
   const map: Record<string, string> = {
     KYOCERA: "京セラ",
@@ -1495,13 +1717,18 @@ function fleetSideRows(side: FleetSideCalc): FleetRow[] {
   return rows;
 }
 
+/**
+ * 複数台比較表（A3ヨコ1枚）。
+ *
+ * 角印は押さない。比較表は検討してもらうための資料で、
+ * 社判を押して差し出す書類ではない（1台の比較表も同じ扱い）。
+ */
 export function renderFleetCompareHtml(
   quote: Quote,
   fleet: Fleet,
   calc: FleetCalc,
   settings: Settings,
   logo?: string,
-  seal?: string,
 ): string {
   const co = settings.company;
   const uniq = (values: string[]) => [...new Set(values.filter(Boolean))];
@@ -1661,7 +1888,6 @@ export function renderFleetCompareHtml(
     <div class="fleet-company">
       <div class="fleet-brand">
         ${logo ? `<img src="${logo}" alt="${esc(co.name)}">` : `<div class="name">${esc(co.name)}</div>`}
-        ${sealImg(seal, "seal seal-fleet")}
       </div>
       <div>${esc(co.postalCode ? `〒${co.postalCode}` : "")}</div>
       <div>${esc(co.offices?.[0]?.address ?? co.address ?? "")}</div>

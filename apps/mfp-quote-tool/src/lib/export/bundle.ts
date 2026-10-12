@@ -6,6 +6,7 @@ import { loadBrandAssets } from "../logo";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
+  renderFleetQuoteHtml,
   renderMultiCompareHtml,
   renderProposalDocHtml,
   renderQuoteHtml,
@@ -63,6 +64,8 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
   const base = safe(`${quote.quoteDate}_${quote.customerName}`);
   // 複合機が複数台ある案件は、A3ヨコ1枚の複数台比較表も出す
   const withFleet = fleet && quote.fleet && req.docs.includes("compare") ? { fleet, input: quote.fleet } : undefined;
+  // 複数台の案件は、見積書も台数ぶんをまとめた1枚を出す（1台ぶんでは足りない）
+  const fleetQuote = fleet && quote.fleet && req.docs.includes("quote") ? { fleet, input: quote.fleet } : undefined;
 
   // ── Excel（1ブックにメーカー別シート）
   if (req.formats.includes("xlsx") && (targets.length || withFleet)) {
@@ -130,11 +133,21 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
           contentType: "application/pdf",
         });
       }
+      if (fleetQuote) {
+        files.push({
+          name: `${base}_御見積書_複数台.pdf`,
+          buffer: await htmlToPdf(
+            renderFleetQuoteHtml(quote, fleetQuote.input, fleetQuote.fleet, settings, logo?.dataUri, seal?.dataUri),
+            QUOTE_PAGE,
+          ),
+          contentType: "application/pdf",
+        });
+      }
       if (withFleet) {
         files.push({
           name: `${base}_複数台比較表.pdf`,
           buffer: await htmlToPdf(
-            renderFleetCompareHtml(quote, withFleet.input, withFleet.fleet, settings, logo?.dataUri, seal?.dataUri),
+            renderFleetCompareHtml(quote, withFleet.input, withFleet.fleet, settings, logo?.dataUri),
             { format: "A3", landscape: true, fitOnePage: true },
           ),
           contentType: "application/pdf",
