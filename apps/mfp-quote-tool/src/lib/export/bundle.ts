@@ -6,7 +6,7 @@ import { loadBrandAssets } from "../logo";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
-  renderFleetQuoteHtml,
+  renderFleetQuoteHtmls,
   renderMultiCompareHtml,
   renderProposalDocHtml,
   renderQuoteHtml,
@@ -134,14 +134,26 @@ export async function buildExports(quote: Quote, req: ExportRequest): Promise<{
         });
       }
       if (fleetQuote) {
-        files.push({
-          name: `${base}_御見積書_複数台.pdf`,
-          buffer: await htmlToPdf(
-            renderFleetQuoteHtml(quote, fleetQuote.input, fleetQuote.fleet, settings, priceBook, logo?.dataUri, seal?.dataUri),
-            FLEET_QUOTE_PAGE,
-          ),
-          contentType: "application/pdf",
-        });
+        // カウンター単価が納入場所によって違う案件は、見積書を分けて出す
+        const docs = renderFleetQuoteHtmls(
+          quote,
+          fleetQuote.input,
+          fleetQuote.fleet,
+          settings,
+          priceBook,
+          logo?.dataUri,
+          seal?.dataUri,
+        );
+        for (const d of docs) {
+          files.push({
+            name:
+              d.partCount > 1
+                ? `${base}_御見積書_複数台_${d.part}_${safe(d.label)}.pdf`
+                : `${base}_御見積書_複数台.pdf`,
+            buffer: await htmlToPdf(d.html, FLEET_QUOTE_PAGE),
+            contentType: "application/pdf",
+          });
+        }
       }
       if (withFleet) {
         files.push({

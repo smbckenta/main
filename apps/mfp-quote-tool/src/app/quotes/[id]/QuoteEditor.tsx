@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import { calcCurrent, calcProposal } from "@/lib/pricing";
 import { pagesAverageNote } from "@/lib/labels";
-import { distinctMachines, hasFleet } from "@/lib/fleet";
+import { distinctMachines, fleetQuoteCount, hasFleet } from "@/lib/fleet";
 import DocumentsPanel from "./DocumentsPanel";
 import FleetEditor from "./FleetEditor";
 import ProposalDocEditor from "./ProposalDocEditor";
@@ -869,14 +869,19 @@ export default function QuoteEditor({
           )}
           {hasFleet(quote.fleet) && (
             <>
-              <a
-                className="badge"
-                href={`/api/quotes/${quote.id}/preview?doc=fleet-quote`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                複数台 御見積書プレビュー
-              </a>
+              {/* カウンター単価が納入場所で違うと、見積書は分かれて出る */}
+              {Array.from({ length: Math.max(1, fleetQuoteCount(quote.fleet)) }, (_, i) => (
+                <a
+                  key={`fq-${i}`}
+                  className="badge"
+                  href={`/api/quotes/${quote.id}/preview?doc=fleet-quote&part=${i + 1}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  複数台 御見積書プレビュー
+                  {fleetQuoteCount(quote.fleet) > 1 && `（${i + 1}通目）`}
+                </a>
+              ))}
               <a
                 className="badge"
                 href={`/api/quotes/${quote.id}/preview?doc=fleet`}
@@ -890,7 +895,9 @@ export default function QuoteEditor({
         </div>
         <p className="muted">
           {hasFleet(quote.fleet)
-            ? "複合機が複数台あるため、台数ぶんをまとめた御見積書と、A3ヨコの複数台比較表も一緒に出力します。"
+            ? fleetQuoteCount(quote.fleet) > 1
+              ? `複合機が複数台あるため、A3ヨコの複数台比較表も一緒に出力します。カウンター単価が納入場所によって異なるため、御見積書は${fleetQuoteCount(quote.fleet)}通に分かれます。`
+              : "複合機が複数台あるため、台数ぶんをまとめた御見積書と、A3ヨコの複数台比較表も一緒に出力します。"
             : ""}
           複数ファイルになる場合は ZIP でダウンロードされます。PDF出力には Chromium が必要です
           （初回のみ <code>npx playwright install chromium</code>）。

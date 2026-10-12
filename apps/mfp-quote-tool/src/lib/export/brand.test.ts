@@ -6,7 +6,7 @@ import type { Fleet, FleetSide, Proposal, Quote } from "../types";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
-  renderFleetQuoteHtml,
+  renderFleetQuoteHtmls,
   renderMultiCompareHtml,
   renderProposalDocHtml,
   renderQuoteHtml,
@@ -79,7 +79,14 @@ const fleet: Fleet = {
       id: "u1",
       location: "本社",
       current: side(),
-      proposal: side({ makerText: "京セラ", modelText: "TASKalfa3554ci", ppm: 35, monthlyLease: 26_800 }),
+      proposal: side({
+        makerText: "京セラ",
+        modelText: "TASKalfa3554ci",
+        ppm: 35,
+        monthlyLease: 26_800,
+        // 見積書に載るのは納める台だけなので、価格の決め方を入れておく
+        pricing: { mode: "fromGp", cost: 480_000, grossProfitAmount: 300_000 },
+      }),
     },
   ],
 };
@@ -91,7 +98,7 @@ const calc = calcProposal(q, proposal, DEFAULT_SETTINGS);
 const docs: Record<string, (logo?: string, seal?: string) => string> = {
   見積書: (logo, seal) => renderQuoteHtml(q, calc, DEFAULT_SETTINGS, logo, seal),
   複数台見積書: (logo, seal) =>
-    renderFleetQuoteHtml({ ...q, fleet }, fleet, calcFleet(fleet, 0.1, DEFAULT_SETTINGS), DEFAULT_SETTINGS, undefined, logo, seal),
+    renderFleetQuoteHtmls({ ...q, fleet }, fleet, calcFleet(fleet, 0.1, DEFAULT_SETTINGS), DEFAULT_SETTINGS, undefined, logo, seal)[0].html,
   各社同時比較表: (logo, seal) => renderMultiCompareHtml(q, current, [calc], DEFAULT_SETTINGS, logo, seal),
   ご提案書: (logo, seal) => renderProposalDocHtml(q, current, calc, DEFAULT_SETTINGS, { byOption: {} }, logo, seal),
 };

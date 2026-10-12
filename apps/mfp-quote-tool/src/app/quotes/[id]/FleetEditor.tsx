@@ -14,6 +14,7 @@ import {
   isPriceable,
   proposalFromCurrent,
   requiredPpm,
+  counterGroups,
   grossProfitBreakdown,
   withDeductionRate,
 } from "@/lib/fleet";
@@ -302,6 +303,8 @@ export default function FleetEditor({
         gp={grossProfitBreakdown(calc)}
         onApply={onChange}
       />
+
+      <CounterSplitNotice fleet={fleet} />
 
       {calc.units.map((u) => {
         const unit = u.unit;
@@ -834,6 +837,29 @@ function SideEditor({
         <div className="muted">請求金額（税込）：{yen(billed)}</div>
       </div>
     </div>
+  );
+}
+
+/**
+ * カウンター単価が納入場所によって違うときの案内。
+ *
+ * 1枚の見積書に混ぜると、どの単価がどの台のものか読み取れないので
+ * 見積書を分けて出す。分かれることは、単価を入れている画面で
+ * 先に分かっているほうがよい（出力してから気づくと直しに戻ることになる）。
+ */
+function CounterSplitNotice({ fleet }: { fleet: Fleet }) {
+  const supplied = fleet.units.filter(isPriceable);
+  const groups = counterGroups(supplied);
+  if (groups.length < 2) return null;
+
+  return (
+    <p className="badge" style={{ marginTop: 10 }}>
+      カウンター単価が納入場所によって異なるため、御見積書は{groups.length}通に分かれます（
+      {groups
+        .map((g, i) => `${i + 1}通目：${g.map((u) => u.location || "設置場所未定").join("・")}`)
+        .join("／")}
+      ）。複数台比較表は1枚のままです。
+    </p>
   );
 }
 

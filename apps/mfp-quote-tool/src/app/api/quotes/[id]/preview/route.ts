@@ -4,7 +4,7 @@ import { calcQuoteAll, loadDocPhotos } from "@/lib/calc-context";
 import {
   renderCompareHtml,
   renderFleetCompareHtml,
-  renderFleetQuoteHtml,
+  renderFleetQuoteHtmls,
   renderMultiCompareHtml,
   renderProposalDocHtml,
   renderQuoteHtml,
@@ -37,10 +37,27 @@ export async function GET(req: Request, { params }: Ctx) {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
-    return new NextResponse(
-      renderFleetQuoteHtml(quote, quote.fleet, fleet, settings, priceBook, logo?.dataUri, seal?.dataUri),
-      { headers: { "Content-Type": "text/html; charset=utf-8" } },
+    const docs = renderFleetQuoteHtmls(
+      quote,
+      quote.fleet,
+      fleet,
+      settings,
+      priceBook,
+      logo?.dataUri,
+      seal?.dataUri,
     );
+    // 納める台（価格の決め方を入れた台）が1台も無ければ、見積書は作れない
+    if (!docs.length) {
+      return new NextResponse(
+        "<html><body>見積書に載せる台がありません。各台の「価格の決め方」で仕切表から機種を選んでください。</body></html>",
+        { headers: { "Content-Type": "text/html; charset=utf-8" } },
+      );
+    }
+    // カウンター単価が違う台があると見積書が分かれる。?part= で何通目かを選ぶ
+    const part = Math.min(Math.max(Number(url.searchParams.get("part") ?? 1), 1), docs.length);
+    return new NextResponse(docs[part - 1].html, {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
   }
 
   if (doc === "fleet") {

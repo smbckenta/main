@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../defaults";
 import { applyGrossProfitToAll, calcFleet } from "../fleet";
 import type { Fleet, FleetSide, FleetUnit, PriceBook, Quote, QuoteItem } from "../types";
-import { renderFleetQuoteHtml } from "./html";
+import { renderFleetQuoteHtmls } from "./html";
 
 /**
  * 複数台の御見積書。
@@ -83,7 +83,7 @@ const fleet: Fleet = {
   units: [
     unit("a", "本社2階 事務所", "TASKalfa MZ2501ci", 455_800, 0, "mz2501ci"),
     unit("b", "久留米支店", "TASKalfa MZ3501ci", 498_900, 0, "mz3501ci"),
-    unit("c", "博多営業所", "TASKalfa MZ4001ci", 616_100, 0, "mz4001ci"),
+    unit("c", "第二工場", "TASKalfa MZ4001ci", 616_100, 0, "mz4001ci"),
   ],
 };
 
@@ -110,14 +110,17 @@ const quote: Quote = {
   updatedAt: "",
 };
 
-const render = (f: Fleet) =>
-  renderFleetQuoteHtml(
+const renderAll = (f: Fleet) =>
+  renderFleetQuoteHtmls(
     { ...quote, fleet: f },
     f,
     calcFleet(f, DEFAULT_SETTINGS.company.taxRate, DEFAULT_SETTINGS),
     DEFAULT_SETTINGS,
     BOOK,
   );
+
+/** 1通にまとまる案件なので、その1通を返す */
+const render = (f: Fleet) => renderAll(f)[0].html;
 
 describe("複数台の御見積書", () => {
   const { fleet: priced } = applyGrossProfitToAll(fleet, {
@@ -129,14 +132,17 @@ describe("複数台の御見積書", () => {
   it("設置場所ごとに小見出しを立てて、全台ぶんを載せる", () => {
     expect(html).toContain("本社2階 事務所");
     expect(html).toContain("久留米支店");
-    expect(html).toContain("博多営業所");
+    expect(html).toContain("第二工場");
     expect(html).toContain("TASKalfa MZ2501ci");
     expect(html).toContain("TASKalfa MZ3501ci");
     expect(html).toContain("TASKalfa MZ4001ci");
   });
 
-  it("物件名に台数が出る", () => {
+  it("物件名に台数、納入場所に設置場所が出る", () => {
     expect(html).toContain("複合機　入替一式（3台）");
+    // 設置場所は納入場所の欄へ（物件名に並べると台数が増えたときにあふれる）
+    expect(html).toContain("本社2階 事務所・久留米支店・第二工場");
+    expect(html).not.toContain("別途お打ち合わせ</td></tr><tr><td class=\"q-label\">御受渡期日");
   });
 
   it("台ごとに構成一式をすべて並べる（仕切表のひな型をそのまま）", () => {
@@ -219,7 +225,8 @@ describe("複数台の御見積書", () => {
     expect(html).toContain("フルカラー");
   });
 
-  it("カウンター単価が違う台があれば、分けて出す", () => {
+  it("カウンター単価が違う台があれば、見積書そのものを分ける", () => {
+    // 1枚に混ぜると、どの単価がどの台のものか読み取れない
     const mixed: Fleet = {
       ...priced,
       units: priced.units.map((u, i) =>
@@ -237,20 +244,73 @@ describe("複数台の御見積書", () => {
           : u,
       ),
     };
-    const out = render(mixed);
-    expect(out).toContain("【No.1・2");
-    expect(out).toContain("【No.3");
+    const docs = renderAll(mixed);
+    expect(docs).toHaveLength(2);
+
+    // 1通目は同じ単価の2台、2通目は単価の違う1台
+    expect(docs[0].units.map((u) => u.unit.location)).toEqual(["本社2階 事務所", "久留米支店"]);
+    expect(docs[1].units.map((u) => u.unit.location)).toEqual(["第二工場"]);
+
+    // 見積書番号は枝番で分ける
+    expect(docs[0].quoteNo).toBe("137240-1");
+    expect(docs[1].quoteNo).toBe("137240-2");
+
+    // それぞれの紙には、自分の台ぶんだけが載る
+    expect(docs[0].html).toContain("販売額計（2台）");
+    expect(docs[1].html).toContain("販売額計（1台）");
+    expect(docs[0].html).not.toContain("第二工場");
+    expect(docs[1].html).not.toContain("久留米支店");
+
+    // 分けた理由を紙の上にも書く
+    expect(docs[0].html).toContain("御見積書を2通に分けて");
+    expect(docs[1].html).toContain("本書はその2通目です");
   });
 
-  it("据え置く台は機器明細に出さず、そのことを注記する", () => {
+  it("単価が全台同じなら、1通にまとまる（枝番も付かない）", () => {
+    const docs = renderAll(priced);
+    expect(docs).toHaveLength(1);
+    expect(docs[0].quoteNo).toBe("137240");
+    expect(docs[0].html).not.toContain("通に分けて");
+  });
+
+  it("分けた見積書の月額リース料金は、その紙の台ぶんだけ", () => {
+    const mixed: Fleet = {
+      ...priced,
+      units: priced.units.map((u, i) =>
+        i === 2
+          ? {
+              ...u,
+              proposal: {
+                ...u.proposal,
+                lines: u.proposal.lines.map((l) => ({
+                  ...l,
+                  tiers: [{ from: 1, to: null, unit: 9 }],
+                })),
+              },
+            }
+          : u,
+      ),
+    };
+    const docs = renderAll(mixed);
+    const calc = calcFleet(mixed, DEFAULT_SETTINGS.company.taxRate, DEFAULT_SETTINGS);
+    const sum = (ids: number[]) =>
+      ids.reduce((t, i) => t + calc.units[i].proposal.monthlyLease, 0);
+    expect(docs[0].html).toContain(sum([0, 1]).toLocaleString("ja-JP"));
+    expect(docs[1].html).toContain(sum([2]).toLocaleString("ja-JP"));
+  });
+
+  it("据え置く台は、それだけの見積書を作らず、注記で触れる", () => {
+    // 据え置く台は現行の単価のままなので、単純に単価で分けると
+    // 「機器が1台も載っていない見積書」ができてしまう
     const withKeep: Fleet = {
       ...priced,
       units: [...priced.units, unit("d", "倉庫", "MX-2650FN")],
     };
-    const out = render(withKeep);
-    expect(out).toContain("販売額計（3台）");
-    expect(out).toContain("本見積の機器明細には含めておりません");
-    expect(out).toContain("倉庫");
+    const docs = renderAll(withKeep);
+    expect(docs).toHaveLength(1);
+    expect(docs[0].html).toContain("販売額計（3台）");
+    expect(docs[0].html).toContain("本見積の機器明細には含めておりません");
+    expect(docs[0].html).toContain("倉庫");
   });
 
   it("リースシミュレーションは台数ぶんの合計で出す", () => {

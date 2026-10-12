@@ -594,3 +594,39 @@ export function grossProfitBreakdown(calc: FleetCalc): {
 export function totalGrossProfit(calc: FleetCalc): number {
   return grossProfitBreakdown(calc).total;
 }
+
+/* ---------------- カウンター単価のまとまり ---------------- */
+
+/**
+ * その台のカウンター条件を表す文字列。
+ * 区分名・単価・最低基本料金が同じなら同じ文字列になる。
+ */
+export function counterKeyOf(side: FleetSide): string {
+  const lines = (side.lines ?? []).map(
+    (l) => `${l.name}:${l.tiers.map((t) => t.unit).join("/")}`,
+  );
+  return `${lines.join("|")}#${side.minCharge ?? 0}#${side.maintenanceMonthly ?? 0}`;
+}
+
+/**
+ * カウンター単価が同じ台をひとまとめにする。
+ *
+ * 納入場所によって単価が変わる案件では、1枚の見積書に混ぜると
+ * 「どの単価がどの台のものか」が読み取れない。まとまりごとに
+ * 見積書を分けて出すので、その分け方をここで決める。
+ *
+ * 並びは入力した順のまま（No.が飛ばないように）。
+ */
+export function counterGroups(units: FleetUnit[]): FleetUnit[][] {
+  const groups = new Map<string, FleetUnit[]>();
+  for (const unit of units) {
+    const key = counterKeyOf(unit.proposal);
+    groups.set(key, [...(groups.get(key) ?? []), unit]);
+  }
+  return [...groups.values()];
+}
+
+/** 見積書が何枚に分かれるか（画面の案内に使う） */
+export function fleetQuoteCount(fleet?: Fleet): number {
+  return fleet?.units.length ? counterGroups(fleet.units).length : 0;
+}
