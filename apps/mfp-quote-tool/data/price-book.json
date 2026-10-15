@@ -1,7 +1,7 @@
 {
   "version": "2026-10-01",
   "source": "Denrai 複合機仕切表（2026/10/01～）",
-  "note": "厳秘・弊社限り。仕切率・仕切価格は改定のたびに本ファイルを更新する。2026-09-16付の仕切表（2026/10/01～）に合わせて更新。",
+  "note": "厳秘・弊社限り。仕切率・仕切価格は改定のたびに本ファイルを更新する。2026-09-16付の仕切表（2026/10/01～）に合わせて更新。富士フイルムの定価は2026年9月1日のメーカー改定後の標準価格に差し替え（仕切価格は据え置き）。",
   "entries": [
     {
       "id": "kyocera-mz2501ci",
@@ -591,11 +591,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 25,
-      "listPrice": 2383000,
-      "costRate": 0.24,
+      "listPrice": 2801000,
+      "costRate": 0.205,
       "cost": 573500,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C2571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2754000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
     },
     {
       "id": "fujifilm-c3571-pfs",
@@ -604,11 +617,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 35,
-      "listPrice": 2796000,
-      "costRate": 0.24,
+      "listPrice": 3277000,
+      "costRate": 0.205,
       "cost": 671100,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C3571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 3230000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
     },
     {
       "id": "fujifilm-c4571-pfs",
@@ -617,11 +643,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 45,
-      "listPrice": 3235000,
-      "costRate": 0.25,
+      "listPrice": 3784000,
+      "costRate": 0.218,
       "cost": 823500,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C4571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 3737000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
     },
     {
       "id": "fujifilm-c5571-pfs",
@@ -630,11 +669,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 55,
-      "listPrice": 3674000,
-      "costRate": 0.26,
+      "listPrice": 4291000,
+      "costRate": 0.223,
       "cost": 955300,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C5571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 4244000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
     },
     {
       "id": "fujifilm-c6571-pfs",
@@ -643,11 +695,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 65,
-      "listPrice": 4953000,
-      "costRate": 0.25,
+      "listPrice": 5769000,
+      "costRate": 0.218,
       "cost": 1257000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C6571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 5722000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
     },
     {
       "id": "fujifilm-c7071-pfs-c",
@@ -656,11 +721,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 70,
-      "listPrice": 5255000,
-      "costRate": 0.26,
+      "listPrice": 6117000,
+      "costRate": 0.221,
       "cost": 1350000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C7071 PFS-C 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 6070000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
     },
     {
       "id": "fujifilm-c2561-pfs-1",
@@ -669,11 +747,24 @@
       "config": "1段",
       "category": "A3カラー",
       "gradePpm": 25,
-      "listPrice": 1618000,
-      "costRate": 0.27,
+      "listPrice": 1908000,
+      "costRate": 0.226,
       "cost": 432000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C2561 PFS 本体（1段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1869000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
     },
     {
       "id": "fujifilm-c2561-pfs-2",
@@ -682,11 +773,24 @@
       "config": "2段",
       "category": "A3カラー",
       "gradePpm": 25,
-      "listPrice": 1730000,
-      "costRate": 0.26,
+      "listPrice": 2038000,
+      "costRate": 0.221,
       "cost": 450000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C2561 PFS 本体（2段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1999000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
     },
     {
       "id": "fujifilm-c2561-pfs-4t",
@@ -695,11 +799,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 25,
-      "listPrice": 1881000,
-      "costRate": 0.26,
+      "listPrice": 2213000,
+      "costRate": 0.223,
       "cost": 493500,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C2561 PFS-4T 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2174000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
     },
     {
       "id": "fujifilm-c3061-pfs-4t",
@@ -708,11 +825,24 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 30,
-      "listPrice": 1969000,
-      "costRate": 0.27,
+      "listPrice": 2314000,
+      "costRate": 0.23,
       "cost": 532000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C3061 PFS-4T 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2275000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
     },
     {
       "id": "fujifilm-c3061-pfs-4t-b",
@@ -721,11 +851,25 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 30,
-      "listPrice": 2156000,
-      "costRate": 0.27,
+      "listPrice": 2530000,
+      "costRate": 0.231,
       "cost": 583200,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
+      "items": [
+        {
+          "name": "Apeos C3061 PFS-4T 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2491000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ],
+      "note": "仕切表に同じ機種名で2行あるうちの高いほう。差額ぶんの構成がメーカーの公表価格表に当たらないため、定価は他10機種で裏が取れた改定率から算出（要確認）。"
     },
     {
       "id": "sharp-bp-60c26",

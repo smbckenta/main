@@ -124,7 +124,14 @@ export default function PriceBookPage() {
             {entries.map((e) => (
               <tr key={e.id}>
                 <td>{MAKER_LABELS[e.maker]}</td>
-                <td>{e.model}</td>
+                <td>
+                  {e.model}
+                  {e.note && (
+                    <div className="muted" style={{ fontSize: "0.85em" }}>
+                      {e.note}
+                    </div>
+                  )}
+                </td>
                 <td>{e.config ?? "－"}</td>
                 <td>{e.category}</td>
                 <td className="num">{e.gradePpm}</td>
