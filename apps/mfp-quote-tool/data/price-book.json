@@ -1,7 +1,7 @@
 {
   "version": "2026-10-01",
   "source": "Denrai 複合機仕切表（2026/10/01～）",
-  "note": "厳秘・弊社限り。仕切率・仕切価格は改定のたびに本ファイルを更新する。",
+  "note": "厳秘・弊社限り。仕切率・仕切価格は改定のたびに本ファイルを更新する。2026-09-16付の仕切表（2026/10/01～）に合わせて更新。",
   "entries": [
     {
       "id": "kyocera-mz2501ci",
@@ -10,9 +10,9 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 25,
-      "listPrice": 1937000,
-      "costRate": 0.23,
-      "cost": 441500,
+      "listPrice": 2033000,
+      "costRate": 0.22,
+      "cost": 455800,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -54,9 +54,9 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 35,
-      "listPrice": 2116000,
-      "costRate": 0.23,
-      "cost": 483900,
+      "listPrice": 2221000,
+      "costRate": 0.22,
+      "cost": 498900,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -98,9 +98,9 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 40,
-      "listPrice": 2479000,
-      "costRate": 0.24,
-      "cost": 592100,
+      "listPrice": 2640000,
+      "costRate": 0.23,
+      "cost": 616100,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -142,9 +142,9 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 50,
-      "listPrice": 2832000,
-      "costRate": 0.26,
-      "cost": 725000,
+      "listPrice": 3018000,
+      "costRate": 0.25,
+      "cost": 753200,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -186,9 +186,9 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 60,
-      "listPrice": 3324000,
-      "costRate": 0.27,
-      "cost": 894600,
+      "listPrice": 3544000,
+      "costRate": 0.26,
+      "cost": 927600,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -230,9 +230,9 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 70,
-      "listPrice": 3666000,
+      "listPrice": 3910000,
       "costRate": 0.25,
-      "cost": 925200,
+      "cost": 960700,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -298,9 +298,9 @@
       "config": "1段",
       "category": "A4カラー卓上",
       "gradePpm": 35,
-      "listPrice": 740280,
+      "listPrice": 789280,
       "costRate": 0.44,
-      "cost": 323000,
+      "cost": 350000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
         {
@@ -324,38 +324,14 @@
       ]
     },
     {
-      "id": "kyocera-2520i-plus",
-      "maker": "KYOCERA",
-      "model": "TASKalfa 2520i+",
-      "category": "モノクロ",
-      "gradePpm": 25,
-      "listPrice": 1092000,
-      "costRate": 0.35,
-      "cost": 386960,
-      "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
-    },
-    {
-      "id": "kyocera-2510i-plus",
-      "maker": "KYOCERA",
-      "model": "TASKalfa 2510i+",
-      "category": "モノクロ",
-      "gradePpm": 25,
-      "listPrice": 962000,
-      "costRate": 0.36,
-      "cost": 347360,
-      "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": []
-    },
-    {
       "id": "kyocera-mz3200i",
       "maker": "KYOCERA",
       "model": "TASKalfa MZ3200i",
       "category": "モノクロ",
       "gradePpm": 32,
-      "listPrice": 1402000,
+      "listPrice": 1556000,
       "costRate": 0.29,
-      "cost": 406180,
+      "cost": 450000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": []
     },
@@ -365,9 +341,9 @@
       "model": "TASKalfa MZ4000i",
       "category": "モノクロ",
       "gradePpm": 40,
-      "listPrice": 1822000,
-      "costRate": 0.27,
-      "cost": 493080,
+      "listPrice": 1997000,
+      "costRate": 0.28,
+      "cost": 560000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": []
     },
@@ -378,7 +354,7 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 20,
-      "listPrice": 1653800,
+      "listPrice": 1662800,
       "costRate": 0.32,
       "cost": 534000,
       "functions": "コピー・プリンター・FAX・スキャナー",
@@ -434,7 +410,7 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 25,
-      "listPrice": 2050300,
+      "listPrice": 2083800,
       "costRate": 0.26,
       "cost": 542000,
       "functions": "コピー・プリンター・FAX・スキャナー",
@@ -484,8 +460,8 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 35,
-      "listPrice": 2490300,
-      "costRate": 0.26,
+      "listPrice": 2523800,
+      "costRate": 0.25,
       "cost": 637000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
@@ -534,8 +510,8 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 45,
-      "listPrice": 2930300,
-      "costRate": 0.33,
+      "listPrice": 2963800,
+      "costRate": 0.32,
       "cost": 962000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
@@ -584,8 +560,8 @@
       "config": "4段",
       "category": "A3カラー",
       "gradePpm": 55,
-      "listPrice": 3420300,
-      "costRate": 0.35,
+      "listPrice": 3453800,
+      "costRate": 0.34,
       "cost": 1187000,
       "functions": "コピー・プリンター・FAX・スキャナー",
       "items": [
