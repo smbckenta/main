@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_FLEET,
-  applyGrossProfitToAll,
+  applyCommonTerms,
   autoSelectProposals,
   calcFleet,
   copySide,
@@ -11,13 +11,16 @@ import {
   emptyFleetUnit,
   fleetFromReadings,
   newChargeLine,
+  isEmptyTerms,
   isPriceable,
+  isReplaced,
   proposalFromCurrent,
   requiredPpm,
   counterGroups,
   grossProfitBreakdown,
   withDeductionRate,
 } from "@/lib/fleet";
+import type { BulkTerms } from "@/lib/fleet";
 import { LEASE_TERMS, MAKERS, MAKER_LABELS } from "@/lib/types";
 import type {
   ChargeTier,
@@ -297,7 +300,7 @@ export default function FleetEditor({
         </div>
       </div>
 
-      <BulkGrossProfitEditor
+      <BulkTermsEditor
         fleet={fleet}
         settings={settings}
         gp={grossProfitBreakdown(calc)}
@@ -864,13 +867,16 @@ function CounterSplitNotice({ fleet }: { fleet: Fleet }) {
 }
 
 /**
- * 全台の粗利をまとめて決める。
+ * 全台に同じ条件をまとめて入れる。
  *
  * 台数が多い案件で、1台ずつ同じ数字を入れ直すのは手間なだけでなく、
- * 1台だけ入れ忘れたときに気づけない。1台当たりの粗利をここで決めて、
- * 入替する台すべてに当てる。当たった台数と合計粗利をその場で出す。
+ * 1台だけ入れ忘れたときに気づけない。カウンター単価・最低基本料金・粗利を
+ * ここで1回だけ決めて、入れ替える全台に当てる。
+ *
+ * 空のままにした欄は触らない。「単価だけ入れ直す」ができるようにするため。
+ * 据え置く台は現行の契約のままなので、当てない。
  */
-function BulkGrossProfitEditor({
+function BulkTermsEditor({
   fleet,
   settings,
   gp: totals,
@@ -881,24 +887,38 @@ function BulkGrossProfitEditor({
   gp: { total: number; body: number; addOn: number };
   onApply: (fleet: Fleet) => void;
 }) {
+  // 空文字＝「触らない」。0 と区別したいので数値にしない
+  const [mono, setMono] = useState("");
+  const [color, setColor] = useState("");
+  const [twoColor, setTwoColor] = useState("");
+  const [minCharge, setMinCharge] = useState("");
+  const [useGp, setUseGp] = useState(true);
   const [mode, setMode] = useState<"fromGp" | "fromMargin">("fromGp");
   const [gp, setGp] = useState<number>(settings.defaultGrossProfit);
   const [rate, setRate] = useState<number>(Math.round(settings.defaultMarginRate * 1000) / 10);
   const [message, setMessage] = useState("");
 
-  // 当てられるのは仕切価格が入っている台だけ（据え置く台は触らない）
-  const targets = fleet.units.filter(isPriceable).length;
+  // 当てるのは入れ替える台だけ。粗利はさらに仕切価格が要る
+  const targets = fleet.units.filter(isReplaced).length;
+  const gpTargets = fleet.units.filter(isPriceable).length;
+
+  const numOr = (v: string): number | undefined => (v.trim() === "" ? undefined : Number(v));
+
+  const terms: BulkTerms = {
+    unitPrices: { mono: numOr(mono), color: numOr(color), twoColor: numOr(twoColor) },
+    minCharge: numOr(minCharge),
+    grossProfit: useGp
+      ? { mode, grossProfitAmount: gp, marginRate: rate / 100 }
+      : undefined,
+  };
+  const nothingToDo = isEmptyTerms(terms);
 
   function apply() {
-    const result = applyGrossProfitToAll(fleet, {
-      mode,
-      grossProfitAmount: gp,
-      marginRate: rate / 100,
-    });
+    const result = applyCommonTerms(fleet, terms);
     onApply(result.fleet);
     setMessage(
       result.skipped > 0
-        ? `${result.applied}台に入れました（${result.skipped}台は仕切価格が未入力のため、そのままです）。`
+        ? `${result.applied}台に入れました（${result.skipped}台は据え置きのため、そのままです）。`
         : `${result.applied}台に入れました。`,
     );
   }
@@ -907,11 +927,52 @@ function BulkGrossProfitEditor({
 
   return (
     <div className="bulk-gp">
-      <div className="row">
-        <strong style={{ fontSize: 13 }}>全台の粗利をまとめて決める</strong>
+      <div className="row" style={{ alignItems: "flex-end" }}>
+        <strong style={{ fontSize: 13, paddingBottom: 6 }}>全台にまとめて入れる</strong>
+        <div className="field" style={{ width: 96 }}>
+          <label>白黒（円/枚）</label>
+          <input type="number" step={0.1} value={mono} placeholder="0.7" onChange={(e) => setMono(e.target.value)} />
+        </div>
+        <div className="field" style={{ width: 96 }}>
+          <label>カラー（円/枚）</label>
+          <input type="number" step={0.1} value={color} placeholder="7.0" onChange={(e) => setColor(e.target.value)} />
+        </div>
+        <div className="field" style={{ width: 104 }}>
+          <label>2色（円/枚）</label>
+          <input
+            type="number"
+            step={0.1}
+            value={twoColor}
+            placeholder="－"
+            onChange={(e) => setTwoColor(e.target.value)}
+          />
+        </div>
+        <div className="field" style={{ width: 144 }}>
+          <label>最低基本料金（円/月）</label>
+          <input
+            type="number"
+            step={100}
+            value={minCharge}
+            placeholder="900"
+            onChange={(e) => setMinCharge(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="row" style={{ alignItems: "flex-end", marginTop: 6 }}>
+        <label className="checks" style={{ paddingBottom: 6 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input type="checkbox" checked={useGp} onChange={(e) => setUseGp(e.target.checked)} />
+            粗利も入れる
+          </span>
+        </label>
         <div className="field" style={{ width: 170 }}>
           <label>決め方</label>
-          <select value={mode} onChange={(e) => setMode(e.target.value as "fromGp" | "fromMargin")}>
+          <select
+            value={mode}
+            disabled={!useGp}
+            onChange={(e) => setMode(e.target.value as "fromGp" | "fromMargin")}
+          >
             <option value="fromGp">1台当たりの粗利額（GP）</option>
             <option value="fromMargin">粗利率（%）</option>
           </select>
@@ -923,6 +984,7 @@ function BulkGrossProfitEditor({
               type="number"
               value={gp}
               step={10_000}
+              disabled={!useGp}
               onChange={(e) => setGp(Number(e.target.value))}
             />
           </div>
@@ -933,29 +995,31 @@ function BulkGrossProfitEditor({
               type="number"
               value={rate}
               step={1}
+              disabled={!useGp}
               onChange={(e) => setRate(Number(e.target.value))}
             />
           </div>
         )}
-        <button disabled={targets === 0} onClick={apply}>
+        <button disabled={targets === 0 || nothingToDo} onClick={apply}>
           {targets}台にまとめて入れる
         </button>
       </div>
-      {/*
-        仕切価格は通常構成（本体・オプション・設置工事費）を含んだ額なので、
-        ふつうは「1台当たりGP × 台数」がそのまま粗利合計になる。
-        通常構成以外の追加オプションを入れたときだけ、その分も粗利に入るので、
-        どこから来た差なのかが分かるように内訳を出す。
-      */}
+
       <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-        いまの粗利合計　<strong>{yen(totals.total)}</strong>
+        空のままにした欄は変えません。据え置く台は現行の契約のままなので当てません。
+        {/*
+          仕切価格は通常構成（本体・オプション・設置工事費）を含んだ額なので、
+          ふつうは「1台当たりGP × 台数」がそのまま粗利合計になる。
+          通常構成以外の追加オプションを入れたときだけ、その分も粗利に入る。
+        */}
+        　／　いまの粗利合計　<strong>{yen(totals.total)}</strong>
         {totals.addOn > 0 && (
           <>
             （機器ぶん {yen(totals.body)}　＋　追加オプション {yen(totals.addOn)}）
           </>
         )}
-        {mode === "fromGp" && targets > 0 && (
-          <>　／　この設定なら機器ぶんが {yen(gp * targets)}（{yen(gp)}×{targets}台）</>
+        {useGp && mode === "fromGp" && gpTargets > 0 && (
+          <>　／　この設定なら機器ぶんが {yen(gp * gpTargets)}（{yen(gp)}×{gpTargets}台）</>
         )}
       </p>
       {message && (
@@ -963,10 +1027,10 @@ function BulkGrossProfitEditor({
           {message}
         </p>
       )}
-      {targets === 0 && (
+      {useGp && gpTargets < targets && (
         <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-          まとめて入れるには、各台の「価格の決め方」で仕切表から機種を選んでください。
-          据え置く台や、月額リース料を直接入れた台は対象になりません。
+          粗利が入るのは、仕切表から機種を選んだ{gpTargets}台だけです
+          （月額リース料を直接入れた台は粗利を計算していません）。単価と基本料金は{targets}台すべてに入ります。
         </p>
       )}
     </div>

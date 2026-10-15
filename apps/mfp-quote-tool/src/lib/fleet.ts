@@ -537,6 +537,19 @@ export function isPriceable(unit: FleetUnit): boolean {
 }
 
 /**
+ * こちらが入れ替える台か。
+ *
+ * 据え置く台（提案側が現行の写し）は、カウンター単価も現行の契約のまま。
+ * そこへ新しい単価を入れてしまうと、ありもしない削減額が出る。
+ * 仕切価格が入っているか、機種が現行と変わっているものだけを対象にする。
+ */
+export function isReplaced(unit: FleetUnit): boolean {
+  if (isPriceable(unit)) return true;
+  const to = (unit.proposal.modelText ?? "").trim();
+  return to.length > 0 && to !== (unit.current.modelText ?? "").trim();
+}
+
+/**
  * 全台に同じ粗利を当てる。
  *
  * 台数が多い案件で、1台ずつ同じ数字を入れ直すのは手間なだけでなく、
@@ -629,4 +642,94 @@ export function counterGroups(units: FleetUnit[]): FleetUnit[][] {
 /** 見積書が何枚に分かれるか（画面の案内に使う） */
 export function fleetQuoteCount(fleet?: Fleet): number {
   return fleet?.units.length ? counterGroups(fleet.units).length : 0;
+}
+
+/* ---------------- 全台に同じ条件をまとめて入れる ---------------- */
+
+/**
+ * 全台に同じにしたい条件。
+ *
+ * 入っている項目だけを当て、空のままの項目は触らない。
+ * 「カウンター単価だけ入れ直す」「粗利だけ変える」ができるようにするため。
+ */
+export interface BulkTerms {
+  /** カウンター単価（円/枚）。区分ごとに指定する */
+  unitPrices?: Partial<Record<CurrentChargeLine["kind"], number>>;
+  /** 最低基本料金（円/月） */
+  minCharge?: number;
+  /** 月額保守料金（円/月） */
+  maintenanceMonthly?: number;
+  /** 粗利の決め方 */
+  grossProfit?: BulkGrossProfit;
+}
+
+/** 入れるものが何も指定されていないか */
+export const isEmptyTerms = (t: BulkTerms): boolean =>
+  !t.grossProfit &&
+  t.minCharge === undefined &&
+  t.maintenanceMonthly === undefined &&
+  !Object.values(t.unitPrices ?? {}).some((v) => v !== undefined);
+
+/** 提案側のカウンター単価を、区分ごとに一律の単価へ置き換える */
+function withUnitPrices(
+  side: FleetSide,
+  prices: Partial<Record<CurrentChargeLine["kind"], number>>,
+): FleetSide {
+  return {
+    ...side,
+    lines: side.lines.map((line) => {
+      const unit = prices[line.kind];
+      if (unit === undefined) return line;
+      // 当社の提案は一律単価なので、段を1本にそろえる
+      return { ...line, tiers: [{ from: 1, to: null, unit: Math.max(0, unit) }] };
+    }),
+  };
+}
+
+/**
+ * 全台に同じ条件を入れる。
+ *
+ * 台数が多い案件で、1台ずつ同じ数字を入れ直すのは手間なだけでなく、
+ * 1台だけ入れ忘れたときに気づけない。カウンター単価・最低基本料金・粗利を
+ * まとめて入れて、「何台に当たったか」を返す。
+ *
+ * 当てるのは入れ替える台だけ。据え置く台は現行の契約のままなので触らない。
+ * 粗利だけは、仕切価格が入っている台（＝粗利を計算している台）に限る。
+ */
+export function applyCommonTerms(
+  fleet: Fleet,
+  terms: BulkTerms,
+): { fleet: Fleet; applied: number; skipped: number } {
+  let applied = 0;
+
+  const units = fleet.units.map((unit) => {
+    if (!isReplaced(unit)) return unit;
+    applied += 1;
+
+    let proposal = unit.proposal;
+    if (terms.unitPrices) proposal = withUnitPrices(proposal, terms.unitPrices);
+    if (terms.minCharge !== undefined) {
+      proposal = { ...proposal, minCharge: Math.max(0, Math.round(terms.minCharge)) };
+    }
+    if (terms.maintenanceMonthly !== undefined) {
+      proposal = { ...proposal, maintenanceMonthly: Math.max(0, Math.round(terms.maintenanceMonthly)) };
+    }
+    // 粗利は仕切価格が入っている台だけ（入っていなければ計算できない）
+    if (terms.grossProfit && isPriceable(unit)) {
+      const g = terms.grossProfit;
+      proposal = {
+        ...proposal,
+        pricing: {
+          ...proposal.pricing!,
+          mode: g.mode,
+          ...(g.mode === "fromGp"
+            ? { grossProfitAmount: Math.max(0, Math.round(g.grossProfitAmount ?? 0)) }
+            : { marginRate: Math.min(Math.max(g.marginRate ?? 0, 0), 0.95) }),
+        },
+      };
+    }
+    return { ...unit, proposal };
+  });
+
+  return { fleet: { ...fleet, units }, applied, skipped: fleet.units.length - applied };
 }
