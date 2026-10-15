@@ -302,26 +302,7 @@
       "costRate": 0.44,
       "cost": 350000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": [
-        {
-          "name": "TASKalfa MA3500ci　本体",
-          "qty": 1,
-          "unit": "台",
-          "unitPrice": 700000
-        },
-        {
-          "name": "搬入費",
-          "qty": 1,
-          "unit": "台",
-          "unitPrice": 30000
-        },
-        {
-          "name": "設置工事費",
-          "qty": 1,
-          "unit": "式",
-          "unitPrice": 53000
-        }
-      ]
+      "items": []
     },
     {
       "id": "kyocera-mz3200i",
@@ -880,26 +861,7 @@
       "costMax": 610000,
       "cost": 590000,
       "functions": "コピー・プリンター・FAX・スキャナー",
-      "items": [
-        {
-          "name": "カラーMFP RICOH IM C3000F",
-          "qty": 1,
-          "unit": "台",
-          "unitPrice": 1650000
-        },
-        {
-          "name": "給紙テーブル",
-          "qty": 1,
-          "unit": "台",
-          "unitPrice": 170000
-        },
-        {
-          "name": "搬入設置指導料",
-          "qty": 1,
-          "unit": "台",
-          "unitPrice": 43900
-        }
-      ]
+      "items": []
     },
     {
       "id": "ricoh-im-c3500f",
