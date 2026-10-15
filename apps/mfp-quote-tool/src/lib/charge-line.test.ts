@@ -40,11 +40,13 @@ const colorPrint: CurrentChargeLine = {
 };
 
 describe("逓減単価（パフォーマンスチャージ）の計算", () => {
-  it("控除カウントは切り上げる", () => {
-    // 382 × 3% = 11.46。四捨五入(11)では明細と合わない
+  it("控除カウントは、明細の金額に合う枚数を採る（リコーは切り上げ側）", () => {
+    // 382 × 3% = 11.46。四捨五入・切り捨て(11)では明細の金額と合わない
     expect(calcChargeLine(colorPrint).deduction).toBe(12);
     expect(calcChargeLine(mono).deduction).toBe(28);
     expect(calcChargeLine(colorCopy).deduction).toBe(2);
+    // 丸め方はメーカーで違う（シャープは切り捨て）。deduction-rounding.test.ts も参照
+    expect(calcChargeLine(mono).deductionBasis).toBe("amount");
   });
 
   it("段は上の帯から順に埋める", () => {

@@ -1370,7 +1370,8 @@ function deductionNote(current: CurrentCalc, source?: CurrentChargeLine[]): stri
   if (!lines.length && !flat) return "";
 
   // 率は明細に書かれている値をそのまま出す。
-  // 控除枚数は切り上げなので、枚数から割り戻すと 3% が 3.8% になってしまう
+  // 控除枚数には端数の丸めが入っているので、枚数から割り戻すと
+  // 3% が 3.8% になったり 1% が 0.97% になったりしてしまう
   const rateOf = (name: string) => source?.find((x) => x.name === name)?.deductionRate;
   const pct = (rate: number | undefined) => (rate === undefined ? "" : `${Math.round(rate * 1000) / 10}%`);
   const detail = lines.length

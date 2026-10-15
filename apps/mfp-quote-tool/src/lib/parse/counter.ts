@@ -311,10 +311,14 @@ export function toMonthlyAverage(input: CounterReading[]): MonthlyAverage {
 /**
  * 読み取れた明細が何年何月から何年何月までを含むか。
  * 1機番あたりの月数を数え、2ヶ月以上あるときだけ「平均」として扱う。
+ *
+ * 明細が1枚でも、その1枚が数ヶ月ぶんをまとめている場合（3ヶ月に1度の
+ * カウンター請求など）は平均になる。枚数は月数で割っているのに
+ * 注記だけ出ないと、期間ぶんの枚数がそのまま載っているように見えてしまう。
  */
 function coveredPeriod(readings: CounterReading[]): MonthlyAverage["period"] {
   const dated = readings.filter((r) => r.periodFrom || r.periodTo);
-  if (dated.length < 2) return undefined;
+  if (!dated.length) return undefined;
 
   const froms = dated.map((r) => r.periodFrom ?? r.periodTo!).sort();
   const tos = dated.map((r) => r.periodTo ?? r.periodFrom!).sort();

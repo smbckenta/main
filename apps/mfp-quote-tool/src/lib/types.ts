@@ -480,8 +480,18 @@ export interface CurrentChargeLine {
   kind: "mono" | "color" | "twoColor" | "other";
   /** 月間カウント（控除前） */
   pages: number;
-  /** 控除率（0.02 = 2%）。控除カウントは切り上げる */
+  /**
+   * 控除率（0.02 = 2%）。
+   * 控除カウントの端数の扱いはメーカーによって違う（リコーは切り上げ、
+   * シャープは切り捨て）ので、率だけで丸め方を決め打ちしない。
+   */
   deductionRate?: number;
+  /**
+   * 明細に書かれている控除カウント（枚）。
+   * 「モノクロ 枚数控除(1.00%) 65」のように枚数そのものが書いてあれば、
+   * 丸め方を推測せずにこの数をそのまま使う。
+   */
+  deductionPages?: number;
   /** 段階単価。1段だけなら一律単価 */
   tiers: ChargeTier[];
   /** 明細に書かれている金額（税抜）。検算に使う */
@@ -890,14 +900,23 @@ export interface ChargeBandCalc {
   amount: number;
 }
 
+/**
+ * 控除カウントの決め方。
+ * listed＝明細に書かれた枚数そのまま／amount＝明細の金額と合う枚数／
+ * ceil＝率から切り上げ（手がかりが無いときの既定）／none＝控除なし
+ */
+export type DeductionBasis = "listed" | "amount" | "ceil" | "none";
+
 /** カウンター区分1行の計算結果 */
 export interface ChargeLineCalc {
   name: string;
   kind: CurrentChargeLine["kind"];
   /** 控除前のカウント */
   pages: number;
-  /** 控除カウント（切り上げ） */
+  /** 控除カウント */
   deduction: number;
+  /** その控除カウントを何から決めたか */
+  deductionBasis?: DeductionBasis;
   /** 請求カウント */
   billablePages: number;
   bands: ChargeBandCalc[];

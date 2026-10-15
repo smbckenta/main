@@ -31,6 +31,10 @@ const AiChargeLineSchema = z.object({
     .describe("モノクロ=mono / フルカラー=color / 2色カラー=twoColor / それ以外=other"),
   pages: z.number().describe("この区分の月間カウント（控除前）"),
   deductionPercent: num("控除率（%）。「控除 3%の控除カウント」なら 3。無ければ null"),
+  deductionCount: num(
+    "明細に書かれている控除カウントの枚数。「モノクロ 枚数控除(1.00%) 65」なら 65、" +
+      "「控除 2%の控除カウント 28」なら 28。枚数の記載が無ければ null",
+  ),
   tiers: z.array(AiChargeTierSchema).describe("段階単価。一律単価なら1段だけ入れる"),
   amount: num("明細に書かれているこの区分の金額（円・税抜）"),
 });
@@ -159,12 +163,19 @@ function toChargeLines(
       .sort((a, b) => a.from - b.from);
     if (pages === undefined || !tiers.length || !line.name?.trim()) continue;
     const percent = line.deductionPercent;
+    const count = line.deductionCount;
     out.push({
       name: line.name.trim(),
       kind: line.kind,
       pages,
       // 控除率は「3」（%）で来る。0〜20%の範囲だけ採用する
       deductionRate: percent !== null && percent > 0 && percent <= 20 ? percent / 100 : undefined,
+      // 控除カウントの枚数が書いてあれば、丸め方を推測せずにそのまま使う。
+      // カウントより多い・マイナスは読み違いなので捨てる
+      deductionPages:
+        count !== null && count !== undefined && count > 0 && count <= pages
+          ? Math.round(count)
+          : undefined,
       tiers,
       amount: positive(line.amount),
     });

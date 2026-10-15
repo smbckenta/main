@@ -11,6 +11,7 @@ import ProposalDocEditor from "./ProposalDocEditor";
 import type {
   CounterReading,
   CurrentCalc,
+  DeductionBasis,
   DeviceSpec,
   LeaseTerm,
   Maker,
@@ -28,6 +29,21 @@ const RANK_TEXT: Record<string, string> = {
   B: "B：翌日対応",
   C: "C：翌々日以降の対応",
   D: "D：対応不可",
+};
+
+/**
+ * 控除カウントを何から決めたか。
+ * 端数の丸め方はメーカーによって違うので（リコーは切り上げ・シャープは切り捨て）、
+ * 明細の数字をそのまま使えたのか、率から計算したのかが分かるようにしておく。
+ */
+const DEDUCTION_BASIS: Record<DeductionBasis, { label: string; help: string }> = {
+  listed: { label: "(明細)", help: "明細に書かれている控除カウントをそのまま使っています。" },
+  amount: { label: "(照合)", help: "明細に書かれた金額とぴったり合う枚数を採っています。" },
+  ceil: {
+    label: "(率)",
+    help: "明細に枚数も金額も無いため、控除率から切り上げで計算しています。原本と見比べてください。",
+  },
+  none: { label: "", help: "" },
 };
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
@@ -578,7 +594,15 @@ export default function QuoteEditor({
                   <tr key={line.name}>
                     <td>{line.name}</td>
                     <td className="num">{line.pages.toLocaleString()}</td>
-                    <td className="num">{line.deduction ? `▲${line.deduction}` : "－"}</td>
+                    <td className="num">
+                      {line.deduction ? `▲${line.deduction}` : "－"}
+                      {line.deduction > 0 && (
+                        <span className="muted" title={DEDUCTION_BASIS[line.deductionBasis ?? "ceil"].help}>
+                          {" "}
+                          {DEDUCTION_BASIS[line.deductionBasis ?? "ceil"].label}
+                        </span>
+                      )}
+                    </td>
                     <td className="muted">
                       {line.bands
                         .map((b) => `${b.label} ${b.unit}円 × ${b.pages.toLocaleString()}枚 = ${b.amount.toLocaleString()}円`)

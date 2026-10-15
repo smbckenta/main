@@ -1,11 +1,13 @@
 import { calcOptions } from "./proposal-doc";
 import type {
   ChargeLineCalc,
+  ChargeTier,
   CounterBreakdown,
   CounterTier,
   CounterUnits,
   CurrentCalc,
   CurrentChargeLine,
+  DeductionBasis,
   DeviceSpec,
   Maker,
   MakerNote,
@@ -134,7 +136,12 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * 一律控除（ミスプリント控除など）を効かせた請求枚数。
- * 控除カウントは明細の慣習に合わせて切り上げる。
+ *
+ * これは明細を読み取れず、単価×枚数で計算する場合の道。
+ * 区分ごとの金額が手元に無いので丸め方を照合できず、切り上げる。
+ * 多めに引くぶん現行が安く見えるので、削減額を実際より大きく
+ * 見せない側に倒れる。明細がある場合は resolveDeduction のほうを通り、
+ * 明細に書かれた枚数・金額に合わせる。
  */
 export function deductPages(pages: number, rate?: number): { billable: number; deduction: number } {
   const p = Math.max(0, Math.round(pages || 0));
@@ -185,23 +192,13 @@ export function calcCounter(
   };
 }
 
-/**
- * 逓減単価（パフォーマンスチャージ）の1区分を計算する。
- *
- * 明細と1円まで合わせるため、次の順番と丸め方に従う。
- *   1. 控除カウント = カウント × 控除率（切り上げ）
- *   2. 請求カウント = カウント − 控除カウント
- *   3. 段は上の帯から順に埋め、帯ごとに金額を出して小数を切り捨てる
- * 先に合計してから丸めると、明細と1円ずれる。
- */
-export function calcChargeLine(line: CurrentChargeLine): ChargeLineCalc {
-  const pages = Math.max(0, Math.round(line.pages));
-  const deduction = line.deductionRate ? Math.ceil(pages * line.deductionRate) : 0;
-  const billablePages = Math.max(0, pages - deduction);
-
-  const tiers = [...line.tiers].sort((a, b) => a.from - b.from);
+/** 請求カウントを帯に流し込んで、帯ごとの金額を出す */
+function chargeBands(
+  tiers: ChargeTier[],
+  billablePages: number,
+): { bands: ChargeLineCalc["bands"]; amount: number } {
   const bands: ChargeLineCalc["bands"] = [];
-  let remaining = billablePages;
+  let remaining = Math.max(0, billablePages);
   let amount = 0;
 
   for (const tier of tiers) {
@@ -229,6 +226,69 @@ export function calcChargeLine(line: CurrentChargeLine): ChargeLineCalc {
     amount += bandAmount;
   }
 
+  return { bands, amount };
+}
+
+/**
+ * 控除カウントを決める。
+ *
+ * 端数の扱いはメーカーによって違う。実物の明細で確かめたものだけでも、
+ *   リコー  ：1,389枚の2% = 27.78 → 28枚（切り上げ）
+ *   シャープ：3,899枚の1% = 38.99 → 38枚（切り捨て）
+ * と逆になる。率だけ見て一律に丸めると、どちらかのメーカーで必ずずれる。
+ * （実際、一律に切り上げていたため、シャープの明細で請求額が11円不足した）
+ *
+ * そこで、確かなものから順に使う。
+ *   1. 明細に控除カウントが書いてあれば、その枚数をそのまま使う
+ *   2. 率しか分からなくても、明細にその区分の金額が書いてあれば、
+ *      その金額をぴったり再現できる枚数を採る（±1枚の範囲だけ見る）
+ *   3. どちらも無ければ切り上げる。多めに引くぶん現行が安く見えるので、
+ *      削減額を実際より大きく見せない側に倒れる
+ */
+function resolveDeduction(
+  line: CurrentChargeLine,
+  pages: number,
+  tiers: ChargeTier[],
+): { deduction: number; basis: DeductionBasis } {
+  const clamp = (n: number) => Math.min(pages, Math.max(0, Math.round(n)));
+
+  if (line.deductionPages !== undefined && line.deductionPages > 0) {
+    return { deduction: clamp(line.deductionPages), basis: "listed" };
+  }
+
+  const rate = line.deductionRate;
+  if (!rate || rate <= 0 || pages <= 0) return { deduction: 0, basis: "none" };
+
+  // 切り上げ → 四捨五入 → 切り捨て の順。同じ金額になるなら安全側の切り上げを採る
+  const exact = pages * rate;
+  const candidates = [Math.ceil(exact), Math.round(exact), Math.floor(exact)].map(clamp);
+
+  if (line.amount !== undefined) {
+    for (const deduction of candidates) {
+      if (chargeBands(tiers, pages - deduction).amount === line.amount) {
+        return { deduction, basis: "amount" };
+      }
+    }
+  }
+  return { deduction: candidates[0], basis: "ceil" };
+}
+
+/**
+ * 逓減単価（パフォーマンスチャージ）の1区分を計算する。
+ *
+ * 明細と1円まで合わせるため、次の順番と丸め方に従う。
+ *   1. 控除カウントを決める（resolveDeduction：明細の枚数 → 明細の金額 → 切り上げ）
+ *   2. 請求カウント = カウント − 控除カウント
+ *   3. 段は上の帯から順に埋め、帯ごとに金額を出して小数を切り捨てる
+ * 先に合計してから丸めると、明細と1円ずれる。
+ */
+export function calcChargeLine(line: CurrentChargeLine): ChargeLineCalc {
+  const pages = Math.max(0, Math.round(line.pages));
+  const tiers = [...line.tiers].sort((a, b) => a.from - b.from);
+  const { deduction, basis } = resolveDeduction(line, pages, tiers);
+  const billablePages = Math.max(0, pages - deduction);
+  const { bands, amount } = chargeBands(tiers, billablePages);
+
   const effectiveUnit = pages > 0 ? Math.round((amount / pages) * 100) / 100 : 0;
   const amountDiff = line.amount !== undefined ? amount - line.amount : undefined;
 
@@ -237,6 +297,7 @@ export function calcChargeLine(line: CurrentChargeLine): ChargeLineCalc {
     kind: line.kind,
     pages,
     deduction,
+    deductionBasis: basis,
     billablePages,
     bands,
     amount,

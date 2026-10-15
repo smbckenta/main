@@ -6,7 +6,7 @@ import {
 } from "./ai/document-ai";
 import { toCounterReadings, toLeaseReading, type AiDocument } from "./ai/schema";
 import { extractDocument, type ExtractedDoc } from "./parse/extract";
-import { parseCounter, toMonthlyAverage } from "./parse/counter";
+import { monthsBetween, parseCounter, toMonthlyAverage } from "./parse/counter";
 import { parseLease } from "./parse/lease";
 import { looksLikeSchedule, parseSchedule } from "./parse/schedule";
 import { detectMaker, extractModelCandidates } from "./parse/normalize";
@@ -123,9 +123,15 @@ function parseWithRules(
 /**
  * 段階単価（パフォーマンスチャージ）の内訳をまとめる。
  *
- * 1ヶ月分だけなら明細どおりに使う（金額も残して検算できるようにする）。
- * 複数月ぶんある場合は、区分ごとに枚数を平均して代表的な1ヶ月分に直す。
- * 単価の帯と控除率は最新の明細のものを使い、金額は平均後の枚数と合わなくなるので落とす。
+ * この表はぜんぶ「1ヶ月あたり」で並べる。月間印刷枚数（monoPages ほか）は
+ * toMonthlyAverage が明細の期間で割っているので、内訳の枚数も同じ基準に
+ * そろえないと、現行のカウンター料金だけが月数ぶん大きくなってしまう。
+ * 提案側は月平均の枚数で計算するため、削減額を何倍にも見せることになる。
+ *
+ * 1ヶ月分の明細1枚なら、明細どおりに使う（金額も残して検算できるようにする）。
+ * 3ヶ月に1度のカウンター請求のように1枚が数ヶ月ぶんをまとめている場合と、
+ * 複数月ぶんを読み込んだ場合は、区分ごとに1ヶ月あたりへ直す。
+ * 単価の帯と控除率は最新の明細のものを使う。
  */
 export function mergeChargeLines(readings: CounterReading[]): CurrentChargeLine[] | undefined {
   const withLines = readings.filter((r) => r.chargeLines?.length);
@@ -135,15 +141,31 @@ export function mergeChargeLines(readings: CounterReading[]): CurrentChargeLine[
     (a.periodTo ?? a.periodFrom ?? "").localeCompare(b.periodTo ?? b.periodFrom ?? ""),
   );
   const latest = sorted[sorted.length - 1].chargeLines!;
-  if (sorted.length === 1) return latest;
+
+  if (sorted.length === 1) {
+    const months = monthsBetween(sorted[0].periodFrom, sorted[0].periodTo);
+    return months <= 1 ? latest : latest.map((line) => perMonth(line, line.pages / months));
+  }
 
   return latest.map((line) => {
     const samples = sorted
       .map((r) => r.chargeLines?.find((l) => l.name === line.name))
       .filter((l): l is CurrentChargeLine => Boolean(l));
-    const pages = Math.round(samples.reduce((sum, l) => sum + l.pages, 0) / samples.length);
-    return { ...line, pages, amount: undefined };
+    const months = sorted.reduce((sum, r) => sum + monthsBetween(r.periodFrom, r.periodTo), 0);
+    return perMonth(line, samples.reduce((sum, l) => sum + l.pages, 0) / Math.max(1, months));
   });
+}
+
+/**
+ * 期間ぶんの枚数を1ヶ月あたりに直す。
+ *
+ * 帯（「1－1,000枚／月」）は1ヶ月あたりで切られているので、
+ * 割る前の枚数を流し込むと上の帯に乗って単価が安く出てしまう。
+ * 控除カウントと明細の金額は割った後の枚数と対応しなくなるため落とす
+ * （控除は残した控除率から計算し直す）。
+ */
+function perMonth(line: CurrentChargeLine, pagesPerMonth: number): CurrentChargeLine {
+  return { ...line, pages: Math.round(pagesPerMonth), deductionPages: undefined, amount: undefined };
 }
 
 /**

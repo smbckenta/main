@@ -54,7 +54,9 @@ const proposal: Proposal = {
 };
 
 describe("控除後の請求枚数", () => {
-  it("控除カウントは切り上げる（1,000枚の2%は20枚）", () => {
+  it("明細が無く単価×枚数で計算する場合、控除カウントは切り上げる", () => {
+    // 照合できる金額が手元に無いときの既定。多めに引いて現行を安く見せ、
+    // 削減額を実際より大きく見せない側に倒す
     expect(deductPages(1_000, 0.02)).toEqual({ billable: 980, deduction: 20 });
     // 端数は切り上げ。382枚の3%は11.46枚 → 12枚
     expect(deductPages(382, 0.03)).toEqual({ billable: 370, deduction: 12 });
