@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AiStatusBanner from "../AiStatusBanner";
+import LeaseRateBanner from "../LeaseRateBanner";
 import AiTestButton from "./AiTestButton";
 import UsersPanel from "./UsersPanel";
 import RegisterSetup from "./RegisterSetup";
@@ -9,7 +10,12 @@ import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } fro
 import { MASTER_READONLY_NOTE, useAuthState } from "../useAuthState";
 
 /** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
-type SettingsForm = Settings & { deletionPasswordSet?: boolean; newDeletionPassword?: string };
+type SettingsForm = Settings & {
+  deletionPasswordSet?: boolean;
+  newDeletionPassword?: string;
+  /** APIキーが保存済みか（キー本体はサーバーから返ってこない） */
+  aiKeySet?: boolean;
+};
 
 /** 自社情報・リース料率・カウンター単価ルール・PTFの設定 */
 export default function SettingsPage() {
@@ -382,6 +388,7 @@ export default function SettingsPage() {
 
       <section className="panel">
         <h2>リース料率</h2>
+        <LeaseRateBanner />
         <div className="row">
           {Object.entries(s.leaseRates)
             .sort((a, b) => Number(a[0]) - Number(b[0]))
@@ -803,7 +810,11 @@ export default function SettingsPage() {
                 // 伏せたままだと、途中で切れていても気づけない。
                 type={showApiKey ? "text" : "password"}
                 value={s.ai.apiKey}
-                placeholder="sk-ant-... （空欄なら環境変数 ANTHROPIC_API_KEY を使用）"
+                placeholder={
+                  s.aiKeySet
+                    ? "設定済み（変更するときだけ入力）"
+                    : "sk-ant-... （空欄なら環境変数 ANTHROPIC_API_KEY を使用）"
+                }
                 onChange={(e) => set({ ai: { ...s.ai, apiKey: e.target.value.trim() } })}
               />
               <button className="secondary" onClick={() => setShowApiKey(!showApiKey)}>
