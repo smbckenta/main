@@ -1,0 +1,227 @@
+@echo off
+rem 複合機 見積・比較表作成ツール　起動用（Windows）
+rem
+rem このファイルをダブルクリックすると起動します。
+rem PowerShell を使わないので、実行ポリシーやダウンロードファイルの
+rem ブロックの影響を受けません。何が起きたかは start-log.txt に残ります。
+
+setlocal enabledelayedexpansion
+chcp 932 >nul 2>&1
+title 複合機 見積・比較表作成ツール
+cd /d "%~dp0"
+
+set "APP=%~dp0"
+set "LOG=%APP%start-log.txt"
+set "MSG1="
+set "MSG2="
+
+>"%LOG%" echo ==== 複合機 見積・比較表作成ツール 起動ログ ====
+>>"%LOG%" echo 日時     : %DATE% %TIME%
+>>"%LOG%" echo フォルダ : %APP%
+
+echo.
+echo === 複合機 見積・比較表作成ツール ===
+echo.
+
+rem --- ZIPの中から実行していないか ---
+rem エクスプローラーでZIPを開いたまま実行すると、一時フォルダに1個だけ
+rem 取り出されて動くため、ほかのファイルが見つからず失敗する。
+echo %APP% | find /i "\AppData\Local\Temp\" >nul
+if not errorlevel 1 goto in_zip
+echo %APP% | find /i ".zip\" >nul
+if not errorlevel 1 goto in_zip
+
+rem --- ファイルが揃っているか ---
+if not exist "%APP%package.json" goto no_files
+if not exist "%APP%src" goto no_files
+
+rem --- Node.js があるか ---
+rem インストール直後は PATH が反映されていないことがあるので、
+rem 見つからない場合は既定のインストール先も探しにいく。
+where node >nul 2>&1
+if not errorlevel 1 goto node_ok
+if exist "%ProgramFiles%\nodejs\node.exe" set "PATH=%ProgramFiles%\nodejs;%PATH%"
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" set "PATH=%ProgramFiles(x86)%\nodejs;%PATH%"
+if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "PATH=%LOCALAPPDATA%\Programs\nodejs;%PATH%"
+where node >nul 2>&1
+if errorlevel 1 goto no_node
+echo Node.js を既定のインストール先で見つけました。
+:node_ok
+set "NODEV="
+for /f "tokens=*" %%V in ('node -v') do set "NODEV=%%V"
+echo Node.js !NODEV! を確認しました。
+>>"%LOG%" echo Node.js  : !NODEV!
+
+rem --- データの保存先を決める ---
+rem 既定は Googleドライブの共有フォルダ。変えたいときは、このフォルダに
+rem data-dir.txt を置いて1行目にフォルダのパスを書く。
+set "DATADIR="
+if exist "%APP%data-dir.txt" goto datadir_file
+if exist "G:\共有ドライブ" goto datadir_drive
+set "DATADIR=%APP%data"
+echo Googleドライブ ^(G:^) が見つからないため、データはこのPC内に保存します。
+goto datadir_done
+:datadir_file
+set /p DATADIR=<"%APP%data-dir.txt"
+goto datadir_done
+:datadir_drive
+set "DATADIR=G:\共有ドライブ\★Kevin\▲0Claude\複合機見積作成ツール\data"
+:datadir_done
+if not exist "!DATADIR!" mkdir "!DATADIR!"
+set "MFP_DATA_DIR=!DATADIR!"
+echo データの保存先: !DATADIR!
+>>"%LOG%" echo 保存先   : !DATADIR!
+
+rem --- 必要な部品の取得 ---
+rem 新しい版に入れ替えると必要な部品が増えることがある。node_modules が
+rem あるだけでは足りないので、package-lock.json の日付とサイズを控えておき、
+rem 前回と違っていれば入れ直す。
+set "LOCKSTAMP="
+for %%F in ("%APP%package-lock.json") do set "LOCKSTAMP=%%~tF %%~zF"
+set "STAMP=%APP%node_modules\.mfp-install-stamp"
+set "PREV=__none__"
+if exist "%STAMP%" set /p PREV=<"%STAMP%"
+if not exist "%APP%node_modules" set "PREV=__none__"
+if "!PREV!"=="!LOCKSTAMP!" goto install_done
+
+echo.
+echo 必要な部品を取得しています。数分かかります… ^(npm install^)
+>>"%LOG%" echo npm install を実行します
+call npm install --no-audit --no-fund
+if errorlevel 1 goto npm_failed
+>"%STAMP%" echo !LOCKSTAMP!
+echo 部品の取得が終わりました。
+:install_done
+
+rem --- PDF出力に使う Chromium（初回のみ・失敗しても続行） ---
+if exist "%APP%.chromium-installed" goto chromium_done
+echo.
+echo PDF出力用の部品を取得中です… ^(初回のみ^)
+call npx --yes playwright install chromium
+if errorlevel 1 goto chromium_skipped
+>"%APP%.chromium-installed" echo ok
+goto chromium_done
+:chromium_skipped
+echo PDF出力用の部品を取得できませんでした。Excel出力はそのまま使えます。
+echo PDFが必要な場合は、帳票プレビュー画面から Ctrl+P →「PDFとして保存」をご利用ください。
+>>"%LOG%" echo Chromium の取得に失敗しました
+:chromium_done
+
+rem --- AI（Claude）のAPIキー ---
+rem PDF・写真の読み取りに使う。キーが無いと文字起こし（OCR）に切り替わり、
+rem カウンター明細の読み取り精度が大きく落ちるので、無ければここで聞く。
+set "KEYFILE=!DATADIR!\api-key.txt"
+if exist "!KEYFILE!" goto key_from_file
+rem 設定画面から登録済みなら、そちらを使うので聞かない
+if exist "!DATADIR!\settings.json" findstr /c:"sk-ant-" "!DATADIR!\settings.json" >nul 2>&1
+if not errorlevel 1 goto key_in_settings
+
+echo.
+echo ------------------------------------------------------------
+echo  PDF・写真の読み取りに使う AI のAPIキーが登録されていません。
+echo  このまま進めると、カウンター明細は文字起こし（OCR）での
+echo  読み取りになり、枚数や単価を取りこぼします。
+echo.
+echo  https://platform.claude.com/settings/keys で発行したキー
+echo  （sk-ant- で始まる文字列）を貼り付けて Enter を押してください。
+echo  ※ 貼り付けは、この黒い画面で右クリックです。
+echo  ※ あとで画面の「設定」から登録する場合は、何も入れずに Enter。
+echo ------------------------------------------------------------
+set "APIKEY="
+set /p APIKEY=APIキー: 
+if "!APIKEY!"=="" goto key_skipped
+>"!KEYFILE!" echo !APIKEY!
+set "ANTHROPIC_API_KEY=!APIKEY!"
+set "APIKEY="
+cls
+echo === 複合機 見積・比較表作成ツール ===
+echo APIキーを保存しました。次回からは聞きません。
+>>"%LOG%" echo APIキー : 入力を保存しました
+goto key_done
+
+:key_skipped
+echo APIキーなしで起動します。PDF・写真は文字起こし（OCR）での読み取りになります。
+>>"%LOG%" echo APIキー : 未登録のまま起動
+goto key_done
+
+:key_from_file
+set /p ANTHROPIC_API_KEY=<"!KEYFILE!"
+echo AI読み取り用のAPIキーを読み込みました。
+>>"%LOG%" echo APIキー : api-key.txt
+goto key_done
+
+:key_in_settings
+echo AI読み取り用のAPIキーは設定画面に登録済みです。
+>>"%LOG%" echo APIキー : settings.json
+:key_done
+
+rem --- 空いているポートを探す ---
+set PORT=3100
+:portloop
+netstat -ano | find ":!PORT! " | find "LISTENING" >nul
+if errorlevel 1 goto portfound
+set /a PORT=!PORT!+1
+if !PORT! lss 3110 goto portloop
+:portfound
+>>"%LOG%" echo ポート   : !PORT!
+
+echo.
+echo 起動しています… しばらくするとブラウザが自動で開きます。
+echo 終了するときは、この黒い画面を閉じるか Ctrl + C を押してください。
+echo.
+
+rem 起動を待ってからブラウザを開く
+start "" /min cmd /c "timeout /t 12 /nobreak >nul & start "" http://localhost:!PORT!/"
+
+call npx next dev -p !PORT!
+>>"%LOG%" echo next dev 終了コード: !ERRORLEVEL!
+goto end
+
+:in_zip
+set "MSG1=ZIPファイルの中から実行しています。"
+set "MSG2=ZIPを右クリック →「すべて展開」で展開してから、出てきたフォルダの中の start.bat を実行してください。"
+goto fail
+
+:no_files
+set "MSG1=このフォルダにファイルが揃っていません。"
+set "MSG2=ZIPを展開し直して、フォルダごと上書きしてください。"
+goto fail
+
+:no_node
+echo.
+echo Node.js が見つかりません。このPCにインストールしてください。
+echo.
+echo  方法1: コマンドプロンプト（またはターミナル）で次を実行する
+echo           winget install OpenJS.NodeJS.LTS
+echo.
+echo  方法2: https://nodejs.org から LTS版の Windows Installer をダウンロードして実行する
+echo.
+echo  入れ終わったらPCを再起動して、もう一度この start.bat をダブルクリックしてください。
+echo.
+>>"%LOG%" echo エラー   : Node.js が見つかりません
+pause
+exit /b 1
+
+:npm_failed
+set "MSG1=部品の取得（npm install）に失敗しました。"
+set "MSG2=社内ネットワークの制限で取得できないことがあります。この画面の内容をお送りください。"
+goto fail
+
+:fail
+echo.
+echo !MSG1!
+echo !MSG2!
+echo.
+>>"%LOG%" echo エラー   : !MSG1!
+>>"%LOG%" echo 対処     : !MSG2!
+echo この画面の内容と、このフォルダの start-log.txt を担当者にお送りください。
+echo.
+pause
+exit /b 1
+
+:end
+echo.
+echo 終了しました。
+echo エラーで終了した場合は、このフォルダの start-log.txt をお送りください。
+pause
+exit /b 0

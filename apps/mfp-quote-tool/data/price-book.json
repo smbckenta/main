@@ -1,0 +1,1157 @@
+{
+  "version": "2026-10-01",
+  "source": "Denrai 複合機仕切表（2026/10/01～）",
+  "note": "厳秘・弊社限り。仕切率・仕切価格は改定のたびに本ファイルを更新する。2026-09-16付の仕切表（2026/10/01～）に合わせて更新。富士フイルムの定価は2026年9月1日のメーカー改定後の標準価格に差し替え（仕切価格は据え置き）。",
+  "entries": [
+    {
+      "id": "kyocera-mz2501ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ2501ci",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 2033000,
+      "costRate": 0.22,
+      "cost": 455800,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "TASKalfa MZ2501ci 本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1496000
+        },
+        {
+          "name": "600枚×2段ペーパーフィーダー　PF-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 168000
+        },
+        {
+          "name": "自動原稿送り装置　DP-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 137000
+        },
+        {
+          "name": "FAXユニット　FAX System 14",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 179000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
+      ]
+    },
+    {
+      "id": "kyocera-mz3501ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ3501ci",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 35,
+      "listPrice": 2221000,
+      "costRate": 0.22,
+      "cost": 498900,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "TASKalfa MZ3501ci 本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1684000
+        },
+        {
+          "name": "600枚×2段ペーパーフィーダー　PF-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 168000
+        },
+        {
+          "name": "自動原稿送り装置　DP-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 137000
+        },
+        {
+          "name": "FAXユニット　FAX System 14",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 179000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
+      ]
+    },
+    {
+      "id": "kyocera-mz4001ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ4001ci",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 40,
+      "listPrice": 2640000,
+      "costRate": 0.23,
+      "cost": 616100,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "TASKalfa MZ4001ci 本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2040000
+        },
+        {
+          "name": "600枚×2段ペーパーフィーダー　PF-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 168000
+        },
+        {
+          "name": "自動原稿送り装置　DP-7150",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 200000
+        },
+        {
+          "name": "FAXユニット　FAX System 14",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 179000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
+      ]
+    },
+    {
+      "id": "kyocera-mz5001ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ5001ci",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 50,
+      "listPrice": 3018000,
+      "costRate": 0.25,
+      "cost": 753200,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "TASKalfa MZ5001ci 本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2418000
+        },
+        {
+          "name": "600枚×2段ペーパーフィーダー　PF-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 168000
+        },
+        {
+          "name": "自動原稿送り装置　DP-7150",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 200000
+        },
+        {
+          "name": "FAXユニット　FAX System 14",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 179000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
+      ]
+    },
+    {
+      "id": "kyocera-mz6001ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ6001ci",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 60,
+      "listPrice": 3544000,
+      "costRate": 0.26,
+      "cost": 927600,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "TASKalfa MZ6001ci 本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2944000
+        },
+        {
+          "name": "600枚×2段ペーパーフィーダー　PF-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 168000
+        },
+        {
+          "name": "自動原稿送り装置　DP-7150",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 200000
+        },
+        {
+          "name": "FAXユニット　FAX System 14",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 179000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
+      ]
+    },
+    {
+      "id": "kyocera-mz7001ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ7001ci",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 70,
+      "listPrice": 3910000,
+      "costRate": 0.25,
+      "cost": 960700,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "TASKalfa MZ7001ci 本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 3310000
+        },
+        {
+          "name": "600枚×2段ペーパーフィーダー　PF-7140",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 168000
+        },
+        {
+          "name": "自動原稿送り装置　DP-7150",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 200000
+        },
+        {
+          "name": "FAXユニット　FAX System 14",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 179000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 53000
+        }
+      ]
+    },
+    {
+      "id": "kyocera-7353ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa 7353ci",
+      "category": "A3カラー",
+      "gradePpm": 73,
+      "listPrice": 3843000,
+      "costRate": 0.25,
+      "cost": 960750,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "kyocera-8353ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa 8353ci",
+      "category": "A3カラー",
+      "gradePpm": 83,
+      "listPrice": 4413000,
+      "costRate": 0.25,
+      "cost": 1103250,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "kyocera-ma3500ci",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MA3500ci",
+      "config": "1段",
+      "category": "A4カラー卓上",
+      "gradePpm": 35,
+      "listPrice": 789280,
+      "costRate": 0.44,
+      "cost": 350000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "kyocera-mz3200i",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ3200i",
+      "category": "モノクロ",
+      "gradePpm": 32,
+      "listPrice": 1556000,
+      "costRate": 0.29,
+      "cost": 450000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "kyocera-mz4000i",
+      "maker": "KYOCERA",
+      "model": "TASKalfa MZ4000i",
+      "category": "モノクロ",
+      "gradePpm": 40,
+      "listPrice": 1997000,
+      "costRate": 0.28,
+      "cost": 560000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "toshiba-2021ac-plus",
+      "maker": "TOSHIBA",
+      "model": "e-STUDIO2021AC Plus",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 20,
+      "listPrice": 1662800,
+      "costRate": 0.32,
+      "cost": 534000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "e-STUDIO2021AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 983000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 55000
+        },
+        {
+          "name": "給紙ユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 21000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
+      ]
+    },
+    {
+      "id": "toshiba-2525ac-plus",
+      "maker": "TOSHIBA",
+      "model": "e-STUDIO2525AC Plus",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 2083800,
+      "costRate": 0.26,
+      "cost": 542000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "e-STUDIO2525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1463000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
+      ]
+    },
+    {
+      "id": "toshiba-3525ac-plus",
+      "maker": "TOSHIBA",
+      "model": "e-STUDIO3525AC Plus",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 35,
+      "listPrice": 2523800,
+      "costRate": 0.25,
+      "cost": 637000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "e-STUDIO3525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1903000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
+      ]
+    },
+    {
+      "id": "toshiba-4525ac-plus",
+      "maker": "TOSHIBA",
+      "model": "e-STUDIO4525AC Plus",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 45,
+      "listPrice": 2963800,
+      "costRate": 0.32,
+      "cost": 962000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "e-STUDIO4525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2343000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
+      ]
+    },
+    {
+      "id": "toshiba-5525ac-plus",
+      "maker": "TOSHIBA",
+      "model": "e-STUDIO5525AC Plus",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 55,
+      "listPrice": 3453800,
+      "costRate": 0.34,
+      "cost": 1187000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "e-STUDIO5525AC Plus　本体",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2833000
+        },
+        {
+          "name": "自動両面原稿送り装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 251000
+        },
+        {
+          "name": "ＦＡＸユニット",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 117000
+        },
+        {
+          "name": "インナートレイ",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 17000
+        },
+        {
+          "name": "多段給紙装置",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 173000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 62800
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c2571-pfs",
+      "maker": "FUJIFILM",
+      "model": "Apeos C2571 PFS",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 2801000,
+      "costRate": 0.205,
+      "cost": 573500,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C2571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2754000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c3571-pfs",
+      "maker": "FUJIFILM",
+      "model": "Apeos C3571 PFS",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 35,
+      "listPrice": 3277000,
+      "costRate": 0.205,
+      "cost": 671100,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C3571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 3230000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c4571-pfs",
+      "maker": "FUJIFILM",
+      "model": "Apeos C4571 PFS",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 45,
+      "listPrice": 3784000,
+      "costRate": 0.218,
+      "cost": 823500,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C4571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 3737000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c5571-pfs",
+      "maker": "FUJIFILM",
+      "model": "Apeos C5571 PFS",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 55,
+      "listPrice": 4291000,
+      "costRate": 0.223,
+      "cost": 955300,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C5571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 4244000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c6571-pfs",
+      "maker": "FUJIFILM",
+      "model": "Apeos C6571 PFS",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 65,
+      "listPrice": 5769000,
+      "costRate": 0.218,
+      "cost": 1257000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C6571 PFS 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 5722000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c7071-pfs-c",
+      "maker": "FUJIFILM",
+      "model": "Apeos C7071 PFS-C",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 70,
+      "listPrice": 6117000,
+      "costRate": 0.221,
+      "cost": 1350000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C7071 PFS-C 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 6070000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 47000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c2561-pfs-1",
+      "maker": "FUJIFILM",
+      "model": "Apeos C2561 PFS",
+      "config": "1段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 1908000,
+      "costRate": 0.226,
+      "cost": 432000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C2561 PFS 本体（1段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1869000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c2561-pfs-2",
+      "maker": "FUJIFILM",
+      "model": "Apeos C2561 PFS",
+      "config": "2段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 2038000,
+      "costRate": 0.221,
+      "cost": 450000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C2561 PFS 本体（2段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 1999000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c2561-pfs-4t",
+      "maker": "FUJIFILM",
+      "model": "Apeos C2561 PFS-4T",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 2213000,
+      "costRate": 0.223,
+      "cost": 493500,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C2561 PFS-4T 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2174000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c3061-pfs-4t",
+      "maker": "FUJIFILM",
+      "model": "Apeos C3061 PFS-4T",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 30,
+      "listPrice": 2314000,
+      "costRate": 0.23,
+      "cost": 532000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C3061 PFS-4T 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2275000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ]
+    },
+    {
+      "id": "fujifilm-c3061-pfs-4t-b",
+      "maker": "FUJIFILM",
+      "model": "Apeos C3061 PFS-4T（構成違い）",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 30,
+      "listPrice": 2530000,
+      "costRate": 0.231,
+      "cost": 583200,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": [
+        {
+          "name": "Apeos C3061 PFS-4T 本体（4段給紙・FAX・スキャナー標準）",
+          "qty": 1,
+          "unit": "台",
+          "unitPrice": 2491000
+        },
+        {
+          "name": "搬入設置費",
+          "qty": 1,
+          "unit": "式",
+          "unitPrice": 39000
+        }
+      ],
+      "note": "仕切表に同じ機種名で2行あるうちの高いほう。差額ぶんの構成がメーカーの公表価格表に当たらないため、定価は他10機種で裏が取れた改定率から算出（要確認）。"
+    },
+    {
+      "id": "sharp-bp-60c26",
+      "maker": "SHARP",
+      "model": "BP-60C26",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 26,
+      "listPrice": 1823000,
+      "costRate": 0.28,
+      "cost": 510440,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "sharp-bp-70c26",
+      "maker": "SHARP",
+      "model": "BP-70C26",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 26,
+      "listPrice": 1995000,
+      "costRate": 0.28,
+      "cost": 558600,
+      "functions": "コピー・FAX・プリンタ・スキャナ・両面同時読取",
+      "items": []
+    },
+    {
+      "id": "sharp-bp-60c31",
+      "maker": "SHARP",
+      "model": "BP-60C31",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 31,
+      "listPrice": 1972000,
+      "costRate": 0.28,
+      "cost": 552160,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "sharp-bp-60c36",
+      "maker": "SHARP",
+      "model": "BP-60C36",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 36,
+      "listPrice": 2369000,
+      "costRate": 0.28,
+      "cost": 663320,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "sharp-bp-50c45",
+      "maker": "SHARP",
+      "model": "BP-50C45",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 45,
+      "listPrice": 2450000,
+      "costRate": 0.28,
+      "cost": 686000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "sharp-bp-50c55",
+      "maker": "SHARP",
+      "model": "BP-50C55",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 55,
+      "listPrice": 2668000,
+      "costRate": 0.28,
+      "cost": 747040,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "sharp-bp-50c65",
+      "maker": "SHARP",
+      "model": "BP-50C65",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 65,
+      "listPrice": 2887000,
+      "costRate": 0.28,
+      "cost": 808360,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "sharp-mx-c305w",
+      "maker": "SHARP",
+      "model": "MX-C305W",
+      "config": "1段",
+      "category": "A4カラー卓上",
+      "gradePpm": 30,
+      "listPrice": 1150000,
+      "costRate": 0.28,
+      "cost": 322000,
+      "functions": "コピー・FAX・SPDL2プリンタ・スキャナ",
+      "items": []
+    },
+    {
+      "id": "ricoh-im-c2500f",
+      "maker": "RICOH",
+      "model": "IM C2500F",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 25,
+      "listPrice": 1600000,
+      "costRateMin": 0.31,
+      "costRateMax": 0.35,
+      "costMin": 500000,
+      "costMax": 560000,
+      "cost": 530000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "ricoh-im-c3000f",
+      "maker": "RICOH",
+      "model": "IM C3000F",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 30,
+      "listPrice": 1820000,
+      "costRateMin": 0.31,
+      "costRateMax": 0.34,
+      "costMin": 570000,
+      "costMax": 610000,
+      "cost": 590000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "ricoh-im-c3500f",
+      "maker": "RICOH",
+      "model": "IM C3500F",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 35,
+      "listPrice": 2040000,
+      "costRateMin": 0.3,
+      "costRateMax": 0.32,
+      "costMin": 620000,
+      "costMax": 660000,
+      "cost": 640000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "ricoh-im-c4500f",
+      "maker": "RICOH",
+      "model": "IM C4500F",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 45,
+      "listPrice": 2260000,
+      "costRateMin": 0.32,
+      "costRateMax": 0.34,
+      "costMin": 730000,
+      "costMax": 760000,
+      "cost": 745000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "ricoh-im-c5500f",
+      "maker": "RICOH",
+      "model": "IM C5500F",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 55,
+      "listPrice": 2480000,
+      "costRateMin": 0.31,
+      "costRateMax": 0.34,
+      "costMin": 780000,
+      "costMax": 850000,
+      "cost": 815000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    },
+    {
+      "id": "ricoh-im-c6000f",
+      "maker": "RICOH",
+      "model": "IM C6000F",
+      "config": "4段",
+      "category": "A3カラー",
+      "gradePpm": 60,
+      "listPrice": 2780000,
+      "costRateMin": 0.32,
+      "costRateMax": 0.34,
+      "costMin": 880000,
+      "costMax": 950000,
+      "cost": 915000,
+      "functions": "コピー・プリンター・FAX・スキャナー",
+      "items": []
+    }
+  ],
+  "makerNotes": {
+    "KYOCERA": {
+      "counterMono": [
+        0.4,
+        0.8
+      ],
+      "counterColor": [
+        4.0,
+        8.0
+      ],
+      "minCharge": 2000,
+      "note": "余程僻地でない限り、0.7/7.0以下にて提案可能。印刷枚数によって交渉が可能。",
+      "pcSetupFree": 5,
+      "pcSetupFee": 5000,
+      "removalFee": 15000,
+      "stairFee": "2Fまで3,500円/3F以上は+6,000円/1フロア"
+    },
+    "TOSHIBA": {
+      "counterMono": [
+        0.8,
+        1.5
+      ],
+      "counterColor": [
+        7.0,
+        9.5
+      ],
+      "minCharge": 1500,
+      "note": "余程僻地でない限り、1.2/4.0/8.0/1,500にて提案可能。",
+      "pcSetupFree": 5,
+      "pcSetupFee": 5000,
+      "removalFee": 30000,
+      "stairFee": "2Fまで3,500円/3F以上は+6,000円/1フロア"
+    },
+    "FUJIFILM": {
+      "counterMono": [
+        0.5,
+        1.2
+      ],
+      "counterColor": [
+        5.0,
+        12.0
+      ],
+      "minCharge": null,
+      "note": "印刷枚数によって交渉可能だが、最低基本料金が高く設定されるケースが多い。 最低基本料金はメーカー条件が都度変わるため案件ごとに確認して入力する。",
+      "pcSetupFree": 1,
+      "pcSetupFee": 5000,
+      "removalFee": 20000,
+      "stairFee": "4階まで10,000円/5階以上+10,000円"
+    },
+    "SHARP": {
+      "counterMono": [
+        0.5,
+        1.2
+      ],
+      "counterColor": [
+        5.0,
+        12.0
+      ],
+      "minCharge": null,
+      "note": "印刷枚数によって交渉可能だが、最低基本料金が高く設定されるケースが多い。 最低基本料金はメーカー条件が都度変わるため案件ごとに確認して入力する。",
+      "pcSetupFree": 1,
+      "pcSetupFee": 5000,
+      "removalFee": 10000,
+      "stairFee": "4階まで10,000円/5階以上+10,000円"
+    },
+    "RICOH": {
+      "counterMono": [
+        0.4,
+        1.0
+      ],
+      "counterColor": [
+        4.0,
+        10.0
+      ],
+      "minCharge": null,
+      "note": "台数・時期により本体価格及びカウンター価格が大幅に変わる。カウンター安・本体高／カウンター高・本体安など交渉次第。 最低基本料金はメーカー条件が都度変わるため案件ごとに確認して入力する。",
+      "pcSetupFree": 1,
+      "pcSetupFee": 5000,
+      "removalFee": 0,
+      "stairFee": "都度見積"
+    }
+  }
+}
