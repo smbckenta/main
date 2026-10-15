@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import AiStatusBanner from "./AiStatusBanner";
+import LeaseRateBanner from "./LeaseRateBanner";
 import IngestProgressBar from "./IngestProgressBar";
 import { postWithProgress } from "./ingest-progress";
 import { useState } from "react";
@@ -93,6 +94,7 @@ export default function NewQuoteForm() {
         AIを使わない設定の場合は文字起こし（OCR）で読み取ります。
       </p>
       <AiStatusBanner />
+      <LeaseRateBanner />
 
       <div className="row">
         <div className="field" style={{ minWidth: 320 }}>

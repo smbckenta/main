@@ -18,6 +18,18 @@ import type { PriceBookEntry, Proposal, Quote, Settings } from "./types";
 
 const settings: Settings = structuredClone(DEFAULT_SETTINGS);
 
+/**
+ * 突き合わせに使う既存Excel（京セラ25枚機の案件）が作られた当時の料率。
+ *
+ * 料率はリース会社の改定で変わるが、この一連のテストが確かめているのは
+ * 計算の順序と端数処理であって、料率そのものではない。
+ * 当時の料率を固定しておかないと、改定のたびにExcelとの突き合わせが崩れる。
+ */
+const excelSettings: Settings = {
+  ...settings,
+  leaseRates: { "60": 0.0195, "72": 0.0166, "84": 0.0145 },
+};
+
 function makeQuote(overrides: Partial<Quote["current"]> = {}): Quote {
   return {
     id: "q1",
@@ -69,21 +81,26 @@ function makeProposal(overrides: Partial<Proposal> = {}): Proposal {
 }
 
 describe("リース料率", () => {
-  it("既存Excelと同じ料率を返す（5年1.95% / 6年1.66% / 7年1.45%）", () => {
-    expect(leaseRateOf(60, settings.leaseRates)).toBe(0.0195);
-    expect(leaseRateOf(72, settings.leaseRates)).toBe(0.0166);
-    expect(leaseRateOf(84, settings.leaseRates)).toBe(0.0145);
+  it("いまの料率を返す（5年2.01% / 6年1.72% / 7年1.51%）", () => {
+    expect(leaseRateOf(60, settings.leaseRates)).toBe(0.0201);
+    expect(leaseRateOf(72, settings.leaseRates)).toBe(0.0172);
+    expect(leaseRateOf(84, settings.leaseRates)).toBe(0.0151);
+  });
+
+  it("改定前の料率表を渡せば、その料率で計算する（過去の案件を開き直せる）", () => {
+    expect(leaseRateOf(60, excelSettings.leaseRates)).toBe(0.0195);
+    expect(leaseRateOf(72, excelSettings.leaseRates)).toBe(0.0166);
   });
 
   it("料率表にない回数は最も近い回数の料率を使う", () => {
-    expect(leaseRateOf(66, settings.leaseRates)).toBe(0.0195);
+    expect(leaseRateOf(66, settings.leaseRates)).toBe(0.0201);
   });
 });
 
 describe("販売額の逆算", () => {
   it("月額リース料12,800円・6年 → 販売額計 771,000円（既存Excelの 12800/1.66%）", () => {
     const quote = makeQuote();
-    const calc = calcProposal(quote, makeProposal(), settings);
+    const calc = calcProposal(quote, makeProposal(), excelSettings);
     // 771,084.34 を100円単位に切り下げる。
     // 切り上げると月額が12,800円をわずかに超え、100円単位の切り上げで
     // 12,900円になってしまうため（指定した月額どおりに出すのが優先）
@@ -94,7 +111,7 @@ describe("販売額の逆算", () => {
   });
 
   it("5年・7年の月額もリースシミュレーションとして併記できる", () => {
-    const calc = calcProposal(makeQuote(), makeProposal(), settings);
+    const calc = calcProposal(makeQuote(), makeProposal(), excelSettings);
     // 月額リース料は100円単位で切り上げる
     expect(calc.leaseByTerm[60]).toBe(ceilTo(771_000 * 0.0195, 100));
     expect(calc.leaseByTerm[84]).toBe(ceilTo(771_000 * 0.0145, 100));
@@ -473,7 +490,7 @@ describe("旧リースの残債精算", () => {
       makeProposal({ pricingMode: "fromGp", grossProfitAmount: 200_000, leaseTerm: 72 }),
       settings,
     );
-    expect(calc.monthlyLease).toBe(ceilTo(calc.sellingTotal * 0.0166, 100));
+    expect(calc.monthlyLease).toBe(ceilTo(calc.sellingTotal * leaseRateOf(72, settings.leaseRates), 100));
   });
 
   it("設定で無効にすれば従来どおり上乗せしない", () => {

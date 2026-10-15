@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import AiStatusBanner from "@/app/AiStatusBanner";
+import LeaseRateBanner from "@/app/LeaseRateBanner";
 import IngestProgressBar from "@/app/IngestProgressBar";
 import { postWithProgress } from "@/app/ingest-progress";
 import type { IngestProgress } from "@/lib/ingest";
@@ -94,6 +95,7 @@ export default function DocumentsPanel({
       </p>
 
       <AiStatusBanner />
+      <LeaseRateBanner />
 
       <div className="row">
         <div className="field" style={{ width: 220 }}>

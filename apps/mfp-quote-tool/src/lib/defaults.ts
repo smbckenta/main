@@ -1,5 +1,6 @@
 import type { Settings } from "./types";
 import { DEFAULT_PROPOSAL_DOC } from "./proposal-doc";
+import { STANDARD_LEASE_RATES } from "./lease-rates";
 
 /**
  * 初期設定値。既存の見積書Excel・仕切表・研修資料の運用値をそのまま初期値にしている。
@@ -25,8 +26,9 @@ export const DEFAULT_SETTINGS: Settings = {
     taxRate: 0.1,
   },
 
-  // 既存見積書のリースシミュレーション（5年1.95% / 6年1.66% / 7年1.45%）
-  leaseRates: { "60": 0.0195, "72": 0.0166, "84": 0.0145 },
+  // リース料率はリース会社が決めるもの。改定の通知が来たら lease-rates.ts を書き換える
+  // （2026年10月26日ご申込分より 5年2.01% / 6年1.72% / 7年1.51%）
+  leaseRates: { ...STANDARD_LEASE_RATES },
 
   counterBasis: "colorVolume",
 
