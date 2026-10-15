@@ -6,6 +6,7 @@ import AiTestButton from "./AiTestButton";
 import UsersPanel from "./UsersPanel";
 import RegisterSetup from "./RegisterSetup";
 import { MAKERS, MAKER_LABELS, type CounterTier, type Maker, type Settings } from "@/lib/types";
+import { MASTER_READONLY_NOTE, useAuthState } from "../useAuthState";
 
 /** 画面用：設定 + 削除パスワードが設定済みか + 新しいパスワード */
 type SettingsForm = Settings & { deletionPasswordSet?: boolean; newDeletionPassword?: string };
@@ -14,6 +15,8 @@ type SettingsForm = Settings & { deletionPasswordSet?: boolean; newDeletionPassw
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsForm | null>(null);
   const [message, setMessage] = useState("");
+  // 設定は会社全体の土台。直せるのは管理者だけ
+  const { canEditMasters, ready } = useAuthState();
   const [logo, setLogo] = useState<{ file: string | null; dataUri: string | null }>({
     file: null,
     dataUri: null,
@@ -91,7 +94,24 @@ export default function SettingsPage() {
     }
   }
 
-  if (!settings) return <p className="spinner">読み込み中…</p>;
+  if (!settings || !ready) return <p className="spinner">読み込み中…</p>;
+
+  /*
+   * 権限が足りない人には、設定そのものは出さない。
+   * 自社情報・リース料率・AIのAPIキー・削除パスワードまで入っているため。
+   * ただし自分のパスワードを変えるのは誰にでも要るので、そこだけは出す。
+   */
+  if (!canEditMasters) {
+    return (
+      <>
+        <section className="panel">
+          <h2>設定</h2>
+          <p className="muted">{MASTER_READONLY_NOTE}</p>
+        </section>
+        <UsersPanel />
+      </>
+    );
+  }
   const s = settings;
   const set = (patch: Partial<SettingsForm>) => setSettings({ ...s, ...patch });
 

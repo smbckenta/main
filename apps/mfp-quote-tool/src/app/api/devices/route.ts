@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { deleteDevice, listDevices, upsertDevice } from "@/lib/store";
 import type { DeviceSpec } from "@/lib/types";
 
+import { requireMasterEditor } from "@/lib/session";
+
 export const runtime = "nodejs";
 
 export async function GET() {
@@ -9,6 +11,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // マスタの書き換えは管理者だけ
+  const denied = await requireMasterEditor();
+  if (denied) return denied;
+
   const device = (await req.json()) as DeviceSpec;
   if (!device.model || !device.maker) {
     return NextResponse.json({ error: "メーカーと型番は必須です。" }, { status: 400 });
@@ -22,6 +28,10 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  // マスタの書き換えは管理者だけ
+  const denied = await requireMasterEditor();
+  if (denied) return denied;
+
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id が必要です。" }, { status: 400 });
   await deleteDevice(id);

@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
+import { NextResponse } from "next/server";
 import { IDENTITY_HEADER, IDENTITY_SOURCE, TRUSTED_PROXY_TOKEN } from "./config";
-import { findUser, readSessionToken, SESSION_COOKIE, type PublicUser } from "./auth";
+import { findUser, isAdmin, readSessionToken, SESSION_COOKIE, type PublicUser } from "./auth";
 
 /**
  * 「いま操作しているのは誰か」を答える、ただ1か所。
@@ -48,4 +49,28 @@ export async function currentUser(): Promise<PublicUser | undefined> {
  */
 export async function actorId(): Promise<string> {
   return (await currentUserId()) ?? "";
+}
+
+/**
+ * 会社全体のマスタを書き換えてよい人か。
+ *
+ * 仕切表・機種スペックDB・設定・ロゴ／角印は、全員が同じものを見て
+ * 同じ見積を作るための土台。ここが1人の思いつきで変わると、
+ * 誰かが気づかないまま古い条件・違う条件で見積を出してしまう。
+ * 直せるのは管理者（オーナーを含む）だけにする。
+ */
+export async function canEditMasters(): Promise<boolean> {
+  return isAdmin(await currentUser());
+}
+
+/**
+ * マスタを書き換えるAPIの入口。
+ * 書き換えてよい人でなければ 403 を返す（通してよければ undefined）。
+ */
+export async function requireMasterEditor(): Promise<NextResponse | undefined> {
+  if (await canEditMasters()) return undefined;
+  return NextResponse.json(
+    { error: "この内容を変更できるのは管理者だけです。管理者の方にご依頼ください。" },
+    { status: 403 },
+  );
 }

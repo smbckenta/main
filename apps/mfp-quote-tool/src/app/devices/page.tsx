@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import type { DeviceSpec, Maker } from "@/lib/types";
+import { MASTER_READONLY_NOTE, useAuthState } from "../useAuthState";
 
 const empty: DeviceSpec = {
   id: "",
@@ -21,6 +22,8 @@ export default function DevicesPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  // 機種スペックDBも全員が同じものを見る土台なので、直せるのは管理者だけ
+  const { canEditMasters, ready } = useAuthState();
 
   async function reload() {
     setDevices(await (await fetch("/api/devices")).json());
@@ -79,6 +82,7 @@ export default function DevicesPage() {
 
   return (
     <>
+      {canEditMasters && (
       <section className="panel">
         <h2>インターネットからスペックを取得</h2>
         <p className="muted">
@@ -106,9 +110,11 @@ export default function DevicesPage() {
         {message && <p className="warn" style={{ marginTop: 10 }}>{message}</p>}
         {error && <p className="error" style={{ marginTop: 10 }}>{error}</p>}
       </section>
+      )}
 
       <section className="panel">
         <h2>機種スペックDB（{devices.length}件）</h2>
+        {ready && !canEditMasters && <p className="muted">{MASTER_READONLY_NOTE}</p>}
         <table>
           <thead>
             <tr>
@@ -143,12 +149,18 @@ export default function DevicesPage() {
                   )}
                 </td>
                 <td>
-                  <button className="secondary" onClick={() => setDraft(d)}>
-                    編集
-                  </button>{" "}
-                  <button className="danger" onClick={() => remove(d.id)}>
-                    削除
-                  </button>
+                  {canEditMasters ? (
+                    <>
+                      <button className="secondary" onClick={() => setDraft(d)}>
+                        編集
+                      </button>{" "}
+                      <button className="danger" onClick={() => remove(d.id)}>
+                        削除
+                      </button>
+                    </>
+                  ) : (
+                    <span className="muted">－</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -156,6 +168,7 @@ export default function DevicesPage() {
         </table>
       </section>
 
+      {canEditMasters && (
       <section className="panel">
         <h2>{draft.id ? "スペックの編集" : "スペックの手入力"}</h2>
         <div className="row">
@@ -206,6 +219,7 @@ export default function DevicesPage() {
           </button>
         </div>
       </section>
+      )}
     </>
   );
 }

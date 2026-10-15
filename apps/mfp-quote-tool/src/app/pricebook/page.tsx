@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MAKERS, MAKER_LABELS } from "@/lib/types";
 import type { Maker, PriceBook, PriceBookEntry } from "@/lib/types";
+import { MASTER_READONLY_NOTE, useAuthState } from "../useAuthState";
 
 /** 見積明細の合計。定価と食い違う場合は注意表示する（出典が異なる資料の混在を検知するため） */
 function itemsTotalCell(e: PriceBookEntry) {
@@ -40,6 +41,8 @@ export default function PriceBookPage() {
   const [filter, setFilter] = useState<Maker | "ALL">("ALL");
   const [draft, setDraft] = useState<PriceBookEntry>(empty);
   const [message, setMessage] = useState("");
+  // 仕切表は全員が同じものを見る土台なので、直せるのは管理者だけ
+  const { canEditMasters, ready } = useAuthState();
 
   useEffect(() => {
     fetch("/api/pricebook").then((r) => r.json()).then(setBook);
@@ -95,6 +98,11 @@ export default function PriceBookPage() {
             </select>
           </div>
         </div>
+        {ready && !canEditMasters && (
+          <p className="muted" style={{ marginTop: 10 }}>
+            {MASTER_READONLY_NOTE}
+          </p>
+        )}
         {message && <p className="warn" style={{ marginTop: 10 }}>{message}</p>}
 
         <table style={{ marginTop: 12 }}>
@@ -133,12 +141,18 @@ export default function PriceBookPage() {
                 </td>
                 <td className="num">{itemsTotalCell(e)}</td>
                 <td>
-                  <button className="secondary" onClick={() => setDraft(e)}>
-                    編集
-                  </button>{" "}
-                  <button className="danger" onClick={() => remove(e.id)}>
-                    削除
-                  </button>
+                  {canEditMasters ? (
+                    <>
+                      <button className="secondary" onClick={() => setDraft(e)}>
+                        編集
+                      </button>{" "}
+                      <button className="danger" onClick={() => remove(e.id)}>
+                        削除
+                      </button>
+                    </>
+                  ) : (
+                    <span className="muted">－</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -146,6 +160,7 @@ export default function PriceBookPage() {
         </table>
       </section>
 
+      {canEditMasters && (
       <section className="panel">
         <h2>{draft.id ? "機種の編集" : "機種の追加"}</h2>
         <div className="row">
@@ -285,6 +300,7 @@ export default function PriceBookPage() {
           明細を追加
         </button>
       </section>
+      )}
     </>
   );
 }

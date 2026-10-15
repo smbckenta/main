@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSettings, hashPassword, saveSettings } from "@/lib/store";
 import type { Settings } from "@/lib/types";
 
+import { requireMasterEditor } from "@/lib/session";
+
 export const runtime = "nodejs";
 
 /**
@@ -21,6 +23,10 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  // マスタの書き換えは管理者だけ
+  const denied = await requireMasterEditor();
+  if (denied) return denied;
+
   const body = (await req.json()) as Settings & { newDeletionPassword?: string };
   const current = await getSettings();
   const newPassword = (body.newDeletionPassword ?? "").trim();

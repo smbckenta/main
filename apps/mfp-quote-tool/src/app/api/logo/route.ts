@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { loadLogo, saveLogo } from "@/lib/logo";
 
+import { requireMasterEditor } from "@/lib/session";
+
 export const runtime = "nodejs";
 
 /** 現在のロゴ（見積書・比較表に載せているもの）を返す */
@@ -11,6 +13,10 @@ export async function GET() {
 
 /** ロゴ画像を差し替える */
 export async function POST(req: Request) {
+  // マスタの書き換えは管理者だけ
+  const denied = await requireMasterEditor();
+  if (denied) return denied;
+
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {

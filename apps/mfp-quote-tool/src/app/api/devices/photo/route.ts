@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { lookupPhoto } from "@/lib/specs/lookup";
 import type { Maker } from "@/lib/types";
 
+import { requireMasterEditor } from "@/lib/session";
+
 export const runtime = "nodejs";
 
 /**
@@ -13,6 +15,10 @@ export const runtime = "nodejs";
  * 「毎回取りに行かない」ことがそのまま利用料の節約になる。
  */
 export async function POST(req: Request) {
+  // マスタの書き換えは管理者だけ
+  const denied = await requireMasterEditor();
+  if (denied) return denied;
+
   const { model, maker, forceRefresh } = (await req.json()) as {
     model?: string;
     maker?: Maker;
